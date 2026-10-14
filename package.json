@@ -1,0 +1,11 @@
+{
+  "name": "agent-stage",
+  "version": "0.0.1",
+  "description": "Visual, lightweight coding agent for open-weight models (temporary name)",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "agent": "node src/cli.ts"
+  }
+}
