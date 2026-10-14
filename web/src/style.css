@@ -1,0 +1,58 @@
+:root {
+  --bg: #0e1013; --panel: #15181d; --line: #262b33; --text: #e6e8eb; --dim: #8a929e;
+  --accent: #7c9cff; --read: #5aa9e6; --write: #4fd18b; --error: #ff5c6c; --warn: #ffc857;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; color: var(--text);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+button { font: inherit; border: 0; border-radius: 8px; padding: 7px 14px; background: var(--accent); color: #0b0d10; font-weight: 600; cursor: pointer; }
+button.ghost { background: transparent; color: var(--dim); border: 1px solid var(--line); }
+button.stop { background: var(--error); color: white; }
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+header { display: flex; align-items: center; gap: 14px; padding: 10px 18px; border-bottom: 1px solid var(--line); }
+header .meta { color: var(--dim); font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status { font-size: 12px; color: var(--dim); padding: 3px 9px; border: 1px solid var(--line); border-radius: 99px; }
+.status.on { color: var(--write); border-color: var(--write); }
+
+main { flex: 1; display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
+.stage { position: relative; overflow: auto; }
+aside { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+
+.map { width: 100%; height: auto; display: block; }
+.map .dir { fill: var(--dim); font-size: 12px; letter-spacing: .04em; }
+.map .empty { fill: var(--dim); font-size: 16px; }
+.tile rect { fill: var(--panel); stroke: var(--line); transition: fill .4s, stroke .4s; }
+.tile text { fill: var(--text); font-size: 13px; font-family: ui-monospace, monospace; }
+.tile.read rect { stroke: var(--read); }
+.tile.written rect { stroke: var(--write); fill: #13261c; }
+.tile.error rect { stroke: var(--error); fill: #2a1418; }
+.tile.special rect { stroke-dasharray: 4 4; }
+.tile.special text { fill: var(--dim); }
+.tile.active rect { stroke-width: 2; filter: drop-shadow(0 0 8px var(--accent)); }
+.marker { transition: transform .55s cubic-bezier(.5, 0, .2, 1); }
+.marker circle { fill: var(--accent); }
+.marker .halo { fill: var(--accent); opacity: .25; }
+.marker.live .halo { animation: pulse 1.2s infinite; }
+.marker.fail circle { fill: var(--error); }
+@keyframes pulse { 50% { opacity: .05; transform: scale(1.6); } }
+
+.approval { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--warn);
+  border-radius: 12px; padding: 14px 16px; min-width: 340px; box-shadow: 0 10px 40px #0008; font-size: 14px; }
+.approval code { display: block; margin: 8px 0 12px; padding: 8px 10px; background: var(--bg); border-radius: 6px; color: var(--warn); }
+.approval .row { display: flex; gap: 8px; }
+
+.feed { padding: 14px; display: flex; flex-direction: column; gap: 8px; max-height: 40%; overflow: auto; }
+.msg { font-size: 13px; line-height: 1.45; padding: 8px 10px; border-radius: 8px; background: var(--bg); }
+.msg.user { align-self: flex-end; background: #1d2433; }
+.msg.error { color: var(--error); }
+.steps { flex: 1; overflow: auto; margin: 0; padding: 4px 14px; list-style: none; border-top: 1px solid var(--line); }
+.steps li { font-size: 12.5px; font-family: ui-monospace, monospace; padding: 6px 0; color: var(--dim); cursor: pointer; border-bottom: 1px solid #1c2027; }
+.steps .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; background: var(--dim); }
+.steps .good .dot { background: var(--write); }
+.steps .bad { color: var(--error); }
+.steps .bad .dot { background: var(--error); }
+.steps .pending .dot { background: var(--warn); }
+.steps pre { white-space: pre-wrap; max-height: 200px; overflow: auto; background: var(--bg); padding: 8px; border-radius: 6px; color: var(--text); }
+form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+textarea { flex: 1; resize: none; height: 64px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: inherit; font-size: 13px; }

@@ -6,6 +6,8 @@ export type AgentEvent =
   | { type: 'thinking'; text: string }
   | { type: 'tool_start'; id: string; name: string; args: any }
   | { type: 'tool_end'; id: string; name: string; ok: boolean; output: string }
+  | { type: 'approval'; id: string; command: string }
+  | { type: 'user'; text: string }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
 
@@ -17,6 +19,7 @@ export class Agent {
   messages: Message[] = [{ role: 'system', content: SYSTEM }];
   private abort?: AbortController;
   private pending: string[] = []; // user messages injected mid-run
+  running = false;
 
   private cfg: ModelConfig;
   private ctx: ToolContext;
@@ -29,14 +32,21 @@ export class Agent {
   }
 
   stop() { this.abort?.abort(); }
+  get root() { return this.ctx.root; }
   interject(text: string) { this.pending.push(text); }
 
   async run(task: string, maxSteps = 30) {
     this.messages.push({ role: 'user', content: task });
+    this.emit({ type: 'user', text: task });
     this.abort = new AbortController();
+    this.running = true;
     try {
       for (let step = 0; step < maxSteps; step++) {
-        while (this.pending.length) this.messages.push({ role: 'user', content: this.pending.shift()! });
+        while (this.pending.length) {
+          const text = this.pending.shift()!;
+          this.messages.push({ role: 'user', content: text });
+          this.emit({ type: 'user', text });
+        }
         const reply = await chat(this.cfg, this.messages, toolSchemas, this.abort.signal);
         this.messages.push(reply);
         if (reply.content && reply.tool_calls?.length) this.emit({ type: 'thinking', text: reply.content });
@@ -61,6 +71,8 @@ export class Agent {
       this.emit({ type: 'error', message: `hit step limit (${maxSteps})` });
     } catch (e: any) {
       this.emit({ type: 'error', message: this.abort.signal.aborted ? 'stopped by user' : e.message });
+    } finally {
+      this.running = false;
     }
   }
 }

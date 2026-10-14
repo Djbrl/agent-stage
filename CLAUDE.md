@@ -29,11 +29,19 @@ in a new repo**. Don't copy code from Rundown; rebuild it.
 - `src/agent.ts`: the agent loop. `run()`, `stop()` (aborts), `interject()` (adds a user message
   mid-run). Emits `AgentEvent`s; the UI should be built on these.
 - `src/cli.ts`: terminal harness for testing models.
-- No dependencies. Node ≥ 22.18 runs `.ts` directly (type stripping only: **no parameter
-  properties, enums or namespaces**).
+- `src/server.ts`: **Hono** server on :3000 (chosen by Jib). Routes: GET /api/state,
+  GET /api/events (SSE, replays history), POST /api/task|ask|stop|approve|reset. Serves web/dist.
+- `web/`: Vite + React UI. `useAgent.ts` turns events into state; `Map.tsx` is the SVG project map
+  (folders become columns, files become tiles, a marker walks to the current target, plus terminal
+  and workspace tiles); `App.tsx` holds the side panel (messages, step list, ask box) and the approval prompt.
+- **Mock model**: when MODEL_API_KEY is empty or `mock`, `model.ts` plays a scripted run. Useful for UI work.
+- Node ≥ 22.18 runs `.ts` directly on the server (type stripping only: **no parameter
+  properties, enums or namespaces**). `npm start` builds the UI, then serves everything.
 
 ## Status
-- Verified: code loads and reaches NVIDIA's API. **Not yet tested end to end with a key.**
+- 14 10: full UI loop verified in the browser with the mock model (writes, red error, approval, done).
+- **Not yet tested with a real model/key.** That's the first job.
+- Known rough edges: a failed read of a nonexistent file still adds a red tile (arguably a feature); no diff view yet; Ask only works once the agent reaches its next step.
 - Default model `nvidia/nemotron-3-super-120b-a12b`. Candidates: `moonshotai/kimi-k2.6`,
   `z-ai/glm-5.3`, `openai/gpt-oss-20b`. Pick the one whose tool calling is reliable.
 
@@ -41,7 +49,7 @@ in a new repo**. Don't copy code from Rundown; rebuild it.
 | Date | Goal |
 |---|---|
 | 14–15 10 | Model shoot-out with the CLI; harden the loop (retries, malformed tool calls) |
-| 16 10 | HTTP server + SSE event stream; web UI with the file map and moving agent marker |
+| 16 10 | ~~server + SSE + map~~ (done 14 10). Diff previews, nicer map layout |
 | 17 10 | Stop, ask and approve in the UI; diff previews; red errors; model/endpoint settings |
 | 18 10 | Polish; README sections (problem, AI role, models, deps, architecture); CONTRIBUTING |
 | 19 10 | Demo video, then submit |

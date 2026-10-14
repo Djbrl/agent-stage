@@ -4,8 +4,24 @@
   "description": "Visual, lightweight coding agent for open-weight models (temporary name)",
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=22.18" },
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
-    "agent": "node src/cli.ts"
+    "agent": "node --env-file-if-exists=.env src/cli.ts",
+    "dev": "node --env-file-if-exists=.env --watch src/server.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "start": "npm run build && node --env-file-if-exists=.env src/server.ts",
+    "web": "vite --config web/vite.config.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.4"
   }
 }
