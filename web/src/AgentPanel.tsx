@@ -7,6 +7,7 @@ import { Icon } from './icons';
 import { stepText } from './StepsSheet';
 import { Markdown } from './Markdown';
 import { useApp } from './useSettings';
+import { useHighlight } from './highlight';
 
 function summarize(steps: Step[]) {
   const c = (n: string[]) => steps.filter((s) => n.includes(s.name)).length;
@@ -30,6 +31,7 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [state.timeline.length, state.steps.length]);
   const byId = Object.fromEntries(state.steps.map((s) => [s.id, s]));
+  const hl = useHighlight();
 
   // Enter = run (idle) or steer (running). "Ask" opens a side thread that never touches files.
   const submit = (kind: 'run' | 'ask' = 'run') => {
@@ -91,7 +93,8 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
             const bad = steps.some((s) => s.ok === false);
             const lastStep = steps.at(-1);
             return (
-              <button key={i} className={`work ${live ? 'live' : ''} ${bad ? 'bad' : ''}`} onClick={() => lastStep && onSelect(lastStep.id)} title="Show these steps on the stage">
+              <button key={i} className={`work ${live ? 'live' : ''} ${bad ? 'bad' : ''}`} onClick={() => lastStep && onSelect(lastStep.id)} title="Show these steps on the stage"
+                onMouseEnter={() => hl.set(steps.map((s) => s.target).filter((t) => !t.startsWith('$')))} onMouseLeave={() => hl.set(null)}>
                 <span className="work-icon">{live ? <span className="spin" /> : bad ? <Icon name="x" size={11} /> : <Icon name="check" size={11} />}</span>
                 <span className="work-text">{live && lastStep ? stepText(lastStep) : summarize(steps)}</span>
                 <span className="work-count">{steps.length} step{steps.length > 1 ? 's' : ''}</span>

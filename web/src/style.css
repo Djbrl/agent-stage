@@ -478,3 +478,4 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
   .thread.split > .stage { grid-row: 1; }
   .thread.split > .chat-col { grid-row: 2; }
 }
+.filelink { cursor: help; border-bottom: 1px dashed var(--faint); } .filelink:hover { color: var(--text); border-color: var(--text); }

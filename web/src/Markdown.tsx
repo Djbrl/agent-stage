@@ -1,6 +1,7 @@
 // Just enough markdown for agent replies: paragraphs, lists, **bold**, *italic*, `code`, ``` blocks.
 // Builds React elements (no innerHTML), so model output can't inject markup.
 import type { ReactNode } from 'react';
+import { useHighlight } from './highlight';
 
 function inline(text: string, key = 0): ReactNode[] {
   const out: ReactNode[] = [];
@@ -9,7 +10,7 @@ function inline(text: string, key = 0): ReactNode[] {
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index));
     const t = m[0];
-    if (t.startsWith('`')) out.push(<code key={i++}>{t.slice(1, -1)}</code>);
+    if (t.startsWith('`')) out.push(<Code key={i++} text={t.slice(1, -1)} />);
     else if (t.startsWith('**')) out.push(<strong key={i++}>{inline(t.slice(2, -2), i * 100)}</strong>);
     else out.push(<em key={i++}>{inline(t.slice(1, -1), i * 100)}</em>);
     last = m.index + t.length;
@@ -66,4 +67,12 @@ function Plain({ text }: { text: string }) {
     }
   }
   return <div className="md">{blocks}</div>;
+}
+
+// A code span that names a project file is a link to the map: hover it to see where it is.
+function Code({ text }: { text: string }) {
+  const h = useHighlight();
+  const path = h.known(text);
+  if (!path) return <code>{text}</code>;
+  return <code className="filelink" onMouseEnter={() => h.set([path])} onMouseLeave={() => h.set(null)}>{text}</code>;
 }

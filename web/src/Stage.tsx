@@ -7,11 +7,11 @@ import type { Replay, State } from './useAgent';
 import { Icon } from './icons';
 import { store } from './Resizer';
 
-export function Stage({ state, replay, threadId, workspace, selected, onSelect, sheetOpen, setSheetOpen, approve, onCollapse }: {
+export function Stage({ state, replay, threadId, workspace, selected, onSelect, sheetOpen, setSheetOpen, approve, onCollapse, lit }: {
   state: State; replay: Replay; threadId: string; workspace: string;
   selected: string | null; onSelect: (k: string | null) => void;
   sheetOpen: boolean; setSheetOpen: (o: boolean) => void;
-  approve: (id: string, ok: boolean) => void; onCollapse: () => void;
+  approve: (id: string, ok: boolean) => void; onCollapse: () => void; lit: string[];
 }) {
   const [following, setFollowing] = useState(true);
   const [readmap, setReadmap] = useState(() => { try { return localStorage.getItem('readmap') === 'on'; } catch { return false; } });
@@ -54,7 +54,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
     <section ref={box} className={`stage ${sheetOpen ? 'with-sheet' : ''} ${stageW < 560 ? 'narrow' : ''}`} style={{ ['--sheet-w' as any]: `${sheetW}px` }}>
       <ProjectMap state={state} selected={selected} onSelect={(f) => { onSelect(f); setSheetOpen(true); }} mapUrl={`/api/threads/${threadId}/map`}
         insets={{ right: sheetOpen ? sheetW + 16 : 0, bottom: state.approval ? 150 : 0, top: 48 }} readmap={readmap}
-        following={following} onFollowChange={setFollowing} api={api} />
+        following={following} onFollowChange={setFollowing} api={api} lit={lit} />
 
       <div className="stage-top">
         <div className="stage-where"><Icon name="folder" size={12} />{folder}</div>

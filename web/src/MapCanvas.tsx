@@ -83,18 +83,18 @@ function layout(files: MapFile[]) {
 // ── component ───────────────────────────────────────────────────────────────
 export type MapApi = { fit: () => void; follow: () => void };
 
-export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap, following, onFollowChange, api }: {
+export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap, following, onFollowChange, api, lit = [] }: {
   state: State; onSelect: (path: string) => void; selected: string | null; mapUrl: string;
   insets: { right: number; bottom: number; top: number }; readmap: boolean;
-  following: boolean; onFollowChange: (f: boolean) => void; api?: { current: MapApi | null };
+  following: boolean; onFollowChange: (f: boolean) => void; api?: { current: MapApi | null }; lit?: string[];
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const mini = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<MapData>({ files: [], edges: [] });
   const setFollowing = onFollowChange;
-  const live = useRef({ state, selected, following, data, onSelect, insets });
-  live.current = { state, selected, following, data, onSelect, insets };
+  const live = useRef({ state, selected, following, data, onSelect, insets, lit });
+  live.current = { state, selected, following, data, onSelect, insets, lit };
 
   // Re-read the map whenever the agent finishes a step.
   const doneSteps = state.steps.filter((s) => s.endedAt).length;
@@ -307,6 +307,11 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         } else if (status === 'read') col = '#6b8fc4';
         ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
         if (path === sel || path === v.hover) { ctx.strokeStyle = C.ink; ctx.lineWidth = (path === sel ? 1.6 : 1.1) * px; ctx.stroke(); }
+        if (live.current.lit.includes(path)) {
+          const t = (now % 1200) / 1200;
+          ctx.beginPath(); ctx.arc(c.x, c.y, c.r + (4 + 6 * t) * px, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(232,233,236,${0.9 - 0.6 * t})`; ctx.lineWidth = 2 * px; ctx.stroke();
+        }
         if (st.planned.includes(path)) {
           ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 5 * px, 0, Math.PI * 2);
           ctx.setLineDash([3 * px, 3 * px]); ctx.lineDashOffset = -now / 60 * px;
@@ -319,7 +324,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
           ring(ctx, c, c.r + (3 + easeOut(t) * 26) * px, '#ff8c50', (1 - t) * 0.75, 2 * px);
         }
         const active = v.marker?.target === path;
-        const pri = path === sel || path === v.hover ? 4 : active ? 3 : changedAt ? 2 : c.r * k > 8 || k > 1.6 ? 1 : 0;
+        const pri = path === sel || path === v.hover || live.current.lit.includes(path) ? 4 : active ? 3 : changedAt ? 2 : c.r * k > 8 || k > 1.6 ? 1 : 0;
         if (pri > 0) labels.push({ text: path.split('/').pop()!, x: c.x + c.r + 5 * px, y: c.y + 4 * px, pri, strong: pri >= 3 });
       }
 

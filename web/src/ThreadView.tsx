@@ -10,6 +10,7 @@ import { HealthDot } from './HealthDot';
 import { useHealth, diagnose } from './useHealth';
 import { useApp } from './useSettings';
 import { Resizer, storedNumber, store } from './Resizer';
+import { HighlightContext } from './highlight';
 
 export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings: () => void }) {
   const { state, replay, meta, run, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
@@ -33,6 +34,14 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
   }, [state.running]);
   const showStage = hasWork && stageOpen;
 
+  // Text ↔ map: known files (from the agent's steps and the map) can be lit up from the chat.
+  const [lit, setLit] = useState<string[]>([]);
+  const known = (p: string) => {
+    const files = Object.keys(state.files);
+    const clean = p.replace(/^\.\//, '');
+    return files.find((f) => f === clean) ?? files.find((f) => f.endsWith('/' + clean)) ?? null;
+  };
+
   const openSide = (question: string) =>
     fetch(`/api/threads/${id}/ask-thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
       .then((r) => r.json()).then((j) => j.id && setSideId(j.id));
@@ -51,6 +60,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
   );
 
   return (
+    <HighlightContext.Provider value={{ paths: lit, set: (p) => setLit(p ?? []), known }}>
     <div className={`thread ${showStage ? 'split' : 'solo'}`} style={showStage ? { gridTemplateColumns: `${chatW}px 8px minmax(0, 1fr)` } : undefined}>
       <div className="chat-col">
         <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
@@ -62,9 +72,10 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
       {showStage && (
         <Stage state={state} replay={replay} threadId={id} workspace={String(meta.workspace)}
           selected={selected} onSelect={setSelected} sheetOpen={sheetOpen} setSheetOpen={setSheetOpen}
-          approve={approve} onCollapse={() => setStageOpen(false)} />
+          approve={approve} onCollapse={() => setStageOpen(false)} lit={lit} />
       )}
     </div>
+    </HighlightContext.Provider>
   );
 }
 
