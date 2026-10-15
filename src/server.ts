@@ -331,8 +331,8 @@ app.get('/api/health', async (c) => {
   if (c.req.query('now')) await refreshHealth();
   const p = provider();
   const threads = [...live.values()].map((l) => l.thread.usage);
-  const u = threads.reduce((a, b) => ({ promptTokens: a.promptTokens + b.promptTokens, completionTokens: a.completionTokens + b.completionTokens, modelMs: a.modelMs + b.modelMs, calls: a.calls + b.calls }),
-    { promptTokens: 0, completionTokens: 0, modelMs: 0, calls: 0 });
+  const u = threads.reduce((a, b) => ({ promptTokens: a.promptTokens + b.promptTokens, completionTokens: a.completionTokens + b.completionTokens, modelMs: a.modelMs + b.modelMs, calls: a.calls + b.calls, costUsd: a.costUsd + (b.costUsd ?? 0) }),
+    { promptTokens: 0, completionTokens: 0, modelMs: 0, calls: 0, costUsd: 0 });
   const tokens = u.promptTokens + u.completionTokens;
   const gpuCost = ((gpuMs[p.id] ?? 0) / 3_600_000) * (p.gpuHourly ?? 0);
   return c.json({

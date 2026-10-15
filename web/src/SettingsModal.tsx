@@ -1,11 +1,11 @@
 // Settings: model providers (with keys + connection test), usage & spend, safety, about.
 import { useEffect, useState } from 'react';
-import { get, send, fmtTokens, type Provider } from './api';
+import { get, send, fmtTokens, engineOf, ENGINE_LABEL, type Provider, type Engine } from './api';
 import { useApp } from './useSettings';
 import { Icon } from './icons';
 
 type Tab = 'models' | 'learning' | 'usage' | 'safety' | 'about';
-const KIND_LABEL = { mock: 'Scripted demo', openai: 'OpenAI-compatible', anthropic: 'Anthropic (Claude)' };
+const KIND_LABEL = { mock: 'Scripted demo', openai: 'OpenAI-compatible', anthropic: 'Anthropic API (our agent loop)', 'claude-code': 'Claude Code engine' };
 
 export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onClose: () => void; onTour?: () => void; initialTab?: Tab }) {
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -16,7 +16,7 @@ export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onCl
         <div className="settings">
           <div className="settings-nav">
             {(['models', 'learning', 'usage', 'safety', 'about'] as Tab[]).map((t) => (
-              <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ models: 'Models', learning: 'Learning', usage: 'Usage & spend', safety: 'Safety', about: 'About' }[t]}</button>
+              <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ models: 'Engines & models', learning: 'Learning', usage: 'Usage & spend', safety: 'Safety', about: 'About' }[t]}</button>
             ))}
           </div>
           <div className="settings-body">
@@ -63,14 +63,17 @@ function Models() {
   return (
     <div className="models">
       <div className="model-list">
-        {settings.providers.map((p) => (
+        {(['native', 'claude-code'] as Engine[]).map((g) => <div key={g}>
+          <div className="engine-head">{ENGINE_LABEL[g]}<span className="muted">{g === 'native' ? ' · our open harness' : ' · Anthropic’s agent'}</span></div>
+        {settings.providers.filter((p) => engineOf(p) === g).map((p) => (
           <button key={p.id} className={`model-row ${p.id === sel ? 'on' : ''}`} onClick={() => setSel(p.id)}>
             <Icon name={p.kind === 'mock' ? 'spark' : p.tunnelHost ? 'cpu' : 'list'} size={13} />
             <span className="grow"><span>{p.name}</span><span className="muted mono">{p.kind === 'mock' ? 'no model' : p.model || 'no model set'}</span></span>
             {p.id === settings.activeProvider && <span className="pill on">active</span>}
             {p.kind !== 'mock' && !p.apiKey && <span className="pill">no key</span>}
           </button>
-        ))}
+        ))}</div>)}
+        <div className="engine-head">Codex<span className="muted"> · coming soon</span></div>
         <select className="add-model" value="" onChange={(e) => { const p = presets[Number(e.target.value)]; if (p) add(p); }}>
           <option value="">+ Add a model…</option>
           {presets.map((p, i) => <option key={i} value={i}>{p.name}</option>)}
@@ -88,12 +91,14 @@ function Models() {
               <Field label="API type">
                 <select value={draft.kind} onChange={(e) => set({ kind: e.target.value as Provider['kind'] })}>
                   <option value="openai">OpenAI-compatible (OpenAI, NVIDIA, vLLM, Ollama, OpenRouter…)</option>
-                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="anthropic">Anthropic API, in our agent loop</option>
+                  <option value="claude-code">Claude Code engine (Anthropic's agent loop)</option>
                 </select>
               </Field>
               {draft.kind === 'openai' && <Field label="Base URL"><input className="mono" value={draft.baseUrl} onChange={(e) => set({ baseUrl: e.target.value })} /></Field>}
               <Field label="Model"><input className="mono" value={draft.model} placeholder="model id" onChange={(e) => set({ model: e.target.value })} /></Field>
-              <Field label="API key" hint="Stored only on this computer, in ~/.agent-stage/settings.json.">
+              {draft.kind === 'claude-code' && <p className="note">Runs Anthropic's Claude Code agent through the official Agent SDK with your <b>Anthropic API key</b> (billed per token). agent-stage never asks for or uses a claude.ai login. The map, Learn mode and approvals work the same.</p>}
+              <Field label={draft.kind === 'claude-code' || draft.kind === 'anthropic' ? 'Anthropic API key' : 'API key'} hint="Stored only on this computer, in ~/.agent-stage/settings.json.">
                 <input className="mono" type="password" value={draft.apiKey} placeholder="paste key" onChange={(e) => set({ apiKey: e.target.value })} />
               </Field>
               {draft.kind === 'openai' && (

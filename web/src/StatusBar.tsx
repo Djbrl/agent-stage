@@ -36,6 +36,7 @@ export function StatusBar({ health, serverDown, onRecheck }: { health: HealthVie
         <Chip tone="off" label="Tokens" value={`${fmt(usage.tokens)} · ${usage.tokensPerSec} tok/s`}
           title={`${fmt(usage.promptTokens)} in / ${fmt(usage.completionTokens)} out over ${usage.calls} model calls`} />
       )}
+      {(usage as any).costUsd > 0 && <Chip tone="off" label="API cost" value={`$${(usage as any).costUsd.toFixed(2)}`} title="Billed per token on your Anthropic account" />}
       {usage.gpuHourly > 0 && (
         <Chip tone="off" label="GPU cost" value={`$${usage.gpuCost.toFixed(2)} · $${usage.gpuHourly}/h`}
           title={`Self-hosted: you pay for GPU time, not tokens.${usage.perMillion ? ` So far that's ≈ $${usage.perMillion.toFixed(2)} per million tokens.` : ''} Counted while this server sees the GPU running.`} />

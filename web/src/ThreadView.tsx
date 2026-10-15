@@ -66,6 +66,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
     <div className={`thread ${showStage ? 'split' : 'solo'}`} style={showStage ? { gridTemplateColumns: `${chatW}px 8px minmax(0, 1fr)` } : undefined}>
       <div className="chat-col">
         <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
+          engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
           banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} compact={gpuCtl.gpu.phase !== 'error'} /> : null} replaying={replay.active} header={header} centered={!showStage}
           onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} />

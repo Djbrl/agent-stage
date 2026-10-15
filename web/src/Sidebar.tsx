@@ -36,6 +36,7 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle 
               <button key={t.id} className={`side-thread ${t.id === active ? 'on' : ''}`} onClick={() => onSelect(t.id)}>
                 {t.running ? <span className="spin" /> : <span className="side-dot" />}
                 <span className="side-title">{t.title}</span>
+                {t.engine === 'claude-code' && <span className="side-engine" title="Claude Code engine">CC</span>}
                 <span className="side-ago">{ago(t.updatedAt)}</span>
               </button>
             ))}

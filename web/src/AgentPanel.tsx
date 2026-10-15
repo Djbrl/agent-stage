@@ -8,6 +8,7 @@ import { stepText } from './StepsSheet';
 import { Markdown } from './Markdown';
 import { useApp } from './useSettings';
 import { useHighlight } from './highlight';
+import { engineOf, ENGINE_LABEL, type Engine } from './api';
 
 function summarize(steps: Step[]) {
   const c = (n: string[]) => steps.filter((s) => n.includes(s.name)).length;
@@ -20,12 +21,12 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner }: {
+export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
   side?: { onKeep: () => void; onClose: () => void; kept: boolean };
-  replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode;
+  replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean;
 }) {
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
@@ -121,7 +122,7 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
           placeholder={side ? 'Ask a follow-up…' : state.running ? 'Steer the agent…' : mode === 'learn' ? 'What do you want to build?' : 'Describe a task…'}
         />
         <div className="composer-bar">
-          <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} />
+          <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} />
           <span className="spacer" />
           {!side && <button className="btn ghost sm" onClick={() => submit('ask')} disabled={!text.trim()} title="Ask in a side thread: it can read the project but never changes it">Ask</button>}
           {state.running && !side
@@ -169,26 +170,39 @@ function CheckpointCard({ entry, onAnswer }: { entry: Extract<State['timeline'][
   );
 }
 
-// The model chip in the composer: switch provider without opening settings.
-function ModelPicker({ disabled, onOpenSettings }: { disabled: boolean; onOpenSettings: () => void }) {
+// The model chip: "engine · model". Grouped by engine; once a thread has history only its own engine's models
+// are switchable (each engine keeps its own memory of the conversation).
+function ModelPicker({ disabled, onOpenSettings, lockedTo }: { disabled: boolean; onOpenSettings: () => void; lockedTo?: Engine }) {
   const { settings, save } = useApp();
   const [open, setOpen] = useState(false);
   if (!settings) return null;
   const active = settings.providers.find((p) => p.id === settings.activeProvider);
+  const groups: Engine[] = ['native', 'claude-code'];
   return (
     <div className="picker">
       <button className="chip" disabled={disabled} onClick={() => setOpen(!open)} title={disabled ? 'Switch models when the agent is idle' : 'Switch model'}>
-        {active?.name ?? 'Pick a model'} <Icon name="chevron" size={10} className="rot" />
+        {active ? <><span className="muted">{ENGINE_LABEL[engineOf(active)]} ·</span> {active.name.replace(/^Claude Code · /, '')}</> : 'Pick a model'} <Icon name="chevron" size={10} className="rot" />
       </button>
       {open && (
         <div className="picker-menu" onMouseLeave={() => setOpen(false)}>
-          {settings.providers.map((p) => (
-            <button key={p.id} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }); setOpen(false); }}>
-              <span>{p.name}</span><span className="muted mono">{p.kind === 'mock' ? 'demo' : p.model}</span>
-              {p.kind !== 'mock' && !p.apiKey && <span className="pill">no key</span>}
-            </button>
-          ))}
-          <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Manage models…</button>
+          {groups.map((g) => {
+            const list = settings.providers.filter((p) => engineOf(p) === g);
+            if (!list.length) return null;
+            const locked = lockedTo && lockedTo !== g;
+            return (
+              <div key={g} className={`picker-group ${locked ? 'locked' : ''}`}>
+                <div className="picker-head">{ENGINE_LABEL[g]}{locked && <span className="muted"> · start a new thread to use it</span>}</div>
+                {list.map((p) => (
+                  <button key={p.id} disabled={locked} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }); setOpen(false); }}>
+                    <span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? 'demo' : p.model}</span>
+                    {p.kind !== 'mock' && !p.apiKey && <span className="pill">no key</span>}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+          <div className="picker-group locked"><div className="picker-head">Codex <span className="muted">· coming soon</span></div></div>
+          <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Manage engines…</button>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 // Pick a folder on this computer to start a thread in (the server lists folders; the browser can't).
 import { useEffect, useState } from 'react';
-import { get, send, shortPath } from './api';
+import { get, send, shortPath, engineOf, ENGINE_LABEL, type Engine, type EngineStatus } from './api';
 import { useApp } from './useSettings';
 import { Icon } from './icons';
 
@@ -11,12 +11,21 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
   const [dir, setDir] = useState<Listing | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'build' | 'learn'>('build');
+  const [engines, setEngines] = useState<EngineStatus | null>(null);
+  useEffect(() => { get<EngineStatus>('/api/engines').then(setEngines); }, []);
+  const active = settings?.providers.find((p) => p.id === settings.activeProvider);
+  const [engine, setEngine] = useState<Engine>(active ? engineOf(active) : 'native');
+  // The model used for the chosen engine: the active one if it matches, else that engine's first usable model.
+  const providerFor = (e: Engine) => {
+    const ps = settings?.providers.filter((p) => engineOf(p) === e) ?? [];
+    return (active && engineOf(active) === e ? active : ps.find((p) => p.apiKey || p.kind === 'mock') ?? ps[0])?.id;
+  };
   const browse = (path?: string) => get<Listing>(`/api/fs${path ? `?path=${encodeURIComponent(path)}` : ''}`).then((l) => !l.error && setDir(l));
   useEffect(() => { browse(); }, []);
 
   const start = async (folder: string) => {
     setBusy(true);
-    const t = await send<{ id: string }>('/api/threads', { folder, mode });
+    const t = await send<{ id: string }>('/api/threads', { folder, mode, providerId: providerFor(engine) });
     refreshThreads();
     onCreated(t.id);
   };
@@ -30,6 +39,19 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
           <div className="mode-pick">
             <button className={mode === 'build' ? 'on' : ''} onClick={() => setMode('build')}><b>Build</b><span className="muted">The agent does the work. You watch, steer and approve.</span></button>
             <button className={mode === 'learn' ? 'on' : ''} onClick={() => setMode('learn')}><b>Learn</b><span className="muted">You design, the agent teaches. It can only write code after you approve each step.</span></button>
+          </div>
+          <div className="label">Engine</div>
+          <div className="engine-pick">
+            {(['native', 'claude-code', 'codex'] as const).map((e) => {
+              const st = engines?.[e];
+              const off = !st?.ready;
+              return (
+                <button key={e} className={engine === e ? 'on' : ''} disabled={off} onClick={() => e !== 'codex' && setEngine(e)} title={st?.reason}>
+                  <b>{ENGINE_LABEL[e]}</b>
+                  <span className="muted">{e === 'native' ? 'Open models: your GPU, Ollama, NVIDIA…' : e === 'claude-code' ? (off ? st?.reason : 'Anthropic’s agent, with your API key') : 'Coming soon'}</span>
+                </button>
+              );
+            })}
           </div>
           <div className="label">Recent folders</div>
           <div className="folder-list">
