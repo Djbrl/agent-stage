@@ -1,5 +1,5 @@
 // The loop: model picks a tool, we run it, feed the result back. Emits events so a UI can draw it.
-import { chat, type Message, type ModelConfig } from './model.ts';
+import { chat, type Message, type ModelConfig, type Usage } from './model.ts';
 import { toolSchemas, runTool, type ToolContext } from './tools.ts';
 
 export type AgentEvent =
@@ -11,6 +11,7 @@ export type AgentEvent =
   | { type: 'user'; text: string }
   | { type: 'question'; id: string; text: string }
   | { type: 'answer'; id: string; text: string }
+  | ({ type: 'usage' } & Usage)
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
 
@@ -53,7 +54,7 @@ export class Agent {
     }
     context.push({ role: 'user', content: `Side question while you work. Answer briefly from what you know so far; do not plan new actions.\n\n${text}` });
     try {
-      const reply = await chat(this.cfg, context, []);
+      const reply = await chat(this.cfg, context, [], undefined, (u) => this.emit({ type: 'usage', ...u }));
       this.emit({ type: 'answer', id, text: reply.content ?? '' });
     } catch (e: any) {
       this.emit({ type: 'answer', id, text: `Could not answer: ${e.message}` });
@@ -72,7 +73,7 @@ export class Agent {
           this.messages.push({ role: 'user', content: text });
           this.emit({ type: 'user', text });
         }
-        const reply = await chat(this.cfg, this.messages, toolSchemas, this.abort.signal);
+        const reply = await chat(this.cfg, this.messages, toolSchemas, this.abort.signal, (u) => this.emit({ type: 'usage', ...u }));
         this.messages.push(reply);
         if (reply.content && reply.tool_calls?.length) this.emit({ type: 'thinking', text: reply.content });
         if (!reply.tool_calls?.length) return this.emit({ type: 'done', text: reply.content ?? '' });

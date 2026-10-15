@@ -14,6 +14,7 @@ export type ToolCall = {
 };
 
 export type ModelConfig = { baseUrl: string; apiKey: string; model: string };
+export type Usage = { promptTokens: number; completionTokens: number; ms: number };
 
 export function configFromEnv(): ModelConfig {
   const baseUrl = process.env.MODEL_BASE_URL ?? 'https://integrate.api.nvidia.com/v1';
@@ -27,7 +28,9 @@ export async function chat(
   messages: Message[],
   tools: unknown[],
   signal?: AbortSignal,
+  onUsage?: (u: Usage) => void,
 ): Promise<Message> {
+  const t0 = Date.now();
   if (!cfg.apiKey || cfg.apiKey === 'mock') return mockChat(messages, tools.length > 0);
   // Hosted free tiers rate-limit and hiccup: retry 429/5xx with backoff before giving up.
   let res!: Response;
@@ -38,6 +41,7 @@ export async function chat(
   }
   if (!res.ok) throw new Error(`model ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
+  if (data.usage) onUsage?.({ promptTokens: data.usage.prompt_tokens ?? 0, completionTokens: data.usage.completion_tokens ?? 0, ms: Date.now() - t0 });
   return recoverTextToolCalls(data.choices[0].message as Message);
 }
 

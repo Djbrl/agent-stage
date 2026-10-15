@@ -8,10 +8,32 @@ import { mkdir, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { Agent, type AgentEvent } from './agent.ts';
 import { configFromEnv } from './model.ts';
+import { startTunnel } from './tunnel.ts';
+import { checkGpu, checkModel, type Health } from './health.ts';
 
 const root = resolve(process.env.WORKSPACE ?? 'workspace');
 await mkdir(root, { recursive: true });
 const cfg = configFromEnv();
+const tunnel = startTunnel(process.env.TUNNEL_HOST, Number(new URL(cfg.baseUrl).port || 8000));
+const GPU_HOURLY = Number(process.env.GPU_HOURLY_USD ?? 0);
+
+// Usage + cost. Self-hosted models bill by GPU time, not tokens: we count GPU-running time while
+// this server is up, and divide by tokens to show what a million tokens "cost".
+const usage = { promptTokens: 0, completionTokens: 0, modelMs: 0, calls: 0, gpuMs: 0 };
+let health: Health = { model: { state: 'unreachable' }, checkedAt: 0 };
+let lastHealthAt = Date.now();
+async function refreshHealth() {
+  const [model, gpu] = await Promise.all([checkModel(cfg), checkGpu(process.env.BREV_INSTANCE)]);
+  const now = Date.now();
+  if (gpu?.state === 'running' || (!gpu && model.state === 'ok')) usage.gpuMs += now - lastHealthAt;
+  lastHealthAt = now;
+  const t = tunnel();
+  // Someone else (a manual ssh -L) may already own the port: if the model answers, the path works.
+  const tunnelView = t.enabled ? { ...t, up: t.up || model.state === 'ok', external: !t.up && model.state === 'ok' } : undefined;
+  health = { model, gpu, tunnel: tunnelView, checkedAt: now };
+}
+void refreshHealth();
+setInterval(refreshHealth, 8000);
 
 type Stamped = AgentEvent & { at: number };
 const history: Stamped[] = [];
@@ -19,6 +41,12 @@ const listeners = new Set<(e: Stamped) => void>();
 const approvals = new Map<string, (ok: boolean) => void>();
 
 function emit(event: AgentEvent) {
+  if (event.type === 'usage') {
+    usage.promptTokens += event.promptTokens;
+    usage.completionTokens += event.completionTokens;
+    usage.modelMs += event.ms;
+    usage.calls++;
+  }
   const e = { ...event, at: Date.now() };
   history.push(e);
   for (const l of listeners) l(e);
@@ -54,6 +82,21 @@ app.get('/api/state', async (c) => c.json({
   running: agent.running,
   files: await listFiles(),
 }));
+
+app.get('/api/health', async (c) => {
+  if (c.req.query('now')) await refreshHealth();
+  const tokens = usage.promptTokens + usage.completionTokens;
+  const gpuCost = (usage.gpuMs / 3_600_000) * GPU_HOURLY;
+  return c.json({
+    ...health,
+    model: { ...health.model, name: cfg.model, mock: !cfg.apiKey || cfg.apiKey === 'mock' },
+    usage: {
+      ...usage, tokens,
+      tokensPerSec: usage.modelMs ? Math.round((usage.completionTokens / usage.modelMs) * 1000) : 0,
+      gpuHourly: GPU_HOURLY, gpuCost, perMillion: tokens && GPU_HOURLY ? (gpuCost / tokens) * 1e6 : null,
+    },
+  });
+});
 
 app.get('/api/events', (c) => streamSSE(c, async (stream) => {
   for (const e of history) await stream.writeSSE({ data: JSON.stringify(e) });
