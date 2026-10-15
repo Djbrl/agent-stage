@@ -83,6 +83,9 @@ function layout(files: MapFile[]) {
 export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State; onSelect: (path: string) => void; selected: string | null; mapUrl: string }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const mini = useRef<HTMLCanvasElement>(null);
+  const [readmap, setReadmap] = useState(() => { try { return localStorage.getItem('readmap') !== 'off'; } catch { return true; } });
+  useEffect(() => { try { localStorage.setItem('readmap', readmap ? 'on' : 'off'); } catch { /* ignore */ } }, [readmap]);
   const [data, setData] = useState<MapData>({ files: [], edges: [] });
   const [following, setFollowing] = useState(true);
   const live = useRef({ state, selected, following, data, onSelect });
@@ -341,6 +344,49 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
         const verb = waiting ? 'Waiting for you' : err ? 'Failed' : !st.running ? 'Idle' : busy ? doing[last!.name] ?? 'Working…' : 'Thinking…';
         label(ctx, `Agent · ${verb}`, m.x + 12 * px, m.y - 13 * px, px, 12, err ? C.red : waiting ? C.amber : C.ink, 'left', 600);
       }
+      drawReadmap(now);
+    };
+
+    // Readmap: the whole project at a glance, lit by what the agent READS (the big camera follows edits).
+    // The rectangle is the main camera's view, so it doubles as a minimap.
+    const drawReadmap = (now: number) => {
+      const mc = mini.current;
+      if (!mc || !mc.offsetParent) return;
+      const W = 200, H = 140, mctx = mc.getContext('2d')!;
+      if (mc.width !== W * dpr) { mc.width = W * dpr; mc.height = H * dpr; }
+      const { state: st } = live.current;
+      const b = v.lay.bounds, pad = 10;
+      const k = Math.min((W - pad * 2) / Math.max(b.w, 40), (H - pad * 2) / Math.max(b.h, 40));
+      const ox = W / 2 - (b.x + b.w / 2) * k, oy = H / 2 - (b.y + b.h / 2) * k;
+      mctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      mctx.clearRect(0, 0, W, H);
+      mctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * ox, dpr * oy);
+      const reads = st.steps.filter((x) => x.name === 'read_file' || x.name === 'search' || x.name === 'list_files');
+      const readAt: Record<string, number> = {};
+      reads.forEach((x, i) => { if (x.name === 'read_file') readAt[x.target] = i; });
+      for (const f of v.lay.folders) {
+        mctx.beginPath(); mctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        mctx.strokeStyle = 'rgba(255,255,255,0.10)'; mctx.lineWidth = 1 / k; mctx.stroke();
+      }
+      const lastRead = [...st.steps].reverse().find((x) => x.name === 'read_file')?.target;
+      for (const [path, c] of Object.entries(v.pos)) {
+        const r = readAt[path];
+        mctx.beginPath(); mctx.arc(c.x, c.y, Math.max(c.r, 2.5 / k), 0, Math.PI * 2);
+        mctx.fillStyle = r === undefined ? 'rgba(120,128,140,0.35)' : `rgba(95,168,255,${0.45 + 0.55 * ((r + 1) / reads.length)})`;
+        mctx.fill();
+        if (path === lastRead) {
+          const t = (now % 1400) / 1400;
+          mctx.beginPath(); mctx.arc(c.x, c.y, c.r + (3 + 10 * t) / k, 0, Math.PI * 2);
+          mctx.strokeStyle = `rgba(95,168,255,${0.8 * (1 - t)})`; mctx.lineWidth = 1.5 / k; mctx.stroke();
+        }
+      }
+      // main camera's view
+      const vx = -v.cam.x / v.cam.k, vy = -v.cam.y / v.cam.k;
+      mctx.strokeStyle = 'rgba(232,233,236,0.5)'; mctx.lineWidth = 1 / k;
+      mctx.strokeRect(vx, vy, v.w / v.cam.k, v.h / v.cam.k);
+      const wrote = st.steps.filter((x) => x.change).length;
+      const el = mc.parentElement?.querySelector('.rm-count');
+      if (el) el.textContent = `read ${reads.length} · wrote ${wrote}`;
     };
     raf = requestAnimationFrame(frame);
 
@@ -388,6 +434,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
       if (tag === 'TEXTAREA' || tag === 'INPUT') return;
       if (e.key === 'f' || e.key === 'F' || e.key === 'Escape') setFollowing(true);
       if (e.key === '0') v.fitAll();
+      if (e.key === 'm' || e.key === 'M') setReadmap((x) => !x);
     };
     const idle = setInterval(() => { if (!live.current.following && Date.now() - v.userAt > 60_000) setFollowing(true); }, 5000);
     cv.addEventListener('wheel', onWheel, { passive: false });
@@ -415,8 +462,15 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
       {data.files.length === 0 && !state.planned.length && <div className="map-empty">Empty workspace. Give the agent a task to start.</div>}
       <div className="map-tools">
         {!following && <button className="btn ghost sm" onClick={() => setFollowing(true)}>Follow agent <kbd>F</kbd></button>}
+        <button className="btn ghost sm" onClick={() => setReadmap(!readmap)} title="Readmap (M)">{readmap ? 'Hide reads' : 'Readmap'}</button>
         <button className="btn ghost sm" onClick={() => v.fitAll()} title="Fit the whole project (0)">Fit</button>
       </div>
+      {readmap && Object.keys(lay.files).length > 0 && (
+        <div className="readmap" title="Readmap: lit by what the agent reads. The box is your main view. (M)">
+          <div className="rm-head"><span>Reads</span><span className="rm-count mono" /></div>
+          <canvas ref={mini} style={{ width: 200, height: 140 }} />
+        </div>
+      )}
       <div className="map-legend">
         <span><i style={{ background: C.hot }} />just edited</span>
         <span><i style={{ background: C.warm }} />edited this session</span>
