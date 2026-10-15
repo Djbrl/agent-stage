@@ -6,6 +6,7 @@ import { NewThreadModal } from './NewThreadModal';
 import { SettingsModal } from './SettingsModal';
 import { Icon } from './icons';
 import { Tour } from './Tour';
+import { Resizer, storedNumber, store } from './Resizer';
 
 export function App() {
   return <AppProvider><Shell /></AppProvider>;
@@ -16,6 +17,18 @@ function Shell() {
   const [active, setActive] = useState<string | null>(() => { try { return localStorage.getItem('thread'); } catch { return null; } });
   const [modal, setModal] = useState<null | 'new' | 'settings'>(null);
   const [touring, setTouring] = useState(false);
+  const [sideW, setSideW] = useState(() => storedNumber('sideW', 248));
+  const [railed, setRailed] = useState(() => { try { return localStorage.getItem('rail') === '1'; } catch { return false; } });
+  useEffect(() => store('sideW', Math.round(sideW)), [sideW]);
+  useEffect(() => store('rail', railed ? 1 : 0), [railed]);
+  // Narrow windows always get the slim rail.
+  const [narrow, setNarrow] = useState(() => window.innerWidth <= 1100);
+  useEffect(() => { const r = () => setNarrow(window.innerWidth <= 1100); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r); }, []);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); setRailed((r) => !r); } };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, []);
   // First visit with a thread open → tour. "?" brings it back.
   useEffect(() => {
     let seen = true;
@@ -42,8 +55,9 @@ function Shell() {
   }, [threads]);
 
   return (
-    <div className="shell">
-      <Sidebar active={active} onSelect={select} onNew={() => setModal('new')} onSettings={() => setModal('settings')} />
+    <div className="shell" style={{ gridTemplateColumns: railed || narrow ? '52px minmax(0, 1fr)' : `${sideW}px 6px minmax(0, 1fr)` }}>
+      <Sidebar active={active} onSelect={select} onNew={() => setModal('new')} onSettings={() => setModal('settings')} railed={railed || narrow} onToggle={() => setRailed(!railed)} />
+      {!railed && !narrow && <Resizer onDrag={(dx) => setSideW((w) => Math.max(200, Math.min(360, w + dx)))} onReset={() => setSideW(248)} />}
       {active ? <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} /> : (
         <div className="welcome">
           <div className="welcome-card">

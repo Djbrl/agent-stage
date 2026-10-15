@@ -1,68 +1,69 @@
-// One thread: the agent conversation on the left, the project map ("the stage") on the right.
-import { useEffect, useState } from 'react';
-import { ReplayBar } from './ReplayBar';
+// One thread. Before any work it's just the conversation, centred. When the agent starts working the stage
+// (the map) slides in and becomes the main thing; the chat narrows to a column you can resize. The stage can be
+// hidden and comes back on its own the next time the agent starts a task.
+import { useEffect, useRef, useState } from 'react';
 import { useAgent } from './useAgent';
-import { ProjectMap } from './MapCanvas';
 import { AgentPanel } from './AgentPanel';
-import { Inspector } from './Inspector';
+import { Stage } from './Stage';
 import { Icon } from './icons';
-import { StatusBar } from './StatusBar';
+import { HealthDot } from './HealthDot';
 import { useHealth, diagnose } from './useHealth';
 import { useApp } from './useSettings';
-import { shortPath } from './api';
+import { Resizer, storedNumber, store } from './Resizer';
 
 export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings: () => void }) {
+  const { state, replay, meta, run, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
+  const { health, serverDown, recheck } = useHealth();
+  const { refreshThreads } = useApp();
+  const problem = diagnose(health, serverDown);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [sideId, setSideId] = useState<string | null>(null);
+  const [chatW, setChatW] = useState(() => storedNumber('chatW', 400));
+  useEffect(() => store('chatW', Math.round(chatW)), [chatW]);
+  useEffect(() => { refreshThreads(); }, [state.running, state.timeline.length]);
+
+  // The stage appears when there's work to show, and re-opens each time the agent starts a task.
+  const hasWork = state.steps.length > 0 || state.running;
+  const [stageOpen, setStageOpen] = useState(true);
+  const wasRunning = useRef(state.running);
+  useEffect(() => {
+    if (state.running && !wasRunning.current) setStageOpen(true);
+    wasRunning.current = state.running;
+  }, [state.running]);
+  const showStage = hasWork && stageOpen;
+
   const openSide = (question: string) =>
     fetch(`/api/threads/${id}/ask-thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
       .then((r) => r.json()).then((j) => j.id && setSideId(j.id));
-  const { state, replay, meta, run, ask, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
-  const { health, serverDown, recheck } = useHealth();
-  const { me, refreshThreads } = useApp();
-  const problem = diagnose(health, serverDown);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!state.running) return;
-    const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
-  }, [state.running]);
-  useEffect(() => { refreshThreads(); }, [state.running, state.timeline.length]);
+  // Clicking a work line in the chat opens that step on the stage.
+  const showStep = (stepId: string) => { setStageOpen(true); setSelected(stepId); setSheetOpen(true); };
 
-  const elapsed = state.startedAt ? Math.max(0, Math.round(((state.running ? now : state.steps.at(-1)?.endedAt ?? now) - state.startedAt) / 1000)) : 0;
+  const header = (
+    <>
+      <HealthDot health={health} serverDown={serverDown} onRecheck={recheck} />
+      {hasWork && !stageOpen && (
+        <button className={`tool ${state.running ? 'pulse' : ''}`} onClick={() => setStageOpen(true)} title="Show the map">
+          <Icon name="map" size={13} />{state.running && <span className="live-dot" />}
+        </button>
+      )}
+    </>
+  );
 
   return (
-    <div className="thread">
-      <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
-        problem={problem} onOpenSettings={onOpenSettings} replaying={replay.active}
-        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={setSelected} />
-      {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={setSelected} />}
-
-      <main className="surface">
-        <div className="surface-head">
-          <span className="title"><Icon name="folder" size={13} />{String(meta.workspace).split('/').pop()}</span>
-          <span className="muted mono path">{shortPath(String(meta.workspace), me?.home)}</span>
-          <span className="spacer" />
-          {state.startedAt && <span className="muted mono">{elapsed}s</span>}
-          <StatusBar health={health} serverDown={serverDown} onRecheck={recheck} />
-        </div>
-        <div className="canvas">
-          <ProjectMap state={state} selected={selected} onSelect={(f) => setSelected(f)} mapUrl={`/api/threads/${id}/map`} />
-          {replay.active && <div className="replay-banner">Replay · step {replay.index + 1} of {replay.total}{replay.at ? ` · ${new Date(replay.at).toLocaleTimeString([], { hour12: false })}` : ''}</div>}
-          {state.approval && (
-            <div className="approval">
-              <div className="approval-head"><Icon name="shield" /> Approve command</div>
-              <code>$ {state.approval.command}</code>
-              <div className="approval-actions">
-                <button className="btn ghost" onClick={() => approve(state.approval!.id, false)}>Deny</button>
-                <button className="btn primary" onClick={() => approve(state.approval!.id, true)}>Run it</button>
-              </div>
-            </div>
-          )}
-        </div>
-        <ReplayBar replay={replay} running={state.running} />
-        <Inspector state={state} selected={selected} onSelect={setSelected} threadId={id} />
-      </main>
+    <div className={`thread ${showStage ? 'split' : 'solo'}`} style={showStage ? { gridTemplateColumns: `${chatW}px 8px minmax(0, 1fr)` } : undefined}>
+      <div className="chat-col">
+        <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
+          problem={problem} onOpenSettings={onOpenSettings} replaying={replay.active} header={header} centered={!showStage}
+          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} />
+        {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={showStep} />}
+      </div>
+      {showStage && <Resizer onDrag={(dx) => setChatW((w) => Math.max(320, Math.min(760, w + dx)))} onReset={() => setChatW(400)} title="Drag to give the chat or the map more room" />}
+      {showStage && (
+        <Stage state={state} replay={replay} threadId={id} workspace={String(meta.workspace)}
+          selected={selected} onSelect={setSelected} sheetOpen={sheetOpen} setSheetOpen={setSheetOpen}
+          approve={approve} onCollapse={() => setStageOpen(false)} />
+      )}
     </div>
   );
 }

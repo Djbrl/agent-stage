@@ -3,8 +3,8 @@ import { useApp } from './useSettings';
 import { ago, fmtTokens, shortPath } from './api';
 import { Icon } from './icons';
 
-export function Sidebar({ active, onSelect, onNew, onSettings }: {
-  active: string | null; onSelect: (id: string) => void; onNew: () => void; onSettings: () => void;
+export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle }: {
+  active: string | null; onSelect: (id: string) => void; onNew: () => void; onSettings: () => void; railed: boolean; onToggle: () => void;
 }) {
   const { threads, me, settings } = useApp();
   const groups = new Map<string, typeof threads>();
@@ -12,9 +12,19 @@ export function Sidebar({ active, onSelect, onNew, onSettings }: {
   const provider = settings?.providers.find((p) => p.id === settings.activeProvider);
   const total = threads.reduce((a, t) => a + t.tokens, 0);
 
+  if (railed) return (
+    <nav className="sidebar rail">
+      <button className="rail-btn" onClick={onToggle} title="Show threads (⌘B)"><span className="logo" /></button>
+      <button className="rail-btn" onClick={onNew} title="New thread"><Icon name="plus" size={15} /></button>
+      <span className="spacer" />
+      <button className="rail-btn" onClick={onSettings} title="Settings"><Icon name="gear" size={15} /></button>
+      <span className="avatar sm">{(me?.name ?? '?').slice(0, 1).toUpperCase()}</span>
+    </nav>
+  );
+
   return (
     <nav className="sidebar">
-      <div className="side-brand"><span className="logo" />agent-stage</div>
+      <div className="side-brand"><span className="logo" />agent-stage<button className="icon-btn" onClick={onToggle} title="Hide threads (⌘B)"><Icon name="sidebar" size={14} /></button></div>
       <button className="side-new" onClick={onNew}><Icon name="plus" size={13} /> New thread</button>
 
       <div className="side-scroll">

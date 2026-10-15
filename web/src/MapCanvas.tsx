@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { hierarchy, pack, type HierarchyCircularNode } from 'd3-hierarchy';
 import type { State } from './useAgent';
+import { boxOfPts, camToView, isCut, shouldMove, viewFor, viewToCam, DIRECTOR, type Safe } from './director';
 
 type MapFile = { path: string; lines: number; mtime: number };
 type MapData = { files: MapFile[]; edges: { from: string; to: string }[] };
@@ -80,16 +81,20 @@ function layout(files: MapFile[]) {
 }
 
 // ── component ───────────────────────────────────────────────────────────────
-export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State; onSelect: (path: string) => void; selected: string | null; mapUrl: string }) {
+export type MapApi = { fit: () => void; follow: () => void };
+
+export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap, following, onFollowChange, api }: {
+  state: State; onSelect: (path: string) => void; selected: string | null; mapUrl: string;
+  insets: { right: number; bottom: number; top: number }; readmap: boolean;
+  following: boolean; onFollowChange: (f: boolean) => void; api?: { current: MapApi | null };
+}) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const mini = useRef<HTMLCanvasElement>(null);
-  const [readmap, setReadmap] = useState(() => { try { return localStorage.getItem('readmap') !== 'off'; } catch { return true; } });
-  useEffect(() => { try { localStorage.setItem('readmap', readmap ? 'on' : 'off'); } catch { /* ignore */ } }, [readmap]);
   const [data, setData] = useState<MapData>({ files: [], edges: [] });
-  const [following, setFollowing] = useState(true);
-  const live = useRef({ state, selected, following, data, onSelect });
-  live.current = { state, selected, following, data, onSelect };
+  const setFollowing = onFollowChange;
+  const live = useRef({ state, selected, following, data, onSelect, insets });
+  live.current = { state, selected, following, data, onSelect, insets };
 
   // Re-read the map whenever the agent finishes a step.
   const doneSteps = state.steps.filter((s) => s.endedAt).length;
@@ -151,29 +156,51 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
       cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
       cv.style.width = `${r.width}px`; cv.style.height = `${r.height}px`;
       // Panel sizes settle after first paint: keep re-fitting until the user takes the camera.
-      if (v.fitted && !v.userAt) v.cam = fit(v.lay.bounds);
+      if (v.fitted && !v.userAt && !v.marker) v.cam = fit(v.lay.bounds);
     };
+    const safe = (): Safe => ({ w: v.w, h: v.h, left: 0, top: live.current.insets.top, right: live.current.insets.right, bottom: live.current.insets.bottom });
+    // Fit a box into the part of the canvas no floating panel covers.
     const fit = (b: { x: number; y: number; w: number; h: number }, pad = 48): Cam => {
-      const k = clamp(Math.min((v.w - pad * 2) / Math.max(b.w, 60), (v.h - pad * 2) / Math.max(b.h, 60)), 0.3, 3);
-      return { k, x: v.w / 2 - (b.x + b.w / 2) * k, y: v.h / 2 - (b.y + b.h / 2) * k };
+      const s = safe(), w = s.w - s.left - s.right, h = s.h - s.top - s.bottom;
+      const k = clamp(Math.min((w - pad * 2) / Math.max(b.w, 60), (h - pad * 2) / Math.max(b.h, 60)), 0.3, 3);
+      return viewToCam({ x: b.x + b.w / 2, y: b.y + b.h / 2, k }, s);
     };
     const moveTo = (to: Cam) => { v.camAnim = { from: { ...v.cam }, to, t0: performance.now() }; };
     v.fitAll = () => { if (Object.keys(v.lay.files).length) moveTo(fit(v.lay.bounds)); };
     v.fitNow = () => { if (v.w) { v.camAnim = null; v.cam = fit(v.lay.bounds); v.fitted = true; } };
+    if (api) api.current = { fit: () => { takeOver(); v.fitAll(); }, follow: () => { v.userAt = 0; setFollowing(true); lastDirect = 0; outSince = 1; } };
     const ro = new ResizeObserver(resize);
     ro.observe(wrap.current!);
     resize();
     const where = (key: string): Circle | undefined => v.pos[key] ?? v.lay.files[key] ?? v.lay.islands[key];
 
-    // Director-lite: only move when the marker leaves the middle 60% of the view.
-    let lastDirect = 0;
+    // The director: frame the area of the agent's last few moves; hold still while the marker stays in the
+    // middle of the view; wait a beat so a burst of edits lands as one move; glide short moves, cut long ones.
+    let lastDirect = 0, outSince = 0, busyUntil = 0;
+    const cutTo = (to: Cam) => {
+      cv.style.opacity = '0.25';
+      busyUntil = performance.now() + 450;
+      setTimeout(() => { v.camAnim = null; v.cam = to; cv.style.opacity = '1'; }, 180);
+    };
     const direct = (now: number) => {
-      if (!live.current.following || !v.marker || now - lastDirect < 150 || v.camAnim) return;
+      if (!live.current.following || !v.marker || now - lastDirect < 150 || v.camAnim || now < busyUntil) return;
       lastDirect = now;
-      const p = v.marker.to, { cam } = v;
-      const sx = p.x * cam.k + cam.x, sy = p.y * cam.k + cam.y;
-      const inside = sx > v.w * 0.2 && sx < v.w * 0.8 && sy > v.h * 0.2 && sy < v.h * 0.8;
-      if (!inside) moveTo({ k: cam.k, x: v.w / 2 - p.x * cam.k, y: v.h / 2 - p.y * cam.k });
+      const st = live.current.state;
+      const recent: string[] = [];
+      for (let i = st.steps.length - 1; i >= 0 && recent.length < 4; i--) {
+        const t = st.steps[i].target;
+        if ((st.steps[i].change || t.startsWith('$')) && !recent.includes(t)) recent.push(t);
+      }
+      const pts = [v.marker.to, ...recent.map((t) => where(t)).filter(Boolean).map((c) => ({ x: c!.x, y: c!.y }))];
+      const box = boxOfPts(pts);
+      if (!box) return;
+      const s = safe(), cur = camToView(v.cam, s), want = viewFor(box, s);
+      if (!shouldMove(cur, s, [v.marker.to], want)) { outSince = 0; return; }
+      if (!outSince) outSince = now;
+      if (now - outSince < DIRECTOR.settleMs) return;
+      outSince = 0;
+      const to = viewToCam(want, s);
+      if (isCut(cur, want, s)) cutTo(to); else moveTo(to);
     };
 
     const frame = (now: number) => {
@@ -432,11 +459,10 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'TEXTAREA' || tag === 'INPUT') return;
-      if (e.key === 'f' || e.key === 'F' || e.key === 'Escape') setFollowing(true);
-      if (e.key === '0') v.fitAll();
-      if (e.key === 'm' || e.key === 'M') setReadmap((x) => !x);
+      if (e.key === 'f' || e.key === 'F') { v.userAt = 0; setFollowing(true); }
+      if (e.key === '0') { takeOver(); v.fitAll(); }
     };
-    const idle = setInterval(() => { if (!live.current.following && Date.now() - v.userAt > 60_000) setFollowing(true); }, 5000);
+    const idle = setInterval(() => { if (!live.current.following && v.userAt && Date.now() - v.userAt > DIRECTOR.idleMs) { v.userAt = 0; setFollowing(true); } }, 5000);
     cv.addEventListener('wheel', onWheel, { passive: false });
     cv.addEventListener('mousedown', onDown);
     window.addEventListener('mousemove', onMove);
@@ -453,31 +479,19 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
   // First real layout → fit it straight away (don't wait for an animation frame).
   useEffect(() => { if (!v.fitted) v.fitNow(); }, [lay]);
 
-  // Following again → frame the agent, or the whole project if there is no agent yet.
+  // Following again with no agent on the map → show the whole project.
   useEffect(() => { if (following && !v.marker) v.fitAll(); }, [following]);
 
   return (
     <div className="map-wrap" ref={wrap}>
       <canvas ref={canvas} />
       {data.files.length === 0 && !state.planned.length && <div className="map-empty">Empty workspace. Give the agent a task to start.</div>}
-      <div className="map-tools">
-        {!following && <button className="btn ghost sm" onClick={() => setFollowing(true)}>Follow agent <kbd>F</kbd></button>}
-        <button className="btn ghost sm" onClick={() => setReadmap(!readmap)} title="Readmap (M)">{readmap ? 'Hide reads' : 'Readmap'}</button>
-        <button className="btn ghost sm" onClick={() => v.fitAll()} title="Fit the whole project (0)">Fit</button>
-      </div>
       {readmap && Object.keys(lay.files).length > 0 && (
-        <div className="readmap" title="Readmap: lit by what the agent reads. The box is your main view. (M)">
+        <div className="readmap" title="Lit by what the agent reads. The box is your view.">
           <div className="rm-head"><span>Reads</span><span className="rm-count mono" /></div>
           <canvas ref={mini} style={{ width: 200, height: 140 }} />
         </div>
       )}
-      <div className="map-legend">
-        <span><i style={{ background: C.hot }} />just edited</span>
-        <span><i style={{ background: C.warm }} />edited this session</span>
-        <span><i style={{ background: '#6b8fc4' }} />read</span>
-        <span><i style={{ background: C.cool }} />untouched</span>
-        <span className="hint">scroll to zoom · drag to pan · hover for imports</span>
-      </div>
     </div>
   );
 }
