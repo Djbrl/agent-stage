@@ -1,5 +1,5 @@
 // Turns the server's event stream into UI state: file statuses, marker trail, timeline, steps.
-import { useEffect, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 type Base = { at: number };
 export type AgentEvent = Base & (
@@ -116,32 +116,84 @@ function reduce(s: State, a: Action): State {
   }
 }
 
+// Replay: rebuild the state as it was after moment k. A moment ends at a finished step, a message, or the end.
+const isMoment = (e: AgentEvent) => e.type === 'tool_end' || e.type === 'user' || e.type === 'done' || e.type === 'error' || e.type === 'checkpoint';
+// Pace like Rundown: quick for reads, a beat longer for edits and messages.
+function paceFor(e: AgentEvent | undefined) {
+  if (!e) return 400;
+  if (e.type === 'user' || e.type === 'checkpoint') return 900;
+  if (e.type === 'tool_end') return e.name === 'write_file' || e.name === 'edit_file' ? 750 : e.name === 'read_file' ? 520 : 400;
+  return 400;
+}
+
+export type Replay = {
+  active: boolean; playing: boolean; index: number; total: number; at?: number;
+  play: () => void; pause: () => void; step: (d: number) => void; seek: (i: number) => void; live: () => void;
+};
+
 export function useAgent(threadId: string) {
   const base = `/api/threads/${threadId}`;
-  const [state, dispatch] = useReducer(reduce, initial);
+  const [liveState, dispatch] = useReducer(reduce, initial);
+  const events = useRef<AgentEvent[]>([]);
+  const files = useRef<string[]>([]);
+  const [eventCount, setEventCount] = useState(0);
+  const [cursor, setCursor] = useState<number | null>(null); // null = live
+  const [playing, setPlaying] = useState(false);
   const [meta, setMeta] = useReducer((_: any, m: any) => m, { workspace: '…', title: '', mode: 'build' });
 
   useEffect(() => {
     const refresh = () =>
       fetch(`${base}/state`).then((r) => r.json()).then((st) => {
         setMeta(st);
+        files.current = st.files;
         dispatch({ kind: 'files', files: st.files, running: st.running });
       });
     refresh();
     const es = new EventSource(`${base}/events`);
     es.onmessage = (m) => {
       const e = JSON.parse(m.data) as AgentEvent;
+      events.current.push(e);
+      setEventCount(events.current.length);
       dispatch({ kind: 'event', e });
       if (e.type === 'tool_end' || e.type === 'done') refresh();
     };
-    return () => es.close();
+    return () => { es.close(); events.current = []; };
   }, [threadId]);
+
+  const moments = useMemo(() => events.current.map((e, i) => (isMoment(e) ? i : -1)).filter((i) => i >= 0), [eventCount]);
+  const state = useMemo(() => {
+    if (cursor === null) return liveState;
+    const end = moments[Math.min(cursor, moments.length - 1)] ?? -1;
+    let st = reduce(initial, { kind: 'files', files: files.current, running: false });
+    for (let i = 0; i <= end; i++) st = reduce(st, { kind: 'event', e: events.current[i] });
+    return { ...st, approval: null };
+  }, [cursor, liveState, moments]);
+
+  // Playback timer: advance one moment at a time; reaching the end returns to live.
+  useEffect(() => {
+    if (!playing || cursor === null) return;
+    if (cursor >= moments.length - 1) { setPlaying(false); return; }
+    const t = setTimeout(() => setCursor((c) => (c === null ? c : c + 1)), paceFor(events.current[moments[cursor + 1]]));
+    return () => clearTimeout(t);
+  }, [playing, cursor, moments]);
+
+  const total = moments.length;
+  const replay: Replay = {
+    active: cursor !== null, playing, index: cursor ?? total - 1, total,
+    at: cursor !== null ? (events.current[moments[cursor]] as any)?.at : undefined,
+    play: () => { if (cursor === null || cursor >= total - 1) setCursor(0); setPlaying(true); },
+    pause: () => setPlaying(false),
+    step: (d) => { setPlaying(false); setCursor((c) => Math.max(0, Math.min(total - 1, (c ?? total - 1) + d))); },
+    seek: (i) => { setPlaying(false); setCursor(Math.max(0, Math.min(total - 1, i))); },
+    live: () => { setPlaying(false); setCursor(null); },
+  };
 
   const post = (path: string, body?: object) =>
     fetch(`${base}/${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
 
   return {
     state,
+    replay,
     meta,
     run: (task: string) => post('task', { task }),
     ask: (text: string) => post('ask', { text }),

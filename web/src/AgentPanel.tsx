@@ -18,9 +18,10 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side }: {
+export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   side?: { onKeep: () => void; onClose: () => void; kept: boolean };
+  replaying?: boolean;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => void; onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
 }) {
   const [text, setText] = useState('');
@@ -51,7 +52,8 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
             <button key={m} className={mode === m ? 'on' : ''} disabled={state.running} onClick={() => onMode(m)}>{m === 'build' ? 'Build' : 'Learn'}</button>
           ))}
         </div>}
-        <span className={`status ${state.running ? 'on' : ''}`}><span className="dot" />{state.running ? 'Working' : 'Idle'}</span>
+        {replaying ? <span className="status replaying"><span className="dot" />Replay</span>
+          : <span className={`status ${state.running ? 'on' : ''}`}><span className="dot" />{state.running ? 'Working' : 'Idle'}</span>}
       </div>
 
       <div className="timeline">
@@ -106,6 +108,7 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
       </div>
 
       {problem && <div className="problem"><span className="sdot bad" />{problem}</div>}
+      {replaying ? <div className="composer replay-note">You're watching a replay. Press <b>● Live</b> (or End) to get back and keep working.</div> :
       <div className="composer">
         <textarea
           value={text}
@@ -123,7 +126,7 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
             <Icon name="arrow" size={14} />
           </button>
         </div>
-      </div>
+      </div>}
     </aside>
   );
 }

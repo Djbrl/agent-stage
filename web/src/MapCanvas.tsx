@@ -126,13 +126,14 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
   }
   v.target = target;
 
-  // Edits → ripple once, and remember when (drives the hot → warm colour).
+  // Edits → ripple once, and remember when (drives the hot → warm colour). Rebuilt from the steps each
+  // time, so rewinding a replay un-colours files that hadn't been touched yet.
   useEffect(() => {
-    for (const s of state.steps) if (s.change && s.endedAt && v.lastChange[s.target] !== s.endedAt) {
-      v.lastChange[s.target] = s.endedAt;
-      v.ripples[s.target] = performance.now();
-    }
-    if (!state.steps.length) { v.lastChange = {}; v.ripples = {}; v.marker = null; }
+    const next: Record<string, number> = {};
+    for (const s of state.steps) if (s.change && s.endedAt) next[s.target] = s.endedAt;
+    for (const [path, at] of Object.entries(next)) if (v.lastChange[path] !== at) v.ripples[path] = performance.now();
+    v.lastChange = next;
+    if (!state.steps.length) { v.ripples = {}; v.marker = null; }
   }, [state.steps]);
 
   // ── draw loop + input (mounted once) ──────────────────────────────────────

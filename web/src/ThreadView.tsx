@@ -1,5 +1,6 @@
 // One thread: the agent conversation on the left, the project map ("the stage") on the right.
 import { useEffect, useState } from 'react';
+import { ReplayBar } from './ReplayBar';
 import { useAgent } from './useAgent';
 import { ProjectMap } from './MapCanvas';
 import { AgentPanel } from './AgentPanel';
@@ -15,7 +16,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
   const openSide = (question: string) =>
     fetch(`/api/threads/${id}/ask-thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
       .then((r) => r.json()).then((j) => j.id && setSideId(j.id));
-  const { state, meta, run, ask, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
+  const { state, replay, meta, run, ask, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
   const { health, serverDown, recheck } = useHealth();
   const { me, refreshThreads } = useApp();
   const problem = diagnose(health, serverDown);
@@ -33,7 +34,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
   return (
     <div className="thread">
       <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
-        problem={problem} onOpenSettings={onOpenSettings}
+        problem={problem} onOpenSettings={onOpenSettings} replaying={replay.active}
         onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={setSelected} />
       {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={setSelected} />}
 
@@ -47,6 +48,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
         </div>
         <div className="canvas">
           <ProjectMap state={state} selected={selected} onSelect={(f) => setSelected(f)} mapUrl={`/api/threads/${id}/map`} />
+          {replay.active && <div className="replay-banner">Replay · step {replay.index + 1} of {replay.total}{replay.at ? ` · ${new Date(replay.at).toLocaleTimeString([], { hour12: false })}` : ''}</div>}
           {state.approval && (
             <div className="approval">
               <div className="approval-head"><Icon name="shield" /> Approve command</div>
@@ -58,6 +60,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
             </div>
           )}
         </div>
+        <ReplayBar replay={replay} running={state.running} />
         <Inspector state={state} selected={selected} onSelect={setSelected} threadId={id} />
       </main>
     </div>
