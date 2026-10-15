@@ -13,11 +13,13 @@ const root = resolve(process.env.WORKSPACE ?? 'workspace');
 await mkdir(root, { recursive: true });
 const cfg = configFromEnv();
 
-const history: AgentEvent[] = [];
-const listeners = new Set<(e: AgentEvent) => void>();
+type Stamped = AgentEvent & { at: number };
+const history: Stamped[] = [];
+const listeners = new Set<(e: Stamped) => void>();
 const approvals = new Map<string, (ok: boolean) => void>();
 
-function emit(e: AgentEvent) {
+function emit(event: AgentEvent) {
+  const e = { ...event, at: Date.now() };
   history.push(e);
   for (const l of listeners) l(e);
 }
@@ -55,7 +57,7 @@ app.get('/api/state', async (c) => c.json({
 
 app.get('/api/events', (c) => streamSSE(c, async (stream) => {
   for (const e of history) await stream.writeSSE({ data: JSON.stringify(e) });
-  const send = (e: AgentEvent) => void stream.writeSSE({ data: JSON.stringify(e) });
+  const send = (e: Stamped) => void stream.writeSSE({ data: JSON.stringify(e) });
   listeners.add(send);
   stream.onAbort(() => listeners.delete(send));
   while (!stream.aborted) await stream.sleep(15_000).then(() => stream.writeSSE({ event: 'ping', data: '' }));

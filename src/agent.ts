@@ -7,6 +7,7 @@ export type AgentEvent =
   | { type: 'tool_start'; id: string; name: string; args: any }
   | { type: 'tool_end'; id: string; name: string; ok: boolean; output: string }
   | { type: 'approval'; id: string; command: string }
+  | { type: 'file_change'; path: string; before: string; after: string }
   | { type: 'user'; text: string }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
@@ -27,7 +28,7 @@ export class Agent {
 
   constructor(cfg: ModelConfig, ctx: ToolContext, emit: (e: AgentEvent) => void) {
     this.cfg = cfg;
-    this.ctx = ctx;
+    this.ctx = { ...ctx, onChange: (path, before, after) => emit({ type: 'file_change', path, before, after }) };
     this.emit = emit;
   }
 

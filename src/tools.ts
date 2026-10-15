@@ -6,6 +6,7 @@ import { resolve, relative, dirname, join } from 'node:path';
 export type ToolContext = {
   root: string;
   approve: (command: string) => Promise<boolean>; // UI hook: human approves shell commands
+  onChange?: (path: string, before: string, after: string) => void; // feeds the diff view
 };
 
 function inside(root: string, p: string): string {
@@ -44,14 +45,18 @@ export async function runTool(ctx: ToolContext, name: string, args: any): Promis
     case 'write_file': {
       const p = inside(ctx.root, args.path);
       await mkdir(dirname(p), { recursive: true });
+      const before = await readFile(p, 'utf8').catch(() => '');
       await writeFile(p, args.content);
+      ctx.onChange?.(args.path, before, args.content);
       return `wrote ${args.path}`;
     }
     case 'edit_file': {
       const p = inside(ctx.root, args.path);
       const src = await readFile(p, 'utf8');
       if (!src.includes(args.old)) throw new Error('old string not found');
-      await writeFile(p, src.replace(args.old, args.new));
+      const after = src.replace(args.old, args.new);
+      await writeFile(p, after);
+      ctx.onChange?.(args.path, src, after);
       return `edited ${args.path}`;
     }
     case 'search': {

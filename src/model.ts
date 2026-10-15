@@ -41,22 +41,27 @@ export async function chat(
 }
 
 // Scripted fake model: lets the UI be tested and demoed with no key. MODEL_API_KEY=mock (or empty).
-const MOCK_SCRIPT: Array<[string, object]> = [
-  ['list_files', {}],
-  ['write_file', { path: 'src/greet.js', content: 'export const greet = (n) => `Hello, ${n}!`;\n' }],
-  ['write_file', { path: 'index.js', content: "import { greet } from './src/greet.js';\nconsole.log(greet('Dakar'));\n" }],
-  ['read_file', { path: 'missing.txt' }],
-  ['run_command', { command: 'node index.js' }],
+const MOCK_SCRIPT: Array<[string, object, string?]> = [
+  ['list_files', {}, 'Let me look at what is in the workspace first.'],
+  ['write_file', { path: 'package.json', content: '{\n  "name": "greeter",\n  "type": "module"\n}\n' }],
+  ['write_file', { path: 'src/greet.js', content: 'export function greet(name) {\n  return `Hello, ${name}!`;\n}\n' }, 'Empty project. I will create a small greeting module and an entry point.'],
+  ['write_file', { path: 'src/format.js', content: 'export const shout = (s) => s.toUpperCase();\n' }],
+  ['write_file', { path: 'index.js', content: "import { greet } from './src/greet.js';\n\nconsole.log(greet('Dakar'));\n" }],
+  ['read_file', { path: 'README.md' }, 'Checking whether a README exists to document this.'],
+  ['write_file', { path: 'README.md', content: '# greeter\n\nRun `node index.js`.\n' }, 'No README yet, so I will add one.'],
+  ['edit_file', { path: 'src/greet.js', old: '  return `Hello, ${name}!`;', new: "  if (!name) return 'Hello, stranger!';\n  return `Hello, ${name}!`;" }, 'Handling the empty-name case before running it.'],
+  ['search', { text: 'greet(' }],
+  ['run_command', { command: 'node index.js' }, 'Everything is in place. Running it to check.'],
 ];
 
 async function mockChat(messages: Message[]): Promise<Message> {
-  await new Promise((r) => setTimeout(r, 900));
+  await new Promise((r) => setTimeout(r, 700 + Math.random() * 700));
   const done = messages.filter((m) => m.role === 'tool').length;
-  if (done >= MOCK_SCRIPT.length) return { role: 'assistant', content: 'Mock run finished: created greet.js and index.js, then ran it.' };
-  const [name, args] = MOCK_SCRIPT[done];
+  if (done >= MOCK_SCRIPT.length) return { role: 'assistant', content: 'Done. Created a greeting module with an entry point and a README, handled empty names, and ran it: it prints "Hello, Dakar!".' };
+  const [name, args, thought] = MOCK_SCRIPT[done];
   return {
     role: 'assistant',
-    content: null,
+    content: thought ?? null,
     tool_calls: [{ id: `mock-${done}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }],
   };
 }
