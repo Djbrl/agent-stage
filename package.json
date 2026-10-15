@@ -12,9 +12,11 @@
     "dev": "node --env-file-if-exists=.env --watch src/server.ts",
     "build": "vite build --config web/vite.config.ts",
     "start": "npm run build && node --env-file-if-exists=.env src/server.ts",
-    "web": "vite --config web/vite.config.ts"
+    "web": "vite --config web/vite.config.ts",
+    "mock": "npm run build && MODEL_API_KEY=mock TUNNEL_HOST= BREV_INSTANCE= GPU_HOURLY_USD=0 node --env-file-if-exists=.env src/server.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.134.0",
     "@hono/node-server": "^2.1.5",
     "d3-hierarchy": "^3.1.2",
     "hono": "^4.13.13"

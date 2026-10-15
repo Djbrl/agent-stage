@@ -11,7 +11,8 @@ export type Health = {
 };
 
 export async function checkModel(cfg: ModelConfig): Promise<Health['model']> {
-  if (!cfg.apiKey || cfg.apiKey === 'mock') return { state: 'mock' };
+  if (!cfg.apiKey || cfg.apiKey === 'mock') return cfg.kind === 'anthropic' ? { state: 'auth', detail: 'no API key yet' } : { state: 'mock' };
+  if (cfg.kind === 'anthropic') return (await import('./anthropic.ts')).checkAnthropic(cfg);
   const t0 = Date.now();
   try {
     const res = await fetch(`${cfg.baseUrl}/models`, { headers: { authorization: `Bearer ${cfg.apiKey}` }, signal: AbortSignal.timeout(5000) });

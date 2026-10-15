@@ -5,6 +5,7 @@ export type Message = {
   content: string | null;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
+  raw?: any[]; // provider-native content (Claude blocks), replayed unchanged to the same provider
 };
 
 export type ToolCall = {
@@ -13,7 +14,7 @@ export type ToolCall = {
   function: { name: string; arguments: string };
 };
 
-export type ModelConfig = { baseUrl: string; apiKey: string; model: string };
+export type ModelConfig = { baseUrl: string; apiKey: string; model: string; kind?: 'mock' | 'openai' | 'anthropic' };
 export type Usage = { promptTokens: number; completionTokens: number; ms: number };
 
 export function configFromEnv(): ModelConfig {
@@ -32,6 +33,7 @@ export async function chat(
 ): Promise<Message> {
   const t0 = Date.now();
   if (!cfg.apiKey || cfg.apiKey === 'mock') return mockChat(messages, tools.length > 0);
+  if (cfg.kind === 'anthropic') return (await import('./anthropic.ts')).chatAnthropic(cfg, messages, tools, signal, onUsage);
   // Hosted free tiers rate-limit and hiccup: retry 429/5xx with backoff before giving up.
   let res!: Response;
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -51,7 +53,8 @@ function request(cfg: ModelConfig, messages: Message[], tools: unknown[], signal
     signal,
     headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.apiKey}` },
     body: JSON.stringify({
-      model: cfg.model, messages, temperature: 0.2,
+      model: cfg.model, temperature: 0.2,
+      messages: messages.map(({ raw, ...m }) => m),
       ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
     }),
   });
