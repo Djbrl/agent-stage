@@ -14,6 +14,7 @@ export type AgentEvent = Base & (
   | { type: 'question'; id: string; text: string }
   | { type: 'answer'; id: string; text: string }
   | { type: 'label'; stepId: string; label: string; why: string }
+  | { type: 'usage'; promptTokens: number; completionTokens: number; ms: number; costUsd?: number }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
 );
@@ -113,6 +114,9 @@ function reduce(s: State, a: Action): State {
       return { ...s, running: false, approval: null, planned: [], timeline: [...s.timeline, { kind: 'done', text: e.text, at: e.at }] };
     case 'error':
       return { ...s, running: false, approval: null, timeline: [...s.timeline, { kind: 'error', text: e.message, at: e.at }] };
+    default:
+      // usage and any event a newer server sends: nothing to draw. Never return undefined (that blanks the app).
+      return s;
   }
 }
 

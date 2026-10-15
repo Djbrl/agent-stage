@@ -512,3 +512,4 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .side-engine { font: 600 9.5px var(--mono); color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px; opacity: 0; transition: opacity .15s; }
 .side-thread:hover .side-engine, .side-thread.on .side-engine { opacity: 1; }
 .note { font-size: 12px; color: var(--dim); background: var(--raised); border: 1px solid var(--line-soft); border-radius: 8px; padding: 8px 10px; margin: 0; line-height: 1.5; }
+.crash { max-width: 640px; margin: 15vh auto; padding: 0 16px; } .crash pre { font: 11.5px var(--mono); color: var(--dim); background: var(--surface); padding: 12px; border-radius: 8px; overflow: auto; max-height: 240px; }

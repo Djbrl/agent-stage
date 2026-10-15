@@ -375,6 +375,11 @@ app.get('/api/engines', (c) => {
 
 app.get('/api/me', (c) => c.json({ name: userInfo().username, home: homedir(), sandbox }));
 
+// The page itself must never be cached (it names the current build's files); hashed assets can be.
+app.use('/*', async (c, next) => {
+  await next();
+  if (!c.req.path.startsWith('/assets/')) c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+});
 app.use('/*', serveStatic({ root: './web/dist' }));
 
 const port = Number(process.env.PORT ?? 3000);
