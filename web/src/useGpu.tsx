@@ -8,6 +8,15 @@ export type GpuView = {
   idleStopAt?: number; autoStopMin: number; sessionCost: number;
 };
 const STEPS = ['creating', 'connecting', 'installing', 'loading', 'ready'] as const;
+const STEP_NAME: Record<string, string> = { creating: 'Rent GPU', connecting: 'Connect', installing: 'Install', loading: 'Load model' };
+// What's happening, in plain words, and how long that step usually takes.
+const NOW: Record<string, [string, string]> = {
+  creating: ['Brev is finding an available L40S and booting it.', 'usually 5–7 min'],
+  connecting: ['The machine is up; opening a secure SSH connection to it.', 'under a minute'],
+  installing: ['Installing vLLM, the program that serves the model.', 'about 1 min'],
+  loading: ['Downloading the model (≈30 GB) and loading it onto the GPU.', '2–5 min'],
+  stopping: ['Destroying the machine so nothing keeps billing.', 'a few seconds'],
+};
 const LABEL: Record<GpuView['phase'], string> = {
   off: 'GPU off', creating: 'Renting a GPU…', connecting: 'Connecting…', installing: 'Installing vLLM…',
   loading: 'Loading the model…', ready: 'GPU ready', stopping: 'Shutting down…', error: 'GPU problem',
@@ -23,8 +32,9 @@ export function useGpu() {
 
 export const gpuBusy = (g: GpuView | null) => Boolean(g && ['creating', 'connecting', 'installing', 'loading', 'stopping'].includes(g.phase));
 
-export function GpuPanel({ gpu, start, stop, compact }: { gpu: GpuView; start: () => void; stop: () => void; compact?: boolean }) {
+export function GpuPanel({ gpu, start, stop }: { gpu: GpuView; start: () => void; stop: () => void; compact?: boolean }) {
   const [, tick] = useState(0);
+  const [details, setDetails] = useState(false);
   useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
   const elapsed = gpu.startedAt ? Math.floor((Date.now() - gpu.startedAt) / 1000) : 0;
   const mmss = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
@@ -41,14 +51,18 @@ export function GpuPanel({ gpu, start, stop, compact }: { gpu: GpuView; start: (
           : gpu.phase !== 'stopping' && <button className="btn ghost sm" onClick={stop} title="Destroys the machine: nothing bills after this">Stop</button>}
       </div>
       {at >= 0 && gpu.phase !== 'ready' && (
-        <div className="gpu-steps">{STEPS.slice(0, 4).map((s, i) => <span key={s} className={i < at ? 'done' : i === at ? 'now' : ''} />)}</div>
+        <div className="gpu-steps">{STEPS.slice(0, 4).map((st, i) => (
+          <div key={st} className={i < at ? 'done' : i === at ? 'now' : ''}><span className="bar" /><span className="step-name">{STEP_NAME[st]}</span></div>
+        ))}</div>
       )}
-      {!compact && (
+      {NOW[gpu.phase] && <p className="gpu-now">{NOW[gpu.phase][0]} <span className="muted">({NOW[gpu.phase][1]})</span></p>}
+      {gpu.phase === 'off' && <p className="muted">Rents an L40S on Brev (~$1.06/h), installs vLLM and loads your model: about 10 minutes. It's destroyed when you stop, or after {gpu.autoStopMin} idle minutes.</p>}
+      {gpu.phase === 'ready' && <p className="muted">{gpu.type ?? gpu.name} · ${gpu.sessionCost.toFixed(2)} so far{idleIn !== null ? ` · auto-stops in ${idleIn} min if idle` : ''}</p>}
+      {gpu.error && <p className="bad-text">{gpu.error}</p>}
+      {gpu.log.length > 0 && gpu.phase !== 'off' && (
         <>
-          {gpu.phase === 'off' && <p className="muted">Rents an L40S on Brev (~$1.06/h), installs vLLM and loads your model: about 10 minutes. It's destroyed when you stop, or after {gpu.autoStopMin} idle minutes.</p>}
-          {gpu.phase === 'ready' && <p className="muted">{gpu.type ?? gpu.name} · ${gpu.sessionCost.toFixed(2)} so far{idleIn !== null ? ` · auto-stops in ${idleIn} min if idle` : ''}</p>}
-          {gpu.error && <p className="bad-text">{gpu.error}</p>}
-          {gpu.log.length > 0 && gpu.phase !== 'off' && <div className="gpu-log mono">{gpu.log.slice(-4).map((l, i) => <div key={i}>{l}</div>)}</div>}
+          <button className="linkish" onClick={() => setDetails(!details)}>{details ? 'Hide details' : 'Details'}</button>
+          {details && <div className="gpu-log mono">{gpu.log.slice(-12).map((l, i) => <div key={i}>{l}</div>)}</div>}
         </>
       )}
     </div>

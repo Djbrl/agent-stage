@@ -593,3 +593,24 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .picker { min-width: 0; flex: 0 1 auto; }
 .picker .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
 .composer-bar > .btn, .composer-bar > .seg { flex-shrink: 0; }
+/* no coloured borders: callouts are a tinted block with a coloured heading */
+.callout, .checkpoint { border: 0; border-left: 0; background: rgba(255,255,255,.035); border-radius: 10px; padding: 10px 12px; box-shadow: none; }
+.checkpoint { background: rgba(123,140,255,.07); }
+.checkpoint.done { background: rgba(255,255,255,.03); }
+.callout.concept { background: rgba(95,168,255,.06); } .callout.why-this-matters { background: rgba(245,184,74,.06); }
+.callout.implementation-report, .callout.system-check { background: rgba(62,207,142,.06); }
+.qa { border-left: 0; background: rgba(123,140,255,.06); border-radius: 10px; padding: 9px 12px; }
+.banner { border: 0; background: var(--surface); }
+.problem { border: 0; }
+/* GPU progress: labelled steps, a plain sentence, details on demand */
+.gpu-steps { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.gpu-steps > div { display: flex; flex-direction: column; gap: 5px; }
+.gpu-steps .bar { height: 3px; border-radius: 2px; background: var(--line); }
+.gpu-steps .done .bar { background: var(--write); } .gpu-steps .now .bar { background: var(--accent); animation: blink 1.2s infinite; }
+.gpu-steps .step-name { font-size: 10.5px; color: var(--faint); } .gpu-steps .now .step-name { color: var(--text); } .gpu-steps .done .step-name { color: var(--dim); }
+.gpu-now { font-size: 12.5px !important; color: var(--dim); }
+.linkish { align-self: flex-start; border: 0; background: none; color: var(--faint); font: 11.5px var(--sans); padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.linkish:hover { color: var(--text); }
+.gpu-log { max-height: 160px; overflow: auto; white-space: normal; background: var(--frame); border-radius: 8px; padding: 8px 10px; max-width: none; }
+.gpu-steps .step-name { height: auto; background: none !important; animation: none !important; line-height: 1.3; }
+.gpu { gap: 9px; }

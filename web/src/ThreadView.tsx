@@ -68,7 +68,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
           status={<HealthDot health={health} serverDown={serverDown} onRecheck={recheck} gpu={gpuCtl} bare />}
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
-          banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} compact={gpuCtl.gpu.phase !== 'error'} /> : null} replaying={replay.active} header={header} centered={!showStage}
+          banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null} replaying={replay.active} header={header} centered={!showStage}
           onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} />
         {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={showStep} />}
       </div>
