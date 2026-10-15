@@ -15,6 +15,7 @@ export type AgentEvent =
   | { type: 'question'; id: string; text: string }
   | { type: 'answer'; id: string; text: string }
   | ({ type: 'usage' } & Usage)
+  | { type: 'label'; stepId: string; label: string; why: string }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
 

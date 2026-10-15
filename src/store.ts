@@ -18,6 +18,7 @@ export type Settings = {
   approval: 'always' | 'safe'; // safe = auto-approve read-only commands
   maxSteps: number;
   recentFolders: string[];
+  insights?: 'auto' | 'on' | 'off'; // AI step labels / file summaries
   learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' };
 };
 export type ThreadUsage = { promptTokens: number; completionTokens: number; modelMs: number; calls: number };

@@ -177,6 +177,15 @@ function Learning() {
       {opt('frequency', [['light', 'Light', 'Only major decisions.'], ['normal', 'Normal', 'Meaningful decisions.'], ['frequent', 'Frequent', 'Smaller steps too.']])}
       <div className="label">Language</div>
       {opt('language', [['en', 'English', 'Explanations in English.'], ['fr', 'Français', 'Les explications en français (le code reste en anglais).']])}
+      <div className="label">AI step labels & file summaries</div>
+      {(['auto', 'on', 'off'] as const).map((v) => (
+        <label key={v} className={`choice ${(settings.insights ?? 'auto') === v ? 'on' : ''}`}>
+          <input type="radio" checked={(settings.insights ?? 'auto') === v} onChange={() => save({ insights: v })} />
+          <span><b>{{ auto: 'Auto', on: 'Always', off: 'Off' }[v]}</b><span className="muted">{{
+            auto: 'On for free models (your own GPU, Ollama, the demo), off for per-token APIs.',
+            on: 'Also on paid APIs: every step costs a small extra call.', off: 'Plain rule-based labels only.' }[v]}</span></span>
+        </label>
+      ))}
     </div>
   );
 }

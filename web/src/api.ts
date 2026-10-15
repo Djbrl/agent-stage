@@ -8,7 +8,8 @@ export type Provider = {
   baseUrl: string; apiKey: string; model: string;
   gpuHourly?: number; tunnelHost?: string; brevInstance?: string;
 };
-export type Settings = { providers: Provider[]; activeProvider: string; approval: 'always' | 'safe'; maxSteps: number; recentFolders: string[] };
+export type Settings = { providers: Provider[]; activeProvider: string; approval: 'always' | 'safe'; maxSteps: number; recentFolders: string[];
+  insights?: 'auto' | 'on' | 'off'; learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' } };
 export type ThreadSummary = { id: string; title: string; folder: string; updatedAt: number; running: boolean; tokens: number };
 export type Me = { name: string; home: string; sandbox: string };
 

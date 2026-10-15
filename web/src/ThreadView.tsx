@@ -53,7 +53,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
             </div>
           )}
         </div>
-        <Inspector state={state} selected={selected} onSelect={setSelected} />
+        <Inspector state={state} selected={selected} onSelect={setSelected} threadId={id} />
       </main>
     </div>
   );

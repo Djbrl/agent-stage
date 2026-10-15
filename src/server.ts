@@ -12,6 +12,7 @@ import { configFromEnv } from './model.ts';
 import { startTunnel } from './tunnel.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap } from './mapdata.ts';
+import { enqueue, insightsOn, labelStep, summarizeFile, explainChange } from './insight.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread,
   PRESETS, type Provider, type Settings, type Thread } from './store.ts';
 
@@ -82,6 +83,16 @@ async function open(id: string): Promise<Live | null> {
     if (event.type === 'user' && thread.title === 'New thread') thread.title = event.text.slice(0, 60);
     const e = { ...event, at: Date.now() };
     thread.events.push(e);
+    // Teaching labels: ask the same model to describe each finished step (queued, never blocks the agent).
+    if (event.type === 'tool_end' && insightsOn(settings, provider(thread.providerId))) {
+      const start = [...thread.events].reverse().find((x: any) => x.type === 'tool_start' && x.id === event.id);
+      const task = [...thread.events].reverse().find((x: any) => x.type === 'user')?.text ?? '';
+      const cfg = toConfig(provider(thread.providerId));
+      enqueue(async () => {
+        const { label, why } = await labelStep(cfg, settings, { name: event.name, args: start?.args ?? {}, output: event.output, ok: event.ok, task });
+        if (label) emit({ type: 'label', stepId: event.id, label, why });
+      });
+    }
     for (const fn of l.listeners) fn(e);
     persist(l);
   };
@@ -199,6 +210,19 @@ app.post(`${T}/ask`, withThread((l, { text }) => { void l.agent.ask(text); }));
 app.post(`${T}/steer`, withThread((l, { text }) => {
   if (l.agent.running) l.agent.interject(text);
   else void l.agent.run(text, settings.maxSteps); // idle: steering is just the next task, with full context
+}));
+app.get(`${T}/summary`, async (c) => {
+  const l = await open(c.req.param('id'));
+  const path = c.req.query('path') ?? '';
+  if (!l || !path || path.includes('..')) return c.json({ error: 'bad request' }, 400);
+  const p = provider(l.thread.providerId);
+  if (!insightsOn(settings, p) && !c.req.query('force')) return c.json({ off: true });
+  try { return c.json({ summary: await summarizeFile(toConfig(p), settings, l.thread.folder, path) }); }
+  catch (e: any) { return c.json({ error: e.message }); }
+});
+app.post(`${T}/explain`, withThread(async (l, { path, before, after }) => {
+  try { return { text: await explainChange(toConfig(provider(l.thread.providerId)), settings, path, before ?? '', after ?? '') }; }
+  catch (e: any) { return { error: e.message }; }
 }));
 app.post(`${T}/checkpoint`, withThread((l, { id, choice, text }) => {
   l.checkpoints.get(id)?.({ choice: choice === 'confirm' ? 'confirm' : 'discuss', text });

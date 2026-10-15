@@ -13,6 +13,7 @@ export type AgentEvent = Base & (
   | { type: 'user'; text: string }
   | { type: 'question'; id: string; text: string }
   | { type: 'answer'; id: string; text: string }
+  | { type: 'label'; stepId: string; label: string; why: string }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
 );
@@ -21,7 +22,7 @@ export type FileStatus = 'idle' | 'read' | 'written' | 'error';
 export type Change = { before: string; after: string };
 export type Step = {
   id: string; name: string; target: string; args: any;
-  startedAt: number; endedAt?: number; ok?: boolean; output?: string; change?: Change;
+  startedAt: number; endedAt?: number; ok?: boolean; output?: string; change?: Change; label?: string; why?: string;
 };
 export type Entry =
   | { kind: 'user' | 'thought' | 'done' | 'error'; text: string; at: number }
@@ -65,6 +66,8 @@ function reduce(s: State, a: Action): State {
     case 'user':
       if (e.text === '— new session —') return { ...initial, files: Object.fromEntries(Object.keys(s.files).map((f) => [f, 'idle'])) };
       return { ...s, running: true, startedAt: s.running ? s.startedAt : e.at, timeline: [...s.timeline, { kind: 'user', text: e.text, at: e.at }] };
+    case 'label':
+      return { ...s, steps: s.steps.map((x) => (x.id === e.stepId ? { ...x, label: e.label, why: e.why } : x)) };
     case 'checkpoint':
       return { ...s, planned: e.files ?? [], timeline: [...s.timeline, { kind: 'checkpoint', id: e.id, cp: e, at: e.at }] };
     case 'checkpoint_answer':

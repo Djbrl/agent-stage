@@ -86,7 +86,9 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
                 const { verb, what } = stepLabel(s);
                 return (
                   <div key={s.id} className={`group-row ${s.ok === false ? 'bad' : ''}`} onClick={() => onSelect(s.id)}>
-                    <Icon name={TOOL_ICON[s.name] ?? 'spark'} size={12} /> {verb} <span className="mono">{what}</span>
+                    <Icon name={TOOL_ICON[s.name] ?? 'spark'} size={12} />
+                    <span className="gr-text">{s.label ? <span>{s.label}</span> : <>{verb} <span className="mono">{what}</span></>}
+                      {s.why && <span className="gr-why">{s.why}</span>}</span>
                   </div>
                 );
               })}
