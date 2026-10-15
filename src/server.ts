@@ -10,6 +10,7 @@ import { Agent, type AgentEvent } from './agent.ts';
 import { configFromEnv } from './model.ts';
 import { startTunnel } from './tunnel.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
+import { buildMap } from './mapdata.ts';
 
 const root = resolve(process.env.WORKSPACE ?? 'workspace');
 await mkdir(root, { recursive: true });
@@ -82,6 +83,8 @@ app.get('/api/state', async (c) => c.json({
   running: agent.running,
   files: await listFiles(),
 }));
+
+app.get('/api/map', async (c) => c.json(await buildMap(root)));
 
 app.get('/api/health', async (c) => {
   if (c.req.query('now')) await refreshHealth();
