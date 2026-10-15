@@ -24,7 +24,7 @@ export class Agent {
   private abort?: AbortController;
   private pending: string[] = []; // user messages injected mid-run
   running = false;
-  private recent: string[] = []; // recent tool calls, for loop detection
+  private recent: string[] = []; // tool calls since the last file change, for loop detection
 
   private cfg: ModelConfig;
   private ctx: ToolContext;
@@ -92,12 +92,17 @@ export class Agent {
           }
           this.emit({ type: 'tool_end', id: call.id, name: call.function.name, ok, output });
           this.messages.push({ role: 'tool', tool_call_id: call.id, content: output });
-          this.recent.push(`${call.function.name}:${call.function.arguments}`);
+          // Repeating a call after changing a file is normal (re-run the test). Repeating it with
+          // nothing changed in between is a loop.
+          if (ok && (call.function.name === 'write_file' || call.function.name === 'edit_file')) this.recent = [];
+          else this.recent.push(`${call.function.name}:${call.function.arguments}`);
         }
-        // Small models can loop on the same call. After 3 identical calls in a row, nudge it once.
-        const last3 = this.recent.slice(-3);
-        if (last3.length === 3 && last3.every((k) => k === last3[0])) {
-          this.messages.push({ role: 'user', content: 'You have made the same tool call three times in a row. Stop repeating it: change approach, or finish with a summary.' });
+        // Small models loop. 3 identical calls since the last file change → nudge it once.
+        const counts = new Map<string, number>();
+        for (const k of this.recent) counts.set(k, (counts.get(k) ?? 0) + 1);
+        const looping = [...counts].find(([, n]) => n >= 3);
+        if (looping) {
+          this.messages.push({ role: 'user', content: `You have run \`${looping[0].split(':')[0]}\` with the same arguments ${looping[1]} times without changing any file in between. Stop repeating it: change approach, or finish with a summary.` });
           this.recent = [];
         }
       }
