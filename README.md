@@ -34,6 +34,9 @@ agent-stage makes the agent's work **visible and controllable**:
 - **Ask** opens a temporary read-only side thread, so questions never disturb the work;
 - **engines**: run each thread on agent-stage's own open harness, or on **Claude Code** (Anthropic's agent, via the
   official Agent SDK and your API key). The map, Learn mode and approvals work the same on both;
+- **done means checked**: when the agent says it's finished, the harness runs the project's own check (tests,
+  else typecheck/build). A failure goes back to the agent as "not done yet" (up to 3 times); with no check, it is
+  asked to test its own work first;
 - **undo**: a git checkpoint before every task (your branch and staging untouched) and an Undo button per task;
 - **computer use**: the agent drives your installed Chrome as text (page text + numbered controls), so open
   models can test the web apps they build; screenshots show up on the stage. Local pages are free, other sites

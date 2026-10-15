@@ -1,6 +1,7 @@
 // The loop: model picks a tool, we run it, feed the result back. Emits events so a UI can draw it.
 import { chat, type Message, type ModelConfig, type Usage } from './model.ts';
 import { toolSchemas, runTool, type ToolContext } from './tools.ts';
+import { doneCheck, newRun, gaveUpNote, type RunState } from './verify.ts';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { checkpointSchema, learnPrompt, languageLine, WRITE_TOOLS, type Checkpoint, type CheckpointAnswer, type LearnPrefs } from './learn.ts';
@@ -18,6 +19,7 @@ export type AgentEvent =
   | { type: 'answer'; id: string; text: string }
   | ({ type: 'usage' } & Usage)
   | { type: 'label'; stepId: string; label: string; why: string }
+  | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined'; command?: string; output?: string }
   | { type: 'snapshot'; ref: string }
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'done'; text: string }
@@ -140,6 +142,8 @@ export class Agent {
     }
   }
 
+  private checkApproved = new Set<string>();
+
   async run(task: string, maxSteps = 30) {
     await this.loadProjectInstructions();
     this.messages.push({ role: 'user', content: task });
@@ -150,6 +154,7 @@ export class Agent {
     const tools = learning ? [...toolSchemas, checkpointSchema] : asking ? toolSchemas.filter((t) => READ_ONLY.has(t.function.name)) : toolSchemas;
     this.abort = new AbortController();
     this.running = true;
+    const run: RunState = newRun();
     try {
       for (let step = 0; step < maxSteps; step++) {
         while (this.pending.length) {
@@ -160,7 +165,13 @@ export class Agent {
         const reply = await chat(this.cfg, this.fitContext(), tools, this.abort.signal, (u) => this.emit({ type: 'usage', ...u }));
         this.messages.push(reply);
         if (reply.content && reply.tool_calls?.length) this.emit({ type: 'thinking', text: reply.content });
-        if (!reply.tool_calls?.length) return this.emit({ type: 'done', text: reply.content ?? '' });
+        if (!reply.tool_calls?.length) {
+          // "Done" is a claim: check it before accepting it.
+          const notYet = this.opts.mode === 'build' && run.wrote ? await doneCheck(this.ctx, this.emit, run, this.checkApproved) : null;
+          if (!notYet) return this.emit({ type: 'done', text: (reply.content ?? '') + gaveUpNote(run) });
+          this.messages.push({ role: 'user', content: notYet }); // its premature summary stays out of the chat
+          continue;
+        }
 
         for (const call of reply.tool_calls) {
           if (this.abort.signal.aborted) throw new Error('stopped');
@@ -179,6 +190,8 @@ export class Agent {
             output = `error: ${e.message}`;
           }
           this.emit({ type: 'tool_end', id: call.id, name: call.function.name, ok, output });
+          if (ok && (call.function.name === 'write_file' || call.function.name === 'edit_file')) { run.wrote = true; run.tested = false; }
+          if (call.function.name === 'run_command' || call.function.name.startsWith('browser_')) run.tested = true;
           this.messages.push({ role: 'tool', tool_call_id: call.id, content: output });
           // Repeating a call after changing a file is normal (re-run the test). Repeating it with
           // nothing changed in between is a loop.

@@ -10,6 +10,7 @@ import type { Message, ModelConfig } from './model.ts';
 import type { ToolContext } from './tools.ts';
 import { browserSchemas, runBrowserTool } from './browser.ts';
 import { SHOTS } from './browser.ts';
+import { doneCheck, newRun, gaveUpNote } from './verify.ts';
 import { learnPrompt, languageLine, type Checkpoint } from './learn.ts';
 
 const WRITES = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
@@ -46,7 +47,8 @@ export class ClaudeCodeAgent {
   private inbox?: Inbox;
   private q?: ReturnType<typeof query>;
   private unlocked = false;
-  private before = new Map<string, string>(); // tool_use_id → file content before an edit
+  private before = new Map<string, string>();
+  private checkApproved = new Set<string>(); // tool_use_id → file content before an edit
 
   constructor(cfg: ModelConfig, ctx: ToolContext, emit: (e: AgentEvent) => void, opts?: Partial<AgentOptions>) {
     this.cfg = cfg; this.ctx = ctx; this.emit = emit;
@@ -157,6 +159,7 @@ export class ClaudeCodeAgent {
             const p = String(input.tool_input?.file_path ?? input.tool_input?.notebook_path ?? '');
             const after = await readFile(isAbsolute(p) ? p : join(this.ctx.root, p), 'utf8').catch(() => '');
             this.emit({ type: 'file_change', path: this.rel(p), before: this.before.get(input.tool_use_id)!, after });
+            run.wrote = true; run.tested = false;
             this.before.delete(input.tool_use_id);
           }
           return {};
@@ -165,6 +168,7 @@ export class ClaudeCodeAgent {
     } as any });
 
     const pending = new Map<string, string>(); // tool_use_id → our tool name
+    const run = newRun();
     let lastText = '', heldText = ''; // narration shows when the next tool call arrives; the final text goes to "done"
     try {
       for await (const m of this.q as AsyncIterable<any>) {
@@ -178,6 +182,7 @@ export class ClaudeCodeAgent {
           for (const u of uses) {
             const t = this.translate(u.name, u.input ?? {});
             pending.set(u.id, t.name);
+            if (t.name === 'run_command' || t.name.startsWith('browser_')) run.tested = true;
             this.emit({ type: 'tool_start', id: u.id, name: t.name, args: t.args });
           }
         }
@@ -194,8 +199,12 @@ export class ClaudeCodeAgent {
           const u = m.usage ?? {};
           this.emit({ type: 'usage', promptTokens: (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0),
             completionTokens: u.output_tokens ?? 0, ms: m.duration_api_ms ?? m.duration_ms ?? 0, costUsd: m.total_cost_usd } as any);
-          if (m.subtype === 'success') this.emit({ type: 'done', text: m.result ?? lastText });
-          else this.emit({ type: 'error', message: m.subtype === 'error_max_turns' ? `hit the step limit (${maxSteps})` : `Claude Code stopped: ${m.subtype}` });
+          if (m.subtype === 'success') {
+            // Same done-check as our own engine: a failing check goes back into the session as the next message.
+            const notYet = this.opts.mode === 'build' && run.wrote ? await doneCheck(this.ctx, this.emit as any, run, this.checkApproved) : null;
+            if (notYet) { this.inbox.push(notYet); continue; }
+            this.emit({ type: 'done', text: (m.result ?? lastText) + gaveUpNote(run) });
+          } else this.emit({ type: 'error', message: m.subtype === 'error_max_turns' ? `hit the step limit (${maxSteps})` : `Claude Code stopped: ${m.subtype}` });
           this.inbox.close();
         }
       }

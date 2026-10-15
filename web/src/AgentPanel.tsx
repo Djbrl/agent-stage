@@ -2,7 +2,7 @@
 // and the detail lives on the stage. What stays prominent: your messages, the agent's words, and anything that
 // needs you (checkpoints).
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { State, Step } from './useAgent';
+import type { State, Step, Entry } from './useAgent';
 import { Icon } from './icons';
 import { stepText } from './StepsSheet';
 import { Markdown } from './Markdown';
@@ -105,6 +105,7 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
                 </div>
               );
             }
+            if (e.kind === 'verify') return <VerifyLine key={i} e={e} />;
             if (e.kind === 'restored') return (
               <div key={i} className="restored muted">
                 {e.files.length ? `Restored ${e.files.length} file${e.files.length > 1 ? 's' : ''}: ${e.files.slice(0, 4).map((f) => f.path.split('/').pop()).join(', ')}${e.files.length > 4 ? '…' : ''}` : 'Nothing to restore: the files were already like that.'}
@@ -240,6 +241,29 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo }: { disabled: boolean
           <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Manage engines…</button>
         </div>
       )}
+    </div>
+  );
+}
+
+// The harness checking the agent's work before accepting "done".
+function VerifyLine({ e }: { e: Extract<Entry, { kind: 'verify' }> }) {
+  const [open, setOpen] = useState(false);
+  const cmd = e.command?.replace(/ --silent$/, '');
+  const text = {
+    running: `Checking the work: ${cmd}`,
+    pass: `Check passed: ${cmd}`,
+    fail: `Check failed: ${cmd}. Sent back to the agent`,
+    nudge: 'Asked the agent to test its work before finishing',
+    declined: 'Check skipped',
+  }[e.state];
+  return (
+    <div className={`verify ${e.state}`}>
+      <button className={`work ${e.state === 'running' ? 'live' : ''} ${e.state === 'fail' ? 'bad' : ''}`} onClick={() => e.output && setOpen(!open)}
+        title={e.output ? 'Show the output' : undefined}>
+        <span className="work-icon">{e.state === 'running' ? <span className="spin" /> : e.state === 'pass' ? <Icon name="check" size={11} /> : e.state === 'fail' ? <Icon name="x" size={11} /> : <Icon name="shield" size={11} />}</span>
+        <span className="work-text">{text}</span>
+      </button>
+      {open && e.output && <pre className={`output ${e.state === 'fail' ? 'bad' : ''}`}>{e.output}</pre>}
     </div>
   );
 }

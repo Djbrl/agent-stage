@@ -83,7 +83,8 @@ function recoverTextToolCalls(msg: Message): Message {
 // Scripted fake model: lets the UI be tested and demoed with no key. MODEL_API_KEY=mock (or empty).
 const MOCK_SCRIPT: Array<[string, object, string?]> = [
   ['list_files', {}, 'Let me look at what is in the workspace first.'],
-  ['write_file', { path: 'package.json', content: '{\n  "name": "greeter",\n  "type": "module"\n}\n' }],
+  ['write_file', { path: 'package.json', content: '{\n  "name": "greeter",\n  "type": "module",\n  "scripts": { "test": "node test.js" }\n}\n' }],
+  ['write_file', { path: 'test.js', content: "import assert from 'node:assert';\nimport { greet } from './src/greet.js';\n\nassert.equal(greet('dakar'), 'Hello, Dakar!');\nassert.equal(greet(''), 'Hello, stranger!');\nconsole.log('2 tests passed');\n" }, 'Writing a small test first, so the harness can check the result.'],
   ['write_file', { path: 'src/greet.js', content: 'export function greet(name) {\n  return `Hello, ${name}!`;\n}\n' }, 'Empty project. I will create a small greeting module and an entry point.'],
   ['write_file', { path: 'src/format.js', content: 'export const shout = (s) => s.toUpperCase();\n' }],
   ['write_file', { path: 'index.js', content: "import { greet } from './src/greet.js';\n\nconsole.log(greet('Dakar'));\n" }],
@@ -117,7 +118,12 @@ async function mockChat(messages: Message[], tools: unknown[]): Promise<Message>
     if (messages.at(-1)?.role === 'user') return { role: 'assistant', content: 'Let me check the code.', tool_calls: [{ id: 'mock-ask', type: 'function', function: { name: 'list_files', arguments: '{}' } }] };
     return { role: 'assistant', content: `(demo answer) You asked: *${q}*\n\n✦ Concept: reading before writing\n\nThis side thread can read the project and everything the agent did, but it can't change anything, so your work thread stays clean.` };
   }
-  const done = messages.filter((m) => m.role === 'tool').length;
+  // The harness's done-check failed: fix it (the scripted bug is a lower-case name).
+  const lastMsg = messages.at(-1);
+  if (lastMsg?.role === 'user' && String(lastMsg.content).startsWith('The harness ran') && !messages.some((m) => m.tool_calls?.some((c) => c.id === 'mock-fix')))
+    return { role: 'assistant', content: 'The test caught it: names should be capitalised. Fixing greet().', tool_calls: [{ id: 'mock-fix', type: 'function', function: { name: 'edit_file', arguments: JSON.stringify({ path: 'src/greet.js', old: '  return `Hello, ${name}!`;', new: '  return `Hello, ${name[0].toUpperCase()}${name.slice(1)}!`;' }) } }] };
+  if (lastMsg?.role === 'tool' && lastMsg.tool_call_id === 'mock-fix') return { role: 'assistant', content: 'Fixed: `greet()` now capitalises the name. The test should pass.' };
+  const done = messages.filter((m) => m.role === 'tool' && m.tool_call_id !== 'mock-fix').length;
   const task = messages.find((m) => m.role === 'user')?.content ?? '';
   if (/\b(web|page|site|html|browser)\b/i.test(String(task))) {
     if (done >= MOCK_WEB.length) return { role: 'assistant', content: 'Done. **`index.html`** is a small greeter page, served on http://localhost:8765. I typed *Dakar* into it in the browser and it answered *Hello, Dakar!*' };

@@ -626,3 +626,5 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .browser-bar { display: flex; align-items: center; gap: 6px; padding: 5px 8px; font-size: 11px; color: var(--muted); }
 .browser-bar .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-note .btn { white-space: nowrap; }
+.verify.pass .work-icon { color: var(--ok, #3ecf8e); }
+.verify .output { margin: 4px 0 0 26px; max-height: 220px; overflow: auto; font-size: 11px; }

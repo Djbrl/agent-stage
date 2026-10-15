@@ -15,6 +15,7 @@ export type AgentEvent = Base & (
   | { type: 'answer'; id: string; text: string }
   | { type: 'label'; stepId: string; label: string; why: string }
   | { type: 'usage'; promptTokens: number; completionTokens: number; ms: number; costUsd?: number }
+  | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined'; command?: string; output?: string }
   | { type: 'snapshot'; ref: string }
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'done'; text: string }
@@ -30,6 +31,7 @@ export type Step = {
 export type Entry =
   | { kind: 'user' | 'thought' | 'error'; text: string; at: number }
   | { kind: 'done'; text: string; at: number; ref?: string } // ref: git checkpoint taken before this task
+  | { kind: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined'; command?: string; output?: string; at: number }
   | { kind: 'restored'; files: { status: string; path: string }[]; at: number }
   | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
   | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss'; text?: string }; at: number }
@@ -117,6 +119,13 @@ function reduce(s: State, a: Action): State {
     }
     case 'approval':
       return { ...s, marker: '$terminal', approval: { id: e.id, command: e.command } };
+    case 'verify': {
+      // The harness checking the agent's "done": one line per check, updated in place.
+      const entry = { kind: 'verify' as const, id: e.id, state: e.state, command: e.command, output: e.output, at: e.at };
+      const has = s.timeline.some((x) => x.kind === 'verify' && x.id === e.id);
+      return { ...s, marker: e.state === 'running' ? '$terminal' : s.marker,
+        timeline: has ? s.timeline.map((x) => (x.kind === 'verify' && x.id === e.id ? entry : x)) : [...s.timeline, entry] };
+    }
     case 'snapshot':
       return { ...s, snapshot: e.ref };
     case 'restored': {
@@ -136,7 +145,7 @@ function reduce(s: State, a: Action): State {
 }
 
 // Replay: rebuild the state as it was after moment k. A moment ends at a finished step, a message, or the end.
-const isMoment = (e: AgentEvent) => e.type === 'tool_end' || e.type === 'user' || e.type === 'done' || e.type === 'error' || e.type === 'checkpoint';
+const isMoment = (e: AgentEvent) => e.type === 'tool_end' || e.type === 'user' || e.type === 'done' || e.type === 'error' || e.type === 'checkpoint' || (e.type === 'verify' && e.state !== 'running');
 // Pace like Rundown: quick for reads, a beat longer for edits and messages.
 function paceFor(e: AgentEvent | undefined) {
   if (!e) return 400;
