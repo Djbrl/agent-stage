@@ -98,7 +98,7 @@ async function mockChat(messages: Message[], withTools: boolean): Promise<Messag
     return { role: 'assistant', content: `(mock answer) You asked: "${q}". A real model would answer from everything it has seen so far in this run.` };
   }
   const done = messages.filter((m) => m.role === 'tool').length;
-  if (done >= MOCK_SCRIPT.length) return { role: 'assistant', content: 'Done. Created a greeting module with an entry point and a README, handled empty names, and ran it: it prints "Hello, Dakar!".' };
+  if (done >= MOCK_SCRIPT.length) return { role: 'assistant', content: 'Done. Here is what changed:\n\n- **`src/greet.js`**: a `greet(name)` function, with a fallback for empty names\n- **`index.js`**: entry point that prints the greeting\n- **`README.md`**: how to run it\n\nRunning `node index.js` prints *Hello, Dakar!*' };
   const [name, args, thought] = MOCK_SCRIPT[done];
   return {
     role: 'assistant',

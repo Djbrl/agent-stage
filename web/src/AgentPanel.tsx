@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { State, Step } from './useAgent';
 import { Icon, TOOL_ICON } from './icons';
 import { stepLabel } from './Inspector';
+import { Markdown } from './Markdown';
 
 function summarize(steps: Step[]) {
   const c = (n: string[]) => steps.filter((s) => n.includes(s.name)).length;
@@ -48,14 +49,14 @@ export function AgentPanel({ state, model, problem, onRun, onAsk, onStop, onSele
         )}
         {state.timeline.map((e, i) => {
           if (e.kind === 'user') return <div key={i} className="bubble-user">{e.text}</div>;
-          if (e.kind === 'thought') return <div key={i} className="thought">{e.text}</div>;
+          if (e.kind === 'thought') return <div key={i} className="thought"><Markdown text={e.text} /></div>;
           if (e.kind === 'qa') return (
             <div key={i} className="qa">
               <div className="qa-q"><span className="qa-tag">Ask</span>{e.question}</div>
-              <div className="qa-a">{e.answer ?? <span className="spin" />}</div>
+              <div className="qa-a">{e.answer ? <Markdown text={e.answer} /> : <span className="spin" />}</div>
             </div>
           );
-          if (e.kind === 'done') return <div key={i} className="final"><Icon name="check" size={13} /> {e.text}</div>;
+          if (e.kind === 'done') return <div key={i} className="final"><Icon name="check" size={13} /> <Markdown text={e.text} /></div>;
           if (e.kind === 'error') return <div key={i} className="final bad"><Icon name="x" size={13} /> {e.text}</div>;
           const steps = e.steps.map((id) => byId[id]).filter(Boolean);
           const live = steps.some((s) => s.ok === undefined);
