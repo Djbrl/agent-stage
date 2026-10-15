@@ -21,12 +21,12 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory }: {
+export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
   side?: { onKeep: () => void; onClose: () => void; kept: boolean };
-  replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean;
+  replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean; status?: ReactNode;
 }) {
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
@@ -42,7 +42,7 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
   };
 
   return (
-    <aside className={`agent-panel ${side ? 'side' : ''} ${centered ? 'centered' : ''}`}>
+    <aside className={`agent-panel ${side ? 'side' : ''} ${centered ? 'centered' : ''} ${state.timeline.length ? '' : 'empty'}`}>
       <div className="panel-head">
         <span className="title thread-title" title={title}>{title || 'New thread'}</span>
         {side ? (
@@ -53,11 +53,7 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
           </span>
         ) : (
           <>
-            <div className="seg" title={state.running ? 'Switch when idle' : 'Build: the agent does the work. Learn: you design, it teaches and only writes code after you approve.'}>
-              {(['build', 'learn'] as const).map((m) => (
-                <button key={m} className={mode === m ? 'on' : ''} disabled={state.running} onClick={() => onMode(m)}>{m === 'build' ? 'Build' : 'Learn'}</button>
-              ))}
-            </div>
+            <span className="spacer" />
             {header}
           </>
         )}
@@ -122,6 +118,14 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
           placeholder={side ? 'Ask a follow-up…' : state.running ? 'Steer the agent…' : mode === 'learn' ? 'What do you want to build?' : 'Describe a task…'}
         />
         <div className="composer-bar">
+          {!side && (
+            <div className="seg sm" title={state.running ? 'Switch when idle' : 'Build: the agent does the work. Learn: you design, it teaches and only writes code after you approve.'}>
+              {(['build', 'learn'] as const).map((m) => (
+                <button key={m} className={mode === m ? 'on' : ''} disabled={state.running} onClick={() => onMode(m)}>{m === 'build' ? 'Build' : 'Learn'}</button>
+              ))}
+            </div>
+          )}
+          {status}
           <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} />
           <span className="spacer" />
           {!side && <button className="btn ghost sm" onClick={() => submit('ask')} disabled={!text.trim()} title="Ask in a side thread: it can read the project but never changes it">Ask</button>}
@@ -181,7 +185,7 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo }: { disabled: boolean
   return (
     <div className="picker">
       <button className="chip" disabled={disabled} onClick={() => setOpen(!open)} title={disabled ? 'Switch models when the agent is idle' : 'Switch model'}>
-        {active ? <><span className="muted">{ENGINE_LABEL[engineOf(active)]} ·</span> {active.name.replace(/^Claude Code · /, '')}</> : 'Pick a model'} <Icon name="chevron" size={10} className="rot" />
+        {active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : 'Pick a model'} <Icon name="chevron" size={10} className="rot" />
       </button>
       {open && (
         <div className="picker-menu" onMouseLeave={() => setOpen(false)}>

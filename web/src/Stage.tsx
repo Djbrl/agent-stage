@@ -57,7 +57,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
         following={following} onFollowChange={setFollowing} api={api} lit={lit} />
 
       <div className="stage-top">
-        <div className="stage-where"><Icon name="folder" size={12} />{folder}</div>
+        <div className="stage-where">{folder}</div>
         <div className="stage-tools">
           {!following && <button className="tool" onClick={() => api.current?.follow()} title="Let the camera follow the agent again (F)"><Icon name="target" size={13} /> Follow</button>}
           <button className={`tool ${readmap ? 'on' : ''}`} onClick={() => setReadmap(!readmap)} title="What the agent reads (M)"><Icon name="read" size={13} /></button>

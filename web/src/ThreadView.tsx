@@ -52,7 +52,6 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
 
   const header = (
     <>
-      <HealthDot health={health} serverDown={serverDown} onRecheck={recheck} gpu={gpuCtl} />
       {hasWork && !stageOpen && (
         <button className={`tool ${state.running ? 'pulse' : ''}`} onClick={() => setStageOpen(true)} title="Show the map">
           <Icon name="map" size={13} />{state.running && <span className="live-dot" />}
@@ -63,9 +62,10 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
 
   return (
     <HighlightContext.Provider value={{ paths: lit, set: (p) => setLit(p ?? []), known }}>
-    <div className={`thread ${showStage ? 'split' : 'solo'}`} style={showStage ? { gridTemplateColumns: `${chatW}px 8px minmax(0, 1fr)` } : undefined}>
+    <div className={`thread ${showStage ? 'split' : 'solo'}`} style={showStage ? { gridTemplateColumns: `${chatW}px 0 minmax(0, 1fr)` } : undefined}>
       <div className="chat-col">
         <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
+          status={<HealthDot health={health} serverDown={serverDown} onRecheck={recheck} gpu={gpuCtl} bare />}
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
           banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} compact={gpuCtl.gpu.phase !== 'error'} /> : null} replaying={replay.active} header={header} centered={!showStage}

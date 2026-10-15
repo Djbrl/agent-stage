@@ -156,7 +156,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
       cv.style.width = `${r.width}px`; cv.style.height = `${r.height}px`;
       // Panel sizes settle after first paint: keep re-fitting until the user takes the camera.
-      if (v.fitted && !v.userAt && !v.marker) v.cam = fit(v.lay.bounds);
+      if (v.fitted && !v.userAt && !live.current.state.running) v.cam = fit(v.lay.bounds);
     };
     const safe = (): Safe => ({ w: v.w, h: v.h, left: 0, top: live.current.insets.top, right: live.current.insets.right, bottom: live.current.insets.bottom });
     // Fit a box into the part of the canvas no floating panel covers.
@@ -183,7 +183,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       setTimeout(() => { v.camAnim = null; v.cam = to; cv.style.opacity = '1'; }, 180);
     };
     const direct = (now: number) => {
-      if (!live.current.following || !v.marker || now - lastDirect < 150 || v.camAnim || now < busyUntil) return;
+      if (!live.current.following || !v.marker || !live.current.state.running || now - lastDirect < 150 || v.camAnim || now < busyUntil) return;
       lastDirect = now;
       const st = live.current.state;
       const recent: string[] = [];
@@ -245,17 +245,17 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       // folders
       for (const f of lay.folders) {
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-        if (f.depth <= 3) { ctx.fillStyle = 'rgba(255,255,255,0.02)'; ctx.fill(); }
-        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = px; ctx.stroke();
-        if (f.r * k > 30) label(ctx, f.name, f.x, f.y - f.r - 6 * px, px, 11, 'rgba(232,233,236,0.45)', 'center', 500);
+        if (f.depth <= 2) { ctx.fillStyle = 'rgba(255,255,255,0.014)'; ctx.fill(); }
+        ctx.strokeStyle = 'rgba(255,255,255,0.075)'; ctx.lineWidth = px; ctx.stroke();
+        if (f.r * k > 46) label(ctx, f.name.toUpperCase(), f.x, f.y - f.r + 15 * px, px, 9.5, 'rgba(232,233,236,0.32)', 'center', 600);
       }
 
       // islands
       for (const [key, is] of Object.entries(lay.islands)) {
         ctx.beginPath(); ctx.arc(is.x, is.y, is.r, 0, Math.PI * 2);
-        ctx.setLineDash([3 * px, 3 * px]); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = px; ctx.stroke(); ctx.setLineDash([]);
+        ctx.setLineDash([2 * px, 3 * px]); ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = px; ctx.stroke(); ctx.setLineDash([]);
         const on = v.marker?.target === key;
-        label(ctx, is.label, is.x + is.r + 8 * px, is.y + 4 * px, px, 11, on ? C.ink : 'rgba(232,233,236,0.45)', 'left', 500);
+        label(ctx, is.label, is.x + is.r + 7 * px, is.y + 3.5 * px, px, 10.5, on ? C.ink : 'rgba(232,233,236,0.3)', 'left', 500);
       }
 
       // import lines, only for the hovered/selected file
@@ -274,6 +274,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       // trail: last 7 writes, curved, fading in toward the marker
       const writes = st.steps.filter((s) => s.change).map((s) => s.target);
       const trail: Pt[] = writes.filter((p, i) => p !== writes[i - 1]).slice(-7).map((p) => v.pos[p]).filter(Boolean);
+      if (!st.running) trail.length = 0; // the trail only means something while the agent is moving
       if (v.marker && trail.length) trail.push(markerPos(v.marker, now));
       for (let i = 1; i < trail.length; i++) {
         const w = i / (trail.length - 1), a = trail[i - 1], b = trail[i];
@@ -299,13 +300,15 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       for (const [path, c] of Object.entries(v.pos)) {
         const status = st.files[path];
         const changedAt = v.lastChange[path];
-        let col = C.cool;
+        let col = '';
         if (status === 'error') col = C.red;
         else if (changedAt) {
           const age = Date.now() - changedAt;
           col = age < 300_000 ? mix(C.hot, C.warm, Math.pow(age / 300_000, 1.5)) : C.warm;
         } else if (status === 'read') col = '#6b8fc4';
-        ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
+        ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+        if (col) { ctx.fillStyle = col; ctx.fill(); }
+        else { ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = px; ctx.stroke(); }
         if (path === sel || path === v.hover) { ctx.strokeStyle = C.ink; ctx.lineWidth = (path === sel ? 1.6 : 1.1) * px; ctx.stroke(); }
         if (live.current.lit.includes(path)) {
           const t = (now % 1200) / 1200;
@@ -324,7 +327,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
           ring(ctx, c, c.r + (3 + easeOut(t) * 26) * px, '#ff8c50', (1 - t) * 0.75, 2 * px);
         }
         const active = v.marker?.target === path;
-        const pri = path === sel || path === v.hover || live.current.lit.includes(path) ? 4 : active ? 3 : changedAt ? 2 : c.r * k > 8 || k > 1.6 ? 1 : 0;
+        const pri = path === sel || path === v.hover || live.current.lit.includes(path) ? 4 : active ? 3 : changedAt ? 2 : k > 1.5 && c.r * k > 7 ? 1 : 0;
         if (pri > 0) labels.push({ text: path.split('/').pop()!, x: c.x + c.r + 5 * px, y: c.y + 4 * px, pri, strong: pri >= 3 });
       }
 
@@ -339,13 +342,15 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
 
       // labels, highest priority first, skipping collisions (screen space)
       const taken: Array<[number, number, number, number]> = [];
+      const dots: Array<[number, number, number, number]> = Object.values(v.pos).map((c) => { const sx = c.x * k + x, sy = c.y * k + y, r = c.r * k; return [sx - r, sy - r, sx + r, sy + r]; });
       for (const l of labels.sort((a, b) => b.pri - a.pri)) {
         ctx.font = `${l.strong ? 600 : 500} ${12 * px}px Inter, system-ui, sans-serif`;
         const w = ctx.measureText(l.text).width * k, sx = l.x * k + x, sy = l.y * k + y;
         const box: [number, number, number, number] = [sx - 2, sy - 12, sx + w + 2, sy + 4];
-        if (taken.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+        const hits = (b: [number, number, number, number]) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1];
+        if (taken.some(hits) || (l.pri < 2 && dots.some(hits))) continue;
         taken.push(box);
-        label(ctx, l.text, l.x, l.y, px, 12, l.strong ? C.ink : 'rgba(232,233,236,0.62)', 'left', l.strong ? 600 : 500);
+        label(ctx, l.text, l.x, l.y, px, 11.5, l.strong ? C.ink : l.pri >= 2 ? 'rgba(232,233,236,0.78)' : 'rgba(232,233,236,0.45)', 'left', l.strong ? 600 : 500);
       }
 
       // agent marker + one ring (error > waiting > thinking)
@@ -368,13 +373,13 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         }
         ctx.save();
         ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 1;
-        ctx.beginPath(); ctx.arc(m.x, m.y, 9 * px, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(m.x, m.y, (st.running || err || waiting ? 9 : 6) * px, 0, Math.PI * 2);
         ctx.fillStyle = err ? C.red : st.running ? C.accent : mix(C.accent, '#8a8f98', 0.55); ctx.fill();
         ctx.restore();
         ctx.strokeStyle = '#0f1011'; ctx.lineWidth = 2 * px; ctx.stroke();
         const doing: Record<string, string> = { read_file: 'Reading…', write_file: 'Writing…', edit_file: 'Editing…', run_command: 'Running…', search: 'Searching…', list_files: 'Scanning…' };
         const verb = waiting ? 'Waiting for you' : err ? 'Failed' : !st.running ? 'Idle' : busy ? doing[last!.name] ?? 'Working…' : 'Thinking…';
-        label(ctx, `Agent · ${verb}`, m.x + 12 * px, m.y - 13 * px, px, 12, err ? C.red : waiting ? C.amber : C.ink, 'left', 600);
+        if (st.running || err || waiting) label(ctx, `Agent · ${verb}`, m.x + 12 * px, m.y - 13 * px, px, 12, err ? C.red : waiting ? C.amber : C.ink, 'left', 600);
       }
       drawReadmap(now);
     };
@@ -483,6 +488,9 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
 
   // First real layout → fit it straight away (don't wait for an animation frame).
   useEffect(() => { if (!v.fitted) v.fitNow(); }, [lay]);
+  useEffect(() => { const t = setTimeout(() => { if (!v.userAt && !state.running) v.fitNow(); }, 450); return () => clearTimeout(t); }, [lay, state.running]);
+  // A panel opened over the map (steps sheet): glide the framing into the space that's left.
+  useEffect(() => { if (v.fitted && !v.userAt && !state.running) v.fitAll(); }, [insets.right]);
 
   // Following again with no agent on the map → show the whole project.
   useEffect(() => { if (following && !v.marker) v.fitAll(); }, [following]);

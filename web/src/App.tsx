@@ -55,7 +55,7 @@ function Shell() {
   }, [threads]);
 
   return (
-    <div className="shell" style={{ gridTemplateColumns: railed || narrow ? '52px minmax(0, 1fr)' : `${sideW}px 6px minmax(0, 1fr)` }}>
+    <div className="shell" style={{ gridTemplateColumns: railed || narrow ? '52px minmax(0, 1fr)' : `${sideW}px 0 minmax(0, 1fr)` }}>
       <Sidebar active={active} onSelect={select} onNew={() => setModal('new')} onSettings={() => setModal('settings')} railed={railed || narrow} onToggle={() => setRailed(!railed)} />
       {!railed && !narrow && <Resizer onDrag={(dx) => setSideW((w) => Math.max(200, Math.min(360, w + dx)))} onReset={() => setSideW(248)} />}
       {active ? <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} /> : (

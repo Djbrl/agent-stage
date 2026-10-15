@@ -50,11 +50,14 @@ function Plain({ text }: { text: string }) {
       i++;
       blocks.push(<pre key={blocks.length} className="md-pre">{body.join('\n')}</pre>);
     } else if (/^\s*([-*]|\d+\.)\s+/.test(line)) {
-      const ordered = /^\s*\d+\./.test(line);
-      const items: string[] = [];
-      for (; i < lines.length && /^\s*([-*]|\d+\.)\s+/.test(lines[i]); i++) items.push(lines[i].replace(/^\s*([-*]|\d+\.)\s+/, ''));
-      const List = ordered ? 'ol' : 'ul';
-      blocks.push(<List key={blocks.length} className="md-list">{items.map((t, j) => <li key={j}>{inline(t)}</li>)}</List>);
+      // Lists, with nesting by indentation (models often emit "1. Heading" then indented "- item").
+      const items: { depth: number; ordered: boolean; text: string }[] = [];
+      for (; i < lines.length && (/^\s*([-*]|\d+\.)\s+/.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items.length)); i++) {
+        const m = lines[i].match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
+        if (m) items.push({ depth: Math.floor(m[1].replace(/\t/g, '  ').length / 2), ordered: /\d/.test(m[2]), text: m[3] });
+        else items[items.length - 1].text += ' ' + lines[i].trim();
+      }
+      blocks.push(<ListTree key={blocks.length} items={items} />);
     } else if (/^#{1,4}\s/.test(line)) {
       blocks.push(<p key={blocks.length} className="md-h">{inline(line.replace(/^#+\s/, ''))}</p>);
       i++;
@@ -75,4 +78,22 @@ function Code({ text }: { text: string }) {
   const path = h.known(text);
   if (!path) return <code>{text}</code>;
   return <code className="filelink" onMouseEnter={() => h.set([path])} onMouseLeave={() => h.set(null)}>{text}</code>;
+}
+
+function ListTree({ items }: { items: { depth: number; ordered: boolean; text: string }[] }) {
+  // Build a tree from depths, then render nested <ol>/<ul>.
+  type N = { text: string; ordered: boolean; kids: N[] };
+  const root: N = { text: '', ordered: false, kids: [] };
+  const stack: { depth: number; node: N }[] = [{ depth: -1, node: root }];
+  for (const it of items) {
+    while (stack.length > 1 && stack[stack.length - 1].depth >= it.depth) stack.pop();
+    const n: N = { text: it.text, ordered: it.ordered, kids: [] };
+    stack[stack.length - 1].node.kids.push(n);
+    stack.push({ depth: it.depth, node: n });
+  }
+  const render = (kids: N[], k: string): ReactNode => {
+    const L = kids[0]?.ordered ? 'ol' : 'ul';
+    return <L key={k} className="md-list">{kids.map((n, j) => <li key={j}>{inline(n.text)}{n.kids.length ? render(n.kids, `${k}-${j}`) : null}</li>)}</L>;
+  };
+  return <>{render(root.kids, 'l')}</>;
 }

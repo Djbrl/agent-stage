@@ -31,10 +31,10 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle 
         {threads.length === 0 && <div className="side-empty">No threads yet. Start one in any folder on your computer.</div>}
         {[...groups].map(([folder, list]) => (
           <div key={folder} className="side-group">
-            <div className="side-folder" title={folder}><Icon name="folder" size={12} />{folder.split('/').pop()}<span className="side-path">{shortPath(folder, me?.home)}</span></div>
+            <div className="side-folder" title={shortPath(folder, me?.home)}>{folder.split('/').pop()}</div>
             {list.map((t) => (
               <button key={t.id} className={`side-thread ${t.id === active ? 'on' : ''}`} onClick={() => onSelect(t.id)}>
-                {t.running ? <span className="spin" /> : <span className="side-dot" />}
+                {t.running && <span className="spin" />}
                 <span className="side-title">{t.title}</span>
                 {t.engine === 'claude-code' && <span className="side-engine" title="Claude Code engine">CC</span>}
                 <span className="side-ago">{ago(t.updatedAt)}</span>
@@ -45,7 +45,6 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle 
       </div>
 
       <div className="side-foot">
-        <div className="side-usage"><span>{fmtTokens(total)} tokens</span><span className="muted">· {provider?.name ?? '…'}</span></div>
         <div className="side-account">
           <span className="avatar">{(me?.name ?? '?').slice(0, 1).toUpperCase()}</span>
           <div className="who"><div>{me?.name ?? '…'}</div><div className="muted">Local · this computer</div></div>

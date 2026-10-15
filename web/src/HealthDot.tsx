@@ -4,8 +4,8 @@ import { StatusBar } from './StatusBar';
 import type { HealthView } from './useHealth';
 import { GpuPanel, gpuBusy, type GpuView } from './useGpu';
 
-export function HealthDot({ health, serverDown, onRecheck, gpu }: { health: HealthView | null; serverDown: boolean; onRecheck: () => void;
-  gpu?: { gpu: GpuView | null; start: () => void; stop: () => void } }) {
+export function HealthDot({ health, serverDown, onRecheck, gpu, bare }: { health: HealthView | null; serverDown: boolean; onRecheck: () => void;
+  gpu?: { gpu: GpuView | null; start: () => void; stop: () => void }; bare?: boolean }) {
   const [open, setOpen] = useState(false);
   const m = health?.model.state;
   const g = gpu?.gpu?.managed ? gpu.gpu : null;
@@ -14,8 +14,8 @@ export function HealthDot({ health, serverDown, onRecheck, gpu }: { health: Heal
   const name = health ? (health.model.mock ? 'Demo' : health.model.name.split('/').pop()!.replace(/-Instruct.*$/i, '')) : '…';
   return (
     <div className="hdot" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button className="hdot-btn" onClick={() => { setOpen(!open); onRecheck(); }} title="Model status">
-        <span className={`sdot ${tone}`} /><span className="hdot-name">{g && gpuBusy(g) ? `${g.phase}…` : name}</span>
+      <button className={`hdot-btn ${bare ? 'bare' : ''}`} onClick={() => { setOpen(!open); onRecheck(); }} title="Model status">
+        <span className={`sdot ${tone}`} />{!bare && <span className="hdot-name">{g && gpuBusy(g) ? `${g.phase}…` : name}</span>}
       </button>
       {open && <div className="hdot-pop">
         {g && gpu && <GpuPanel gpu={g} start={gpu.start} stop={gpu.stop} />}
