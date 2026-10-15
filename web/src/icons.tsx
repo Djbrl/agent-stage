@@ -29,7 +29,7 @@ export function Icon({ name, size = 14, className }: { name: IconName; size?: nu
 }
 
 export const TOOL_ICON: Record<string, IconName> = {
-  list_files: 'list', read_file: 'read', write_file: 'write', edit_file: 'write', search: 'search', run_command: 'terminal',
+  list_files: 'list', read_file: 'read', write_file: 'write', edit_file: 'write', search: 'search', run_command: 'terminal', checkpoint: 'shield',
 };
 
 const EXT_COLOR: Record<string, string> = {

@@ -278,3 +278,32 @@ kbd { font: 10.5px var(--mono); color: var(--dim); border: 1px solid var(--line)
   .sidebar { display: none; }
   .thread { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; padding: 8px; }
 }
+
+/* learn mode */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; padding: 2px; margin-left: auto; }
+.seg button { border: 0; background: none; color: var(--dim); font: 500 12px var(--sans); padding: 3px 10px; border-radius: 6px; cursor: pointer; }
+.seg button.on { background: var(--hover); color: var(--text); }
+.seg button:disabled { cursor: default; }
+.panel-head .status { margin-left: 10px; }
+.callout, .checkpoint { border: 1px solid var(--line-soft); border-left: 2px solid var(--dim); border-radius: 8px; padding: 9px 11px; margin: 4px 0; background: var(--raised); }
+.callout-head { font-weight: 600; font-size: 12.5px; margin-bottom: 4px; }
+.callout-head span { font-weight: 500; color: var(--dim); }
+.callout.concept { border-left-color: #5fa8ff; } .callout.concept .callout-head { color: #8cc3ff; }
+.callout.why-this-matters { border-left-color: #f5b84a; } .callout.why-this-matters .callout-head { color: #f7cd7c; }
+.callout.build-checkpoint { border-left-color: var(--accent); } .callout.build-checkpoint .callout-head { color: #a9b6ff; }
+.callout.implementation-report, .callout.system-check { border-left-color: var(--write); } .callout.implementation-report .callout-head { color: #7ee2b0; }
+.checkpoint { border-left-color: var(--accent); box-shadow: 0 0 0 1px #7b8cff22; }
+.checkpoint.done { box-shadow: none; opacity: .85; }
+.checkpoint .callout-head { color: #a9b6ff; }
+.additions { margin: 8px 0 4px; font-size: 12px; } .additions th, .additions td { padding: 5px 6px; }
+.cp-files { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 2px; }
+.cp-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.cp-actions .lock { font-size: 11.5px; }
+.cp-answer { margin-top: 8px; font-size: 12.5px; color: var(--write); } .cp-answer.discuss { color: var(--warn); }
+.cp-discuss textarea { width: 100%; margin-top: 8px; background: var(--frame); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: 13px var(--sans); resize: none; }
+.cp-discuss .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.mode-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mode-pick button { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 10px;
+  background: none; color: var(--text); font: 13px var(--sans); cursor: pointer; }
+.mode-pick button .muted { font-size: 12px; }
+.mode-pick button.on { border-color: var(--accent); background: #7b8cff12; }

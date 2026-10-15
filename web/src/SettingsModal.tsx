@@ -4,7 +4,7 @@ import { get, send, fmtTokens, type Provider } from './api';
 import { useApp } from './useSettings';
 import { Icon } from './icons';
 
-type Tab = 'models' | 'usage' | 'safety' | 'about';
+type Tab = 'models' | 'learning' | 'usage' | 'safety' | 'about';
 const KIND_LABEL = { mock: 'Scripted demo', openai: 'OpenAI-compatible', anthropic: 'Anthropic (Claude)' };
 
 export function SettingsModal({ onClose, initialTab = 'models' }: { onClose: () => void; initialTab?: Tab }) {
@@ -15,12 +15,13 @@ export function SettingsModal({ onClose, initialTab = 'models' }: { onClose: () 
         <div className="modal-head"><span>Settings</span><button className="icon-btn" onClick={onClose}><Icon name="x" size={13} /></button></div>
         <div className="settings">
           <div className="settings-nav">
-            {(['models', 'usage', 'safety', 'about'] as Tab[]).map((t) => (
-              <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ models: 'Models', usage: 'Usage & spend', safety: 'Safety', about: 'About' }[t]}</button>
+            {(['models', 'learning', 'usage', 'safety', 'about'] as Tab[]).map((t) => (
+              <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ models: 'Models', learning: 'Learning', usage: 'Usage & spend', safety: 'Safety', about: 'About' }[t]}</button>
             ))}
           </div>
           <div className="settings-body">
             {tab === 'models' && <Models />}
+            {tab === 'learning' && <Learning />}
             {tab === 'usage' && <Usage />}
             {tab === 'safety' && <Safety />}
             {tab === 'about' && <About />}
@@ -153,6 +154,29 @@ function Usage() {
         ))}</tbody>
       </table>
       <p className="hint">API models bill per token on your provider's account. Self-hosted models bill per GPU hour, whether you use them or not, so stop the GPU when you're done.</p>
+    </div>
+  );
+}
+
+function Learning() {
+  const { settings, save } = useApp();
+  if (!settings) return null;
+  const l = settings.learn;
+  const opt = <K extends keyof typeof l>(key: K, values: [typeof l[K], string, string][]) => values.map(([v, title, sub]) => (
+    <label key={String(v)} className={`choice ${l[key] === v ? 'on' : ''}`}>
+      <input type="radio" checked={l[key] === v} onChange={() => save({ learn: { ...l, [key]: v } })} />
+      <span><b>{title}</b><span className="muted">{sub}</span></span>
+    </label>
+  ));
+  return (
+    <div>
+      <p className="muted">Learn mode, inspired by VibeWise: you own the design, the agent teaches and implements what you agree on.</p>
+      <div className="label">Your level</div>
+      {opt('level', [['beginner', 'Beginner', 'More grounding: terms are defined the first time they appear.'], ['intermediate', 'Intermediate', 'Focus on how the parts interact.'], ['advanced', 'Advanced', 'Probe assumptions, failure modes and trust boundaries.']])}
+      <div className="label">Checkpoints</div>
+      {opt('frequency', [['light', 'Light', 'Only major decisions.'], ['normal', 'Normal', 'Meaningful decisions.'], ['frequent', 'Frequent', 'Smaller steps too.']])}
+      <div className="label">Language</div>
+      {opt('language', [['en', 'English', 'Explanations in English.'], ['fr', 'Français', 'Les explications en français (le code reste en anglais).']])}
     </div>
   );
 }

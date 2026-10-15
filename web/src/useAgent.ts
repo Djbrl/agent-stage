@@ -8,6 +8,8 @@ export type AgentEvent = Base & (
   | { type: 'tool_end'; id: string; name: string; ok: boolean; output: string }
   | { type: 'approval'; id: string; command: string }
   | { type: 'file_change'; path: string; before: string; after: string }
+  | { type: 'checkpoint'; id: string; kind: 'design' | 'implementation'; title: string; summary: string; additions?: { detail: string; proposal: string; why: string }[]; files?: string[] }
+  | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss'; text?: string }
   | { type: 'user'; text: string }
   | { type: 'question'; id: string; text: string }
   | { type: 'answer'; id: string; text: string }
@@ -24,6 +26,7 @@ export type Step = {
 export type Entry =
   | { kind: 'user' | 'thought' | 'done' | 'error'; text: string; at: number }
   | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
+  | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss'; text?: string }; at: number }
   | { kind: 'actions'; steps: string[]; at: number };
 
 export type State = {
@@ -34,12 +37,13 @@ export type State = {
   steps: Step[];
   timeline: Entry[];
   approval: { id: string; command: string } | null;
+  planned: string[]; // files named by an open checkpoint (highlighted on the map)
   running: boolean;
   startedAt: number | null;
 };
 
 export const initial: State = {
-  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, running: false, startedAt: null,
+  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null,
 };
 
 export function targetOf(name: string, args: any): string {
@@ -61,6 +65,10 @@ function reduce(s: State, a: Action): State {
     case 'user':
       if (e.text === '— new session —') return { ...initial, files: Object.fromEntries(Object.keys(s.files).map((f) => [f, 'idle'])) };
       return { ...s, running: true, startedAt: s.running ? s.startedAt : e.at, timeline: [...s.timeline, { kind: 'user', text: e.text, at: e.at }] };
+    case 'checkpoint':
+      return { ...s, planned: e.files ?? [], timeline: [...s.timeline, { kind: 'checkpoint', id: e.id, cp: e, at: e.at }] };
+    case 'checkpoint_answer':
+      return { ...s, planned: e.choice === 'confirm' ? s.planned : [], timeline: s.timeline.map((x) => (x.kind === 'checkpoint' && x.id === e.id ? { ...x, answer: { choice: e.choice, text: e.text } } : x)) };
     case 'question':
       return { ...s, timeline: [...s.timeline, { kind: 'qa', id: e.id, question: e.text, at: e.at }] };
     case 'answer':
@@ -99,7 +107,7 @@ function reduce(s: State, a: Action): State {
     case 'approval':
       return { ...s, marker: '$terminal', approval: { id: e.id, command: e.command } };
     case 'done':
-      return { ...s, running: false, approval: null, timeline: [...s.timeline, { kind: 'done', text: e.text, at: e.at }] };
+      return { ...s, running: false, approval: null, planned: [], timeline: [...s.timeline, { kind: 'done', text: e.text, at: e.at }] };
     case 'error':
       return { ...s, running: false, approval: null, timeline: [...s.timeline, { kind: 'error', text: e.message, at: e.at }] };
   }
@@ -108,7 +116,7 @@ function reduce(s: State, a: Action): State {
 export function useAgent(threadId: string) {
   const base = `/api/threads/${threadId}`;
   const [state, dispatch] = useReducer(reduce, initial);
-  const [meta, setMeta] = useReducer((_: any, m: any) => m, { workspace: '…', title: '' });
+  const [meta, setMeta] = useReducer((_: any, m: any) => m, { workspace: '…', title: '', mode: 'build' });
 
   useEffect(() => {
     const refresh = () =>
@@ -137,5 +145,7 @@ export function useAgent(threadId: string) {
     steer: (text: string) => post('steer', { text }),
     stop: () => post('stop'),
     approve: (id: string, ok: boolean) => post('approve', { id, ok }),
+    answerCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => post('checkpoint', { id, choice, text }),
+    setMode: (mode: 'build' | 'learn') => post('mode', { mode }).then(() => setMeta({ ...meta, mode })),
   };
 }

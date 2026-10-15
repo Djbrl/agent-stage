@@ -5,8 +5,8 @@ import { lineDiff, diffStats } from './diff';
 import { Icon, TOOL_ICON } from './icons';
 
 export function stepLabel(s: Step) {
-  const v: Record<string, string> = { list_files: 'Scanned workspace', read_file: 'Read', write_file: 'Wrote', edit_file: 'Edited', search: 'Searched', run_command: 'Ran' };
-  const what = s.name === 'run_command' ? s.args.command : s.name === 'search' ? `“${s.args.text}”` : s.args.path ?? '';
+  const v: Record<string, string> = { list_files: 'Scanned workspace', read_file: 'Read', write_file: 'Wrote', edit_file: 'Edited', search: 'Searched', run_command: 'Ran', checkpoint: 'Checkpoint' };
+  const what = s.name === 'run_command' ? s.args.command : s.name === 'search' ? `“${s.args.text}”` : s.name === 'checkpoint' ? s.args.title ?? '' : s.args.path ?? '';
   return { verb: v[s.name] ?? s.name, what };
 }
 

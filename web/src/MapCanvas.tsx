@@ -155,7 +155,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
     };
     const moveTo = (to: Cam) => { v.camAnim = { from: { ...v.cam }, to, t0: performance.now() }; };
     v.fitAll = () => { if (Object.keys(v.lay.files).length) moveTo(fit(v.lay.bounds)); };
-    v.fitNow = () => { if (v.w && Object.keys(v.lay.files).length) { v.camAnim = null; v.cam = fit(v.lay.bounds); v.fitted = true; } };
+    v.fitNow = () => { if (v.w) { v.camAnim = null; v.cam = fit(v.lay.bounds); v.fitted = true; } };
     const ro = new ResizeObserver(resize);
     ro.observe(wrap.current!);
     resize();
@@ -276,6 +276,11 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
         } else if (status === 'read') col = '#6b8fc4';
         ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
         if (path === sel || path === v.hover) { ctx.strokeStyle = C.ink; ctx.lineWidth = (path === sel ? 1.6 : 1.1) * px; ctx.stroke(); }
+        if (st.planned.includes(path)) {
+          ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 5 * px, 0, Math.PI * 2);
+          ctx.setLineDash([3 * px, 3 * px]); ctx.lineDashOffset = -now / 60 * px;
+          ctx.strokeStyle = C.accent; ctx.lineWidth = 1.6 * px; ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        }
 
         const rip = v.ripples[path];
         if (rip && now - rip < RIPPLE) {
@@ -286,6 +291,15 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
         const pri = path === sel || path === v.hover ? 4 : active ? 3 : changedAt ? 2 : c.r * k > 8 || k > 1.6 ? 1 : 0;
         if (pri > 0) labels.push({ text: path.split('/').pop()!, x: c.x + c.r + 5 * px, y: c.y + 4 * px, pri, strong: pri >= 3 });
       }
+
+      // planned-but-not-yet-created files: ghost dots on the right edge of the project, labelled
+      st.planned.filter((p) => !v.pos[p]).forEach((p, i) => {
+        const empty = !Object.keys(v.pos).length;
+        const gx = empty ? lay.root.x - 30 : lay.root.x + lay.root.r * 0.75, gy = (empty ? lay.root.y - 20 : lay.root.y - lay.root.r * 0.6) + i * 22;
+        ctx.beginPath(); ctx.arc(gx, gy, 6, 0, Math.PI * 2);
+        ctx.setLineDash([2 * px, 3 * px]); ctx.strokeStyle = C.accent; ctx.lineWidth = 1.4 * px; ctx.stroke(); ctx.setLineDash([]);
+        labels.push({ text: `${p} (planned)`, x: gx + 10, y: gy + 4 * px, pri: 3, strong: false });
+      });
 
       // labels, highest priority first, skipping collisions (screen space)
       const taken: Array<[number, number, number, number]> = [];
@@ -303,7 +317,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
         const m = markerPos(v.marker, now);
         const last = st.steps.at(-1);
         const err = Boolean(last?.ok === false && last.endedAt && Date.now() - last.endedAt < ERROR_MS);
-        const waiting = Boolean(st.approval);
+        const waiting = Boolean(st.approval) || st.timeline.some((t) => t.kind === 'checkpoint' && !t.answer);
         const busy = last && last.endedAt === undefined;
         const thinking = st.running && !busy && !waiting;
         if (err) {
@@ -397,7 +411,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State
   return (
     <div className="map-wrap" ref={wrap}>
       <canvas ref={canvas} />
-      {data.files.length === 0 && <div className="map-empty">Empty workspace. Give the agent a task to start.</div>}
+      {data.files.length === 0 && !state.planned.length && <div className="map-empty">Empty workspace. Give the agent a task to start.</div>}
       <div className="map-tools">
         {!following && <button className="btn ghost sm" onClick={() => setFollowing(true)}>Follow agent <kbd>F</kbd></button>}
         <button className="btn ghost sm" onClick={() => v.fitAll()} title="Fit the whole project (0)">Fit</button>

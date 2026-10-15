@@ -18,7 +18,27 @@ function inline(text: string, key = 0): ReactNode[] {
   return out;
 }
 
+const CALLOUT = /^✦\s*(Build checkpoint|Design checkpoint|Implementation checkpoint|Implementation report|System check|Concept|Why this matters)\s*:?\s*(.*)$/i;
+
+// Learn-mode callouts ("✦ Concept: closures" + the paragraphs until the next callout) get their own card.
 export function Markdown({ text }: { text: string }) {
+  const parts = text.split(/\n(?=✦)/);
+  if (parts.length === 1 && !CALLOUT.test(text.trim())) return <Plain text={text} />;
+  return <div className="md">{parts.map((part, i) => {
+    const [first, ...rest] = part.trim().split('\n');
+    const m = first.match(CALLOUT);
+    if (!m) return <Plain key={i} text={part} />;
+    const kind = m[1].toLowerCase().replace(/\s+/g, '-');
+    return (
+      <div key={i} className={`callout ${kind}`}>
+        <div className="callout-head">✦ {m[1]}{m[2] ? <span>: {m[2]}</span> : null}</div>
+        {rest.join('\n').trim() && <Plain text={rest.join('\n')} />}
+      </div>
+    );
+  })}</div>;
+}
+
+function Plain({ text }: { text: string }) {
   const blocks: ReactNode[] = [];
   const lines = text.replace(/\r/g, '').split('\n');
   for (let i = 0; i < lines.length; ) {

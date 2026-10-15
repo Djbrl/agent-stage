@@ -10,12 +10,13 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
   const { settings, me, refreshThreads } = useApp();
   const [dir, setDir] = useState<Listing | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'build' | 'learn'>('build');
   const browse = (path?: string) => get<Listing>(`/api/fs${path ? `?path=${encodeURIComponent(path)}` : ''}`).then((l) => !l.error && setDir(l));
   useEffect(() => { browse(); }, []);
 
   const start = async (folder: string) => {
     setBusy(true);
-    const t = await send<{ id: string }>('/api/threads', { folder });
+    const t = await send<{ id: string }>('/api/threads', { folder, mode });
     refreshThreads();
     onCreated(t.id);
   };
@@ -25,6 +26,11 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
       <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head"><span>New thread</span><button className="icon-btn" onClick={onClose}><Icon name="x" size={13} /></button></div>
         <div className="modal-body">
+          <div className="label">Mode</div>
+          <div className="mode-pick">
+            <button className={mode === 'build' ? 'on' : ''} onClick={() => setMode('build')}><b>Build</b><span className="muted">The agent does the work. You watch, steer and approve.</span></button>
+            <button className={mode === 'learn' ? 'on' : ''} onClick={() => setMode('learn')}><b>Learn</b><span className="muted">You design, the agent teaches. It can only write code after you approve each step.</span></button>
+          </div>
           <div className="label">Recent folders</div>
           <div className="folder-list">
             {(settings?.recentFolders ?? []).map((f) => (

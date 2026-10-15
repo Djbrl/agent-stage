@@ -18,8 +18,9 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, title, problem, onRun, onAsk, onStop, onSelect, onOpenSettings }: {
-  state: State; title: string; problem: string | null; onOpenSettings: () => void; onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
+export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings }: {
+  state: State; title: string; problem: string | null; onOpenSettings: () => void;
+  mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => void; onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
 }) {
   const [text, setText] = useState('');
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -38,19 +39,30 @@ export function AgentPanel({ state, title, problem, onRun, onAsk, onStop, onSele
     <aside className="agent-panel">
       <div className="panel-head">
         <span className="title thread-title" title={title}>{title || 'New thread'}</span>
+        <div className="seg" title={state.running ? 'Switch when idle' : 'Build: the agent does the work. Learn: you design, it teaches and implements what you agree.'}>
+          {(['build', 'learn'] as const).map((m) => (
+            <button key={m} className={mode === m ? 'on' : ''} disabled={state.running} onClick={() => onMode(m)}>{m === 'build' ? 'Build' : 'Learn'}</button>
+          ))}
+        </div>
         <span className={`status ${state.running ? 'on' : ''}`}><span className="dot" />{state.running ? 'Working' : 'Idle'}</span>
       </div>
 
       <div className="timeline">
         {state.timeline.length === 0 && (
           <div className="intro">
-            <div className="intro-title">What should the agent build?</div>
-            <div className="muted">You'll watch it move through your project on the map. Stop it, ask it things, and approve every command.</div>
+            {mode === 'learn' ? <>
+              <div className="intro-title">What do you want to learn to build?</div>
+              <div className="muted">In Learn mode you design and the agent teaches: it asks for your approach first, explains concepts, and can only write code after you confirm an Implementation checkpoint.</div>
+            </> : <>
+              <div className="intro-title">What should the agent build?</div>
+              <div className="muted">You'll watch it move through your project on the map. Stop it, ask it things, and approve every command.</div>
+            </>}
           </div>
         )}
         {state.timeline.map((e, i) => {
           if (e.kind === 'user') return <div key={i} className="bubble-user">{e.text}</div>;
           if (e.kind === 'thought') return <div key={i} className="thought"><Markdown text={e.text} /></div>;
+          if (e.kind === 'checkpoint') return <CheckpointCard key={i} entry={e} onAnswer={onCheckpoint} />;
           if (e.kind === 'qa') return (
             <div key={i} className="qa">
               <div className="qa-q"><span className="qa-tag">Ask</span>{e.question}</div>
@@ -127,6 +139,41 @@ function ModelPicker({ disabled, onOpenSettings }: { disabled: boolean; onOpenSe
             </button>
           ))}
           <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Manage models…</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CheckpointCard({ entry, onAnswer }: { entry: Extract<State['timeline'][number], { kind: 'checkpoint' }>; onAnswer: (id: string, c: 'confirm' | 'discuss', t?: string) => void }) {
+  const { cp, answer } = entry;
+  const [discussing, setDiscussing] = useState(false);
+  const [note, setNote] = useState('');
+  const impl = cp.kind === 'implementation';
+  return (
+    <div className={`checkpoint ${cp.kind} ${answer ? 'done' : ''}`}>
+      <div className="callout-head">✦ {impl ? 'Implementation' : 'Design'} checkpoint<span>: {cp.title}</span></div>
+      <Markdown text={cp.summary} />
+      {cp.additions?.length ? (
+        <table className="table additions">
+          <thead><tr><th>Proposed addition</th><th>Proposal</th><th>Why it matters</th></tr></thead>
+          <tbody>{cp.additions.map((a, i) => <tr key={i}><td>{a.detail}</td><td>{a.proposal}</td><td className="muted">{a.why}</td></tr>)}</tbody>
+        </table>
+      ) : null}
+      {cp.files?.length ? <div className="cp-files">{cp.files.map((f) => <span key={f} className="chip mono">{f}</span>)}</div> : null}
+      {answer ? (
+        <div className={`cp-answer ${answer.choice}`}>{answer.choice === 'confirm' ? (impl ? '✓ You approved this step' : '✓ Design confirmed') : `You asked to discuss${answer.text ? `: “${answer.text}”` : ''}`}</div>
+      ) : discussing ? (
+        <div className="cp-discuss">
+          <textarea autoFocus rows={2} value={note} placeholder="What doesn't make sense yet?" onChange={(e) => setNote(e.target.value)} />
+          <div className="row"><button className="btn ghost" onClick={() => setDiscussing(false)}>Back</button>
+            <button className="btn primary" onClick={() => onAnswer(entry.id, 'discuss', note.trim() || undefined)}>Send</button></div>
+        </div>
+      ) : (
+        <div className="cp-actions">
+          <button className="btn primary" onClick={() => onAnswer(entry.id, 'confirm')}>{impl ? 'Implement this step' : 'Confirm and continue'}</button>
+          <button className="btn ghost" onClick={() => setDiscussing(true)}>Discuss</button>
+          {impl && <span className="muted lock">🔒 The agent can't touch files until you approve.</span>}
         </div>
       )}
     </div>

@@ -11,7 +11,7 @@ import { useApp } from './useSettings';
 import { shortPath } from './api';
 
 export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings: () => void }) {
-  const { state, meta, run, ask, steer, stop, approve } = useAgent(id);
+  const { state, meta, run, ask, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
   const { health, serverDown, recheck } = useHealth();
   const { me, refreshThreads } = useApp();
   const problem = diagnose(health, serverDown);
@@ -28,7 +28,8 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
 
   return (
     <div className="thread">
-      <AgentPanel state={state} title={meta.title} problem={problem} onOpenSettings={onOpenSettings}
+      <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
+        problem={problem} onOpenSettings={onOpenSettings}
         onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={ask} onStop={stop} onSelect={setSelected} />
 
       <main className="surface">
