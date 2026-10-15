@@ -59,6 +59,20 @@ sampler off. First real run: a 3-file task with clean tool calls in about 4 seco
   guard now catches repeats that aren't back to back), and replies showed raw markdown (now
   rendered, without injecting HTML).
 
+## Night 3: from tool to teacher (16 10)
+- **A real harness shell**: threads grouped by folder in a sidebar, a folder picker, settings for models,
+  keys (stored only on your machine), usage and safety. The agent panel moved left, like the coding apps people know.
+- **Claude and OpenAI as options** next to open models. Claude goes through Anthropic's official SDK (its
+  thinking blocks are replayed unchanged), and everything OpenAI-compatible shares one client.
+- **Learn mode, after VibeWise.** We studied VibeWise (MIT), a Claude Code plugin where the learner owns the
+  design and the AI teaches through checkpoints. Because we own the whole harness, we went one step further:
+  checkpoints are UI cards, and the harness itself refuses file writes and commands until the learner approves
+  an Implementation checkpoint, instead of trusting the prompt.
+- **Teaching on the same model**: every step gets a plain-language label and a "why", files get one-line
+  summaries, and any diff can be explained. On a self-hosted GPU this costs nothing extra.
+- **Ideas we brought back from our earlier visualizer work**: replay with step-based pacing, a readmap of what the
+  agent reads, and a first-run tour.
+
 ## AI in this project
 | Where | What | Why |
 |---|---|---|
@@ -66,6 +80,7 @@ sampler off. First real run: a 3-file task with clean tool calls in about 4 seco
 | **In the product** | the same model answers side questions mid-run | lets the human understand without interrupting |
 | **Building it** | Claude Code, an AI coding assistant, for pair-programming | speed in a 5-day window |
 | **Building it** | Mobbin MCP, giving the assistant UI references | design grounded in real products |
+| **In the product** | the same model labels steps, summarizes files and explains changes | turns every run into a lesson |
 
 Every line was reviewed and steered by the team. The assistant drafted and we decided.
 

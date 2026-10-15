@@ -25,7 +25,15 @@ agent-stage makes the agent's work **visible and controllable**:
 - an **activity log and diff view**: every step with its timing, and exactly what changed;
 - **human controls**: Stop, Steer (redirect mid-run), Ask (side question, changes nothing) and
   Approve (every shell command needs your OK);
-- **open models**: any OpenAI-compatible endpoint, from NVIDIA's API to a local Ollama.
+- **Learn mode**: you design, the agent teaches. It asks for your approach first, explains concepts, and the
+  harness *physically blocks* file writes until you approve an Implementation checkpoint (inspired by
+  [VibeWise](https://github.com/nykooi1/vibe-wise), MIT);
+- **every step explained**: plain-language labels and a "why" for each action, one-line file summaries, and
+  "Explain this change" on any diff, from the same model, so free on a self-hosted GPU, in English or French;
+- **replay**: rewind any thread and watch the agent walk the project again; a **readmap** shows what it read;
+- **Ask** opens a temporary read-only side thread, so questions never disturb the work;
+- **threads per folder**, a first-run tour, and **any model**: Claude, OpenAI, NVIDIA, OpenRouter, Ollama or
+  your own GPU with vLLM.
 
 ## Status
 Working prototype: agent loop hardened for open models, Hono server, live visual UI (project
