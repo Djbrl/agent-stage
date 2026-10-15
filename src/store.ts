@@ -11,6 +11,7 @@ export type Provider = {
   id: string; name: string; kind: 'mock' | 'openai' | 'anthropic';
   baseUrl: string; apiKey: string; model: string;
   gpuHourly?: number; tunnelHost?: string; brevInstance?: string;
+  gpuTypes?: string; autoStopMin?: number; // one-click GPU: Brev types to try, destroy after N idle minutes (0 = never)
 };
 export type Settings = {
   providers: Provider[];
@@ -63,7 +64,7 @@ export const PRESETS: Omit<Provider, 'id'>[] = [
   { name: 'OpenAI API', kind: 'openai', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: '' },
   { name: 'NVIDIA API', kind: 'openai', baseUrl: 'https://integrate.api.nvidia.com/v1', apiKey: '', model: 'nvidia/nemotron-3-super-120b-a12b' },
   { name: 'Ollama (this computer)', kind: 'openai', baseUrl: 'http://localhost:11434/v1', apiKey: 'ollama', model: 'qwen3-coder:30b' },
-  { name: 'vLLM on a GPU', kind: 'openai', baseUrl: 'http://localhost:8000/v1', apiKey: '', model: 'Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8', tunnelHost: 'agent-gpu', gpuHourly: 1.06 },
+  { name: 'My GPU (Brev + vLLM)', kind: 'openai', baseUrl: 'http://localhost:8000/v1', apiKey: '', model: 'Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8', tunnelHost: 'agent-gpu', brevInstance: 'agent-gpu', gpuHourly: 1.06, autoStopMin: 20 },
   { name: 'OpenRouter', kind: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: '', model: 'qwen/qwen3-coder' },
 ];
 

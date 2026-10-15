@@ -13,6 +13,7 @@ import { startTunnel } from './tunnel.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap } from './mapdata.ts';
 import { enqueue, insightsOn, labelStep, summarizeFile, explainChange } from './insight.ts';
+import { GpuManager } from './gpu.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread,
   PRESETS, type Provider, type Settings, type Thread } from './store.ts';
 
@@ -36,6 +37,18 @@ function retunnel() {
 retunnel();
 
 const gpuMs: Record<string, number> = {}; // provider id → ms seen running
+
+// One-click GPU for the active provider (when it names a Brev instance).
+const gpu = new GpuManager({
+  provider: () => provider(),
+  saveKey: async (key) => {
+    const p = provider();
+    settings.providers = settings.providers.map((x) => (x.id === p.id ? { ...x, apiKey: key } : x));
+    await saveSettings(settings);
+  },
+  onReady: () => retunnel(),
+  anyRunning: () => [...live.values()].some((l) => l.agent.running),
+});
 let health: Health = { model: { state: 'unreachable' }, checkedAt: 0 };
 let lastHealthAt = Date.now();
 async function refreshHealth() {
@@ -51,6 +64,7 @@ async function refreshHealth() {
 }
 void refreshHealth();
 setInterval(refreshHealth, 8000);
+setTimeout(() => void gpu.adopt(), 1500);
 
 // ── threads: each has its own agent, folder, event history and usage ───────
 type Stamped = AgentEvent & { at: number };
@@ -188,6 +202,7 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
   const l = await open(c.req.param('id'));
   if (!l) return c.json({ error: 'no such thread' }, 404);
   const body = await c.req.json().catch(() => ({}));
+  gpu.touch(); // any interaction keeps an auto-stopping GPU alive
   // A thread always runs on the currently selected model.
   if (!l.agent.running) {
     l.thread.providerId = settings.activeProvider; l.agent.setConfig(toConfig(provider()));
@@ -327,6 +342,12 @@ app.get('/api/fs', async (c) => {
     folders: entries.filter((e) => e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules').map((e) => e.name).sort((a, b) => a.localeCompare(b)),
   });
 });
+
+app.get('/api/gpu', (c) => c.json(gpu.view()));
+app.post('/api/gpu/start', async (c) => {
+  try { void gpu.start(); return c.json(gpu.view()); } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
+app.post('/api/gpu/stop', async (c) => { void gpu.stop('Stopped by you'); return c.json(gpu.view()); });
 
 app.get('/api/me', (c) => c.json({ name: userInfo().username, home: homedir(), sandbox }));
 
