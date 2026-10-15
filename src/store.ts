@@ -8,11 +8,14 @@ export const DATA_DIR = process.env.AGENT_STAGE_HOME ?? join(homedir(), '.agent-
 const THREADS = join(DATA_DIR, 'threads');
 
 export type Provider = {
-  id: string; name: string; kind: 'mock' | 'openai' | 'anthropic';
+  id: string; name: string; kind: 'mock' | 'openai' | 'anthropic' | 'claude-code';
   baseUrl: string; apiKey: string; model: string;
   gpuHourly?: number; tunnelHost?: string; brevInstance?: string;
   gpuTypes?: string; autoStopMin?: number; // one-click GPU: Brev types to try, destroy after N idle minutes (0 = never)
 };
+export type Engine = 'native' | 'claude-code';
+export const engineOf = (p: Provider): Engine => (p.kind === 'claude-code' ? 'claude-code' : 'native');
+
 export type Settings = {
   providers: Provider[];
   activeProvider: string;
@@ -22,9 +25,10 @@ export type Settings = {
   insights?: 'auto' | 'on' | 'off'; // AI step labels / file summaries
   learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' };
 };
-export type ThreadUsage = { promptTokens: number; completionTokens: number; modelMs: number; calls: number };
+export type ThreadUsage = { promptTokens: number; completionTokens: number; modelMs: number; calls: number; costUsd?: number };
 export type Thread = {
   id: string; title: string; folder: string; providerId: string; mode?: 'build' | 'learn' | 'ask'; parent?: string; temp?: boolean;
+  engine?: Engine; sessionId?: string; fork?: boolean; // claude-code: the SDK session to resume (fork = side thread)
   createdAt: number; updatedAt: number;
   messages: Message[]; events: any[]; usage: ThreadUsage;
 };
@@ -56,10 +60,14 @@ export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunne
 }
 export const saveSettings = (s: Settings) => writeFile(join(DATA_DIR, 'settings.json'), JSON.stringify(s, null, 2), { mode: 0o600 });
 
-export const toConfig = (p: Provider): ModelConfig => ({ baseUrl: p.baseUrl, apiKey: p.kind === 'mock' ? 'mock' : p.apiKey, model: p.model, kind: p.kind });
+// Claude Code providers use an Anthropic key: health checks and teaching labels talk to the same API directly.
+export const toConfig = (p: Provider): ModelConfig => ({ baseUrl: p.baseUrl, apiKey: p.kind === 'mock' ? 'mock' : p.apiKey, model: p.model,
+  kind: p.kind === 'claude-code' ? 'anthropic' : p.kind });
 
 // Presets offered in Settings → Models → Add.
 export const PRESETS: Omit<Provider, 'id'>[] = [
+  { name: 'Claude Code · Opus 5.5', kind: 'claude-code', baseUrl: '', apiKey: '', model: 'claude-opus-5-5' },
+  { name: 'Claude Code · Sonnet 5.5', kind: 'claude-code', baseUrl: '', apiKey: '', model: 'claude-sonnet-5-5' },
   { name: 'Claude (Anthropic API)', kind: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: '', model: 'claude-opus-5-5' },
   { name: 'OpenAI API', kind: 'openai', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: '' },
   { name: 'NVIDIA API', kind: 'openai', baseUrl: 'https://integrate.api.nvidia.com/v1', apiKey: '', model: 'nvidia/nemotron-3-super-120b-a12b' },

@@ -14,8 +14,8 @@ export type ToolCall = {
   function: { name: string; arguments: string };
 };
 
-export type ModelConfig = { baseUrl: string; apiKey: string; model: string; kind?: 'mock' | 'openai' | 'anthropic' };
-export type Usage = { promptTokens: number; completionTokens: number; ms: number };
+export type ModelConfig = { baseUrl: string; apiKey: string; model: string; kind?: 'mock' | 'openai' | 'anthropic' | 'claude-code' };
+export type Usage = { promptTokens: number; completionTokens: number; ms: number; costUsd?: number };
 
 export function configFromEnv(): ModelConfig {
   const baseUrl = process.env.MODEL_BASE_URL ?? 'https://integrate.api.nvidia.com/v1';

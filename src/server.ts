@@ -14,8 +14,9 @@ import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap } from './mapdata.ts';
 import { enqueue, insightsOn, labelStep, summarizeFile, explainChange } from './insight.ts';
 import { GpuManager } from './gpu.ts';
+import { ClaudeCodeAgent } from './claudecode.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread,
-  PRESETS, type Provider, type Settings, type Thread } from './store.ts';
+  PRESETS, engineOf, type Provider, type Settings, type Thread } from './store.ts';
 
 const sandbox = resolve(process.env.WORKSPACE ?? 'workspace');
 await mkdir(sandbox, { recursive: true });
@@ -68,7 +69,7 @@ setTimeout(() => void gpu.adopt(), 1500);
 
 // ── threads: each has its own agent, folder, event history and usage ───────
 type Stamped = AgentEvent & { at: number };
-type Live = { thread: Thread; agent: Agent; listeners: Set<(e: Stamped) => void>; approvals: Map<string, (ok: boolean) => void>;
+type Live = { thread: Thread; agent: Agent | ClaudeCodeAgent; listeners: Set<(e: Stamped) => void>; approvals: Map<string, (ok: boolean) => void>;
   checkpoints: Map<string, (a: { choice: 'confirm' | 'discuss'; text?: string }) => void> };
 const live = new Map<string, Live>();
 const saveSoon = new Map<string, NodeJS.Timeout>();
@@ -77,7 +78,8 @@ const SAFE = /^(ls|cat|pwd|echo|head|tail|wc|grep|rg|find|tree|which|node -v|nod
 const isSafe = (cmd: string) => SAFE.test(cmd.trim()) && !/[;&|><`$]/.test(cmd);
 
 function persist(l: Live) {
-  l.thread.messages = l.agent.messages;
+  if (l.agent instanceof ClaudeCodeAgent) { l.thread.sessionId = l.agent.sessionId; l.thread.fork = l.agent.fork; }
+  else l.thread.messages = l.agent.messages;
   l.thread.updatedAt = Date.now();
   clearTimeout(saveSoon.get(l.thread.id));
   saveSoon.set(l.thread.id, setTimeout(() => void saveThread(l.thread), 300));
@@ -93,6 +95,7 @@ async function open(id: string): Promise<Live | null> {
     if (event.type === 'usage') {
       const u = thread.usage;
       u.promptTokens += event.promptTokens; u.completionTokens += event.completionTokens; u.modelMs += event.ms; u.calls++;
+      if (event.costUsd) u.costUsd = (u.costUsd ?? 0) + event.costUsd;
     }
     if (event.type === 'user' && thread.title === 'New thread') thread.title = event.text.slice(0, 60);
     const e = { ...event, at: Date.now() };
@@ -110,7 +113,8 @@ async function open(id: string): Promise<Live | null> {
     for (const fn of l.listeners) fn(e);
     persist(l);
   };
-  l.agent = new Agent(toConfig(provider(thread.providerId)), {
+  const Engine = thread.engine === 'claude-code' ? ClaudeCodeAgent : Agent;
+  l.agent = new Engine(toConfig(provider(thread.providerId)), {
     root: thread.folder,
     approve: (command) => {
       if (settings.approval === 'safe' && isSafe(command)) return Promise.resolve(true);
@@ -124,7 +128,8 @@ async function open(id: string): Promise<Live | null> {
     mode: thread.mode ?? 'build', learn: settings.learn,
     checkpoint: (cp) => new Promise((ok) => l.checkpoints.set(cp.id, ok)),
   });
-  if (thread.messages.length) l.agent.messages = thread.messages;
+  if (l.agent instanceof ClaudeCodeAgent) { l.agent.sessionId = thread.sessionId; l.agent.fork = Boolean(thread.fork); }
+  else if (thread.messages.length) l.agent.messages = thread.messages;
   l.agent.setOptions({}); // refresh the system prompt for the current mode/prefs
   live.set(id, l);
   return l;
@@ -132,7 +137,7 @@ async function open(id: string): Promise<Live | null> {
 
 async function newThread(folder: string, mode: 'build' | 'learn' | 'ask' = 'build', parent?: string, temp = false): Promise<Thread> {
   const t: Thread = {
-    id: crypto.randomUUID().slice(0, 8), title: 'New thread', folder, providerId: settings.activeProvider, mode, parent, temp,
+    id: crypto.randomUUID().slice(0, 8), title: 'New thread', folder, providerId: settings.activeProvider, engine: engineOf(provider()), mode, parent, temp,
     createdAt: Date.now(), updatedAt: Date.now(), messages: [], events: [], usage: { promptTokens: 0, completionTokens: 0, modelMs: 0, calls: 0 },
   };
   await saveThread(t);
@@ -161,11 +166,14 @@ const T = '/api/threads/:id';
 
 // threads
 app.get('/api/threads', async (c) => c.json((await listThreads()).filter((t) => !t.temp).map((t) => ({
-  id: t.id, title: t.title, folder: t.folder, updatedAt: t.updatedAt, running: live.get(t.id)?.agent.running ?? false,
+  id: t.id, title: t.title, folder: t.folder, updatedAt: t.updatedAt, running: live.get(t.id)?.agent.running ?? false, engine: t.engine ?? 'native',
   tokens: t.usage.promptTokens + t.usage.completionTokens,
 }))));
 app.post('/api/threads', async (c) => {
-  const { folder, mode } = await c.req.json().catch(() => ({}));
+  const { folder, mode, providerId } = await c.req.json().catch(() => ({}));
+  if (providerId && settings.providers.some((p) => p.id === providerId) && providerId !== settings.activeProvider) {
+    settings.activeProvider = providerId; await saveSettings(settings); retunnel();
+  }
   const dir = resolve(folder || sandbox);
   const st = await stat(dir).catch(() => null);
   if (!st?.isDirectory()) return c.json({ error: 'not a folder' }, 400);
@@ -181,6 +189,7 @@ app.get(`${T}/state`, async (c) => {
   const l = await open(c.req.param('id'));
   if (!l) return c.json({ error: 'no such thread' }, 404);
   return c.json({ workspace: l.thread.folder, title: l.thread.title, mode: l.thread.mode ?? 'build', parent: l.thread.parent,
+    engine: l.thread.engine ?? 'native', providerId: l.thread.providerId,
     running: l.agent.running, files: await listFiles(l.thread.folder) });
 });
 app.get(`${T}/map`, async (c) => {
@@ -204,8 +213,10 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
   const body = await c.req.json().catch(() => ({}));
   gpu.touch(); // any interaction keeps an auto-stopping GPU alive
   // A thread always runs on the currently selected model.
-  if (!l.agent.running) {
+  if (!l.agent.running && engineOf(provider()) === (l.thread.engine ?? 'native')) {
     l.thread.providerId = settings.activeProvider; l.agent.setConfig(toConfig(provider()));
+  }
+  if (!l.agent.running) {
     l.agent.setOptions({ mode: l.thread.mode ?? 'build', learn: settings.learn });
   }
   const out = await fn(l, body);
@@ -243,10 +254,13 @@ app.post(`${T}/explain`, withThread(async (l, { path, before, after }) => {
 // Ask opens a temporary, read-only side thread that starts from the work thread's context.
 app.post(`${T}/ask-thread`, withThread(async (l, { question }) => {
   const t = await newThread(l.thread.folder, 'ask', l.thread.id, true);
+  t.engine = l.thread.engine; t.providerId = l.thread.providerId; await saveThread(t);
   t.title = String(question).slice(0, 60);
   const side = await open(t.id);
   if (!side) return { error: 'could not open side thread' };
-  side.agent.messages = [side.agent.messages[0], ...l.agent.snapshot()];
+  if (side.agent instanceof ClaudeCodeAgent && l.agent instanceof ClaudeCodeAgent) {
+    side.agent.sessionId = l.agent.sessionId; side.agent.fork = true;
+  } else if (side.agent instanceof Agent) side.agent.messages = [side.agent.messages[0], ...l.agent.snapshot()];
   void side.agent.run(String(question), 12);
   return { id: t.id };
 }));
@@ -348,6 +362,16 @@ app.post('/api/gpu/start', async (c) => {
   try { void gpu.start(); return c.json(gpu.view()); } catch (e: any) { return c.json({ error: e.message }, 400); }
 });
 app.post('/api/gpu/stop', async (c) => { void gpu.stop('Stopped by you'); return c.json(gpu.view()); });
+
+// Which engines can run here: Claude Code needs an Anthropic API key on one of its models.
+app.get('/api/engines', (c) => {
+  const cc = settings.providers.filter((p) => p.kind === 'claude-code');
+  return c.json({
+    native: { ready: true },
+    'claude-code': { ready: cc.some((p) => p.apiKey), reason: cc.length ? (cc.some((p) => p.apiKey) ? '' : 'Add an Anthropic API key') : 'Add a Claude Code model in Settings' },
+    codex: { ready: false, reason: 'Coming soon' },
+  });
+});
 
 app.get('/api/me', (c) => c.json({ name: userInfo().username, home: homedir(), sandbox }));
 
