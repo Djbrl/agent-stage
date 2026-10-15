@@ -16,8 +16,8 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, model, onSend, onStop, onSelect }: {
-  state: State; model: string; onSend: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
+export function AgentPanel({ state, model, onRun, onAsk, onStop, onSelect }: {
+  state: State; model: string; onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
 }) {
   const [text, setText] = useState('');
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -25,9 +25,10 @@ export function AgentPanel({ state, model, onSend, onStop, onSelect }: {
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [state.timeline.length, state.steps.length]);
   const byId = Object.fromEntries(state.steps.map((s) => [s.id, s]));
 
-  const submit = () => {
+  // Enter = run (idle) or steer (running). The "Ask" button sends a side question that never touches files.
+  const submit = (mode: 'run' | 'ask' = 'run') => {
     if (!text.trim()) return;
-    onSend(text.trim());
+    (mode === 'ask' ? onAsk : onRun)(text.trim());
     setText('');
   };
 
@@ -48,6 +49,12 @@ export function AgentPanel({ state, model, onSend, onStop, onSelect }: {
         {state.timeline.map((e, i) => {
           if (e.kind === 'user') return <div key={i} className="bubble-user">{e.text}</div>;
           if (e.kind === 'thought') return <div key={i} className="thought">{e.text}</div>;
+          if (e.kind === 'qa') return (
+            <div key={i} className="qa">
+              <div className="qa-q"><span className="qa-tag">Ask</span>{e.question}</div>
+              <div className="qa-a">{e.answer ?? <span className="spin" />}</div>
+            </div>
+          );
           if (e.kind === 'done') return <div key={i} className="final"><Icon name="check" size={13} /> {e.text}</div>;
           if (e.kind === 'error') return <div key={i} className="final bad"><Icon name="x" size={13} /> {e.text}</div>;
           const steps = e.steps.map((id) => byId[id]).filter(Boolean);
@@ -81,13 +88,14 @@ export function AgentPanel({ state, model, onSend, onStop, onSelect }: {
           rows={3}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
-          placeholder={state.running ? 'Ask or steer the agent mid-run…' : 'Describe a task…'}
+          placeholder={state.running ? 'Steer the agent, or ask it a question…' : 'Describe a task…'}
         />
         <div className="composer-bar">
           <span className="chip mono">{model}</span>
           <span className="spacer" />
           {state.running && <button className="btn danger" onClick={onStop}><Icon name="stop" size={11} /> Stop</button>}
-          <button className="btn primary round" onClick={submit} disabled={!text.trim()} title={state.running ? 'Ask' : 'Run'}>
+          <button className="btn ghost" onClick={() => submit('ask')} disabled={!text.trim()} title="Side question: answered now, changes nothing">Ask</button>
+          <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? 'Steer: the agent reads this before its next step' : 'Run'}>
             <Icon name="arrow" size={14} />
           </button>
         </div>

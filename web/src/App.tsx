@@ -6,7 +6,7 @@ import { Inspector } from './Inspector';
 import { Icon } from './icons';
 
 export function App() {
-  const { state, meta, run, ask, stop, approve, reset } = useAgent();
+  const { state, meta, run, ask, steer, stop, approve, reset } = useAgent();
   const [selected, setSelected] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -58,7 +58,7 @@ export function App() {
           <Inspector state={state} selected={selected} onSelect={setSelected} />
         </main>
 
-        <AgentPanel state={state} model={meta.model} onSend={(t) => (state.running ? ask(t) : run(t))} onStop={stop} onSelect={setSelected} />
+        <AgentPanel state={state} model={meta.model} onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={ask} onStop={stop} onSelect={setSelected} />
       </div>
     </div>
   );

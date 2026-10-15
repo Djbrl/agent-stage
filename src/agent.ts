@@ -9,6 +9,8 @@ export type AgentEvent =
   | { type: 'approval'; id: string; command: string }
   | { type: 'file_change'; path: string; before: string; after: string }
   | { type: 'user'; text: string }
+  | { type: 'question'; id: string; text: string }
+  | { type: 'answer'; id: string; text: string }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
 
@@ -21,6 +23,7 @@ export class Agent {
   private abort?: AbortController;
   private pending: string[] = []; // user messages injected mid-run
   running = false;
+  private recent: string[] = []; // recent tool calls, for loop detection
 
   private cfg: ModelConfig;
   private ctx: ToolContext;
@@ -34,7 +37,28 @@ export class Agent {
 
   stop() { this.abort?.abort(); }
   get root() { return this.ctx.root; }
+  // Steer: the message joins the main conversation before the next model call.
   interject(text: string) { this.pending.push(text); }
+
+  // Ask: a side question answered right away from the current context. No tools, nothing changes on disk,
+  // and the main run keeps going untouched.
+  async ask(text: string) {
+    const id = crypto.randomUUID();
+    this.emit({ type: 'question', id, text });
+    const context = [...this.messages];
+    const last = context.at(-1);
+    if (last?.role === 'assistant' && last.tool_calls?.length) {
+      const answered = new Set(context.filter((m) => m.role === 'tool').map((m) => m.tool_call_id));
+      for (const c of last.tool_calls) if (!answered.has(c.id)) context.push({ role: 'tool', tool_call_id: c.id, content: '(still running)' });
+    }
+    context.push({ role: 'user', content: `Side question while you work. Answer briefly from what you know so far; do not plan new actions.\n\n${text}` });
+    try {
+      const reply = await chat(this.cfg, context, []);
+      this.emit({ type: 'answer', id, text: reply.content ?? '' });
+    } catch (e: any) {
+      this.emit({ type: 'answer', id, text: `Could not answer: ${e.message}` });
+    }
+  }
 
   async run(task: string, maxSteps = 30) {
     this.messages.push({ role: 'user', content: task });
@@ -55,11 +79,11 @@ export class Agent {
 
         for (const call of reply.tool_calls) {
           if (this.abort.signal.aborted) throw new Error('stopped');
-          let args: any = {};
           let output: string, ok = true;
+          const args = parseArgs(call.function.arguments);
+          this.emit({ type: 'tool_start', id: call.id, name: call.function.name, args: args ?? { raw: call.function.arguments } });
           try {
-            args = JSON.parse(call.function.arguments || '{}');
-            this.emit({ type: 'tool_start', id: call.id, name: call.function.name, args });
+            if (!args) throw new Error(`arguments were not valid JSON: ${call.function.arguments.slice(0, 200)}. Retry with valid JSON.`);
             output = await runTool(this.ctx, call.function.name, args);
           } catch (e: any) {
             ok = false;
@@ -67,6 +91,13 @@ export class Agent {
           }
           this.emit({ type: 'tool_end', id: call.id, name: call.function.name, ok, output });
           this.messages.push({ role: 'tool', tool_call_id: call.id, content: output });
+          this.recent.push(`${call.function.name}:${call.function.arguments}`);
+        }
+        // Small models can loop on the same call. After 3 identical calls in a row, nudge it once.
+        const last3 = this.recent.slice(-3);
+        if (last3.length === 3 && last3.every((k) => k === last3[0])) {
+          this.messages.push({ role: 'user', content: 'You have made the same tool call three times in a row. Stop repeating it: change approach, or finish with a summary.' });
+          this.recent = [];
         }
       }
       this.emit({ type: 'error', message: `hit step limit (${maxSteps})` });
@@ -75,5 +106,15 @@ export class Agent {
     } finally {
       this.running = false;
     }
+  }
+}
+
+function parseArgs(raw: string): any | null {
+  if (!raw?.trim()) return {};
+  try {
+    const v = JSON.parse(raw);
+    return typeof v === 'string' ? JSON.parse(v) : v; // some models double-encode
+  } catch {
+    return null;
   }
 }

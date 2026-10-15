@@ -9,6 +9,8 @@ export type AgentEvent = Base & (
   | { type: 'approval'; id: string; command: string }
   | { type: 'file_change'; path: string; before: string; after: string }
   | { type: 'user'; text: string }
+  | { type: 'question'; id: string; text: string }
+  | { type: 'answer'; id: string; text: string }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
 );
@@ -21,6 +23,7 @@ export type Step = {
 };
 export type Entry =
   | { kind: 'user' | 'thought' | 'done' | 'error'; text: string; at: number }
+  | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
   | { kind: 'actions'; steps: string[]; at: number };
 
 export type State = {
@@ -58,6 +61,10 @@ function reduce(s: State, a: Action): State {
     case 'user':
       if (e.text === '— new session —') return { ...initial, files: Object.fromEntries(Object.keys(s.files).map((f) => [f, 'idle'])) };
       return { ...s, running: true, startedAt: s.running ? s.startedAt : e.at, timeline: [...s.timeline, { kind: 'user', text: e.text, at: e.at }] };
+    case 'question':
+      return { ...s, timeline: [...s.timeline, { kind: 'qa', id: e.id, question: e.text, at: e.at }] };
+    case 'answer':
+      return { ...s, timeline: s.timeline.map((x) => (x.kind === 'qa' && x.id === e.id ? { ...x, answer: e.text } : x)) };
     case 'thinking':
       return { ...s, timeline: [...s.timeline, { kind: 'thought', text: e.text, at: e.at }] };
     case 'tool_start': {
@@ -126,6 +133,7 @@ export function useAgent() {
     meta,
     run: (task: string) => post('task', { task }),
     ask: (text: string) => post('ask', { text }),
+    steer: (text: string) => post('steer', { text }),
     stop: () => post('stop'),
     approve: (id: string, ok: boolean) => post('approve', { id, ok }),
     reset: () => post('reset'),

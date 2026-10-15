@@ -79,8 +79,14 @@ app.post('/api/stop', (c) => {
 
 app.post('/api/ask', async (c) => {
   const { text } = await c.req.json();
+  void agent.ask(text);
+  return c.json({ ok: true });
+});
+
+app.post('/api/steer', async (c) => {
+  const { text } = await c.req.json();
   if (agent.running) agent.interject(text);
-  else void agent.run(text); // idle: a question just starts a new turn with full context
+  else void agent.run(text); // idle: steering is just the next task, with full context
   return c.json({ ok: true });
 });
 
