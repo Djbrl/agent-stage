@@ -27,9 +27,11 @@ async function walk(root: string, dir = root, out: string[] = []): Promise<strin
 
 export const toolSchemas = [
   fn('list_files', 'List every file in the workspace.', {}),
-  fn('read_file', 'Read a file.', { path: { type: 'string' } }, ['path']),
+  fn('read_file', 'Read a file (at most 400 lines at a time; use offset to read further).', {
+    path: { type: 'string' }, offset: { type: 'number', description: 'First line to read, 1-based. Default 1.' },
+  }, ['path']),
   fn('write_file', 'Create or overwrite a file.', { path: { type: 'string' }, content: { type: 'string' } }, ['path', 'content']),
-  fn('edit_file', 'Replace one exact string in a file.', {
+  fn('edit_file', 'Replace one exact string in a file. The old string must appear exactly once: include enough surrounding lines to make it unique.', {
     path: { type: 'string' }, old: { type: 'string' }, new: { type: 'string' },
   }, ['path', 'old', 'new']),
   fn('search', 'Find lines containing text across the workspace.', { text: { type: 'string' } }, ['text']),
@@ -40,8 +42,13 @@ export async function runTool(ctx: ToolContext, name: string, args: any): Promis
   switch (name) {
     case 'list_files':
       return (await walk(ctx.root)).join('\n') || '(empty)';
-    case 'read_file':
-      return await readFile(inside(ctx.root, args.path), 'utf8');
+    case 'read_file': {
+      // Large files would flood the model's context: hand them out in pages.
+      const lines = (await readFile(inside(ctx.root, args.path), 'utf8')).split('\n');
+      const from = Math.max(1, Math.floor(args.offset ?? 1)), to = Math.min(lines.length, from + 399);
+      const body = lines.slice(from - 1, to).join('\n').slice(0, 40_000);
+      return to < lines.length || from > 1 ? `[lines ${from}-${to} of ${lines.length}; read more with offset=${to + 1}]\n${body}` : body;
+    }
     case 'write_file': {
       const p = inside(ctx.root, args.path);
       await mkdir(dirname(p), { recursive: true });
@@ -53,7 +60,9 @@ export async function runTool(ctx: ToolContext, name: string, args: any): Promis
     case 'edit_file': {
       const p = inside(ctx.root, args.path);
       const src = await readFile(p, 'utf8');
-      if (!src.includes(args.old)) throw new Error('old string not found');
+      const count = src.split(args.old).length - 1;
+      if (count === 0) throw new Error('old string not found: read the file again and copy the text exactly');
+      if (count > 1) throw new Error(`old string appears ${count} times: include more surrounding lines so it matches exactly once`);
       const after = src.replace(args.old, args.new);
       await writeFile(p, after);
       ctx.onChange?.(args.path, src, after);

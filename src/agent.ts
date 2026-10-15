@@ -1,6 +1,8 @@
 // The loop: model picks a tool, we run it, feed the result back. Emits events so a UI can draw it.
 import { chat, type Message, type ModelConfig, type Usage } from './model.ts';
 import { toolSchemas, runTool, type ToolContext } from './tools.ts';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { checkpointSchema, learnPrompt, languageLine, WRITE_TOOLS, type Checkpoint, type CheckpointAnswer, type LearnPrefs } from './learn.ts';
 
 export type AgentEvent =
@@ -107,7 +109,36 @@ export class Agent {
     return `Learner wants to discuss before deciding${answer.text ? `: "${answer.text}"` : ''}. Answer them, then end your turn or offer the checkpoint again.`;
   }
 
+  // Context budget: when the conversation gets long, older tool outputs are replaced by a short stub (the model
+  // can re-read files if it needs them). The tool-call structure stays intact, so every provider accepts it.
+  private fitContext(budgetChars = 120_000): Message[] {
+    const size = (m: Message) => (m.content?.length ?? 0) + JSON.stringify(m.tool_calls ?? '').length;
+    let total = this.messages.reduce((a, m) => a + size(m), 0);
+    if (total <= budgetChars) return this.messages;
+    const out = this.messages.map((m) => ({ ...m }));
+    const toolIdx = out.map((m, i) => (m.role === 'tool' ? i : -1)).filter((i) => i >= 0);
+    for (const i of toolIdx.slice(0, -2)) {
+      if (total <= budgetChars) break;
+      const len = out[i].content?.length ?? 0;
+      if (len < 400) continue;
+      out[i].content = `[older output trimmed to save context (${len} chars); re-read the file or rerun if you need it]\n${out[i].content!.slice(0, 200)}`;
+      total -= len - out[i].content!.length;
+    }
+    return out;
+  }
+
+  // Project instructions (AGENTS.md or CLAUDE.md at the root), loaded once per conversation.
+  private async loadProjectInstructions() {
+    if (this.messages.some((m) => m.role === 'system' && m.content?.startsWith('Project instructions'))) return;
+    if (this.opts.mode === 'ask') return;
+    for (const f of ['AGENTS.md', 'CLAUDE.md']) {
+      const text = await readFile(join(this.ctx.root, f), 'utf8').catch(() => null);
+      if (text) { this.messages.splice(1, 0, { role: 'system', content: `Project instructions from ${f}:\n${text.slice(0, 12_000)}` }); return; }
+    }
+  }
+
   async run(task: string, maxSteps = 30) {
+    await this.loadProjectInstructions();
     this.messages.push({ role: 'user', content: task });
     this.emit({ type: 'user', text: task });
     this.unlocked = false;
@@ -123,7 +154,7 @@ export class Agent {
           this.messages.push({ role: 'user', content: text });
           this.emit({ type: 'user', text });
         }
-        const reply = await chat(this.cfg, this.messages, tools, this.abort.signal, (u) => this.emit({ type: 'usage', ...u }));
+        const reply = await chat(this.cfg, this.fitContext(), tools, this.abort.signal, (u) => this.emit({ type: 'usage', ...u }));
         this.messages.push(reply);
         if (reply.content && reply.tool_calls?.length) this.emit({ type: 'thinking', text: reply.content });
         if (!reply.tool_calls?.length) return this.emit({ type: 'done', text: reply.content ?? '' });
