@@ -73,6 +73,20 @@ sampler off. First real run: a 3-file task with clean tool calls in about 4 seco
 - **Ideas we brought back from our earlier visualizer work**: replay with step-based pacing, a readmap of what the
   agent reads, and a first-run tour.
 
+## Night 4: less to read, more to watch (16 → 17 10)
+Testing the app ourselves, it was too much at once: threads, chat, map, steps, step detail, a player bar, a status
+bar. We rebuilt the hierarchy around one rule: **the map comes before the text, and details only appear when asked.**
+- A new thread is just a conversation, centred, like the chat apps people know. The map only slides in when the agent
+  starts working, and then it takes most of the screen.
+- In the chat, each burst of tool calls is a single quiet line ("Changed 3 files · 3 steps"). Hovering it lights
+  those files up on the map, and so does hovering any file name the agent mentions, so the text points at the stage.
+- Steps, diffs and explanations open as a sheet over the map, which never takes more than half of it. Replay lives
+  there too; the player bar is gone. The status bar became a single coloured dot.
+- A director camera frames the area the agent is working in, holds still while the work stays in view, glides for
+  short moves and cuts for long ones, and steps aside the moment you pan or zoom (F gives it back).
+- Every panel can be resized or folded: the threads become a slim rail (⌘B), the chat/map split is draggable, the
+  map can be hidden and comes back by itself when the next task starts.
+
 ## AI in this project
 | Where | What | Why |
 |---|---|---|
