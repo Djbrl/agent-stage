@@ -14,7 +14,7 @@ function Chip({ tone, label, value, title }: { tone: Tone; label: string; value:
   );
 }
 
-export function StatusBar({ health, serverDown, onRecheck }: { health: HealthView | null; serverDown: boolean; onRecheck: () => void }) {
+export function StatusBar({ health, serverDown, onRecheck, gpuOff }: { health: HealthView | null; serverDown: boolean; onRecheck: () => void; gpuOff?: boolean }) {
   if (serverDown) return <div className="statusbar"><Chip tone="bad" label="Server" value="offline" /></div>;
   if (!health) return <div className="statusbar"><Chip tone="off" label="Status" value="checking…" /></div>;
   const { model, gpu, tunnel, usage } = health;
@@ -24,6 +24,14 @@ export function StatusBar({ health, serverDown, onRecheck }: { health: HealthVie
   const modelValue = model.state === 'ok' ? `${short} · ${model.latencyMs}ms`
     : model.state === 'mock' ? 'mock (no key)' : { unreachable: 'unreachable', auth: 'bad key', missing: 'wrong model', error: 'error' }[model.state];
 
+  // GPU switched off on purpose: nothing is broken and nothing is billing, so say that, in grey.
+  if (gpuOff && model.state !== 'ok') return (
+    <div className="statusbar" onClick={onRecheck} title="Click to re-check now">
+      <Chip tone="off" label="Model" value="sleeping" title="It runs on your GPU, which is off" />
+      <Chip tone="off" label="GPU" value="off · not billing" title="No machine exists on Brev right now" />
+      {usage.gpuHourly > 0 && <Chip tone="off" label="Spent" value={`$${usage.gpuCost.toFixed(2)}`} title="GPU time so far" />}
+    </div>
+  );
   return (
     <div className="statusbar" onClick={onRecheck} title="Click to re-check now">
       <Chip tone={modelTone} label="Model" value={modelValue} title={model.detail ?? model.name} />

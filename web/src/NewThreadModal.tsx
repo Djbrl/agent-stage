@@ -1,4 +1,4 @@
-// Pick a folder on this computer to start a thread in (the server lists folders; the browser can't).
+// Pick a folder on this computer to start a thread in: the Finder dialog (opened by the server), a recent one, or none.
 import { useEffect, useState } from 'react';
 import { get, send, shortPath, engineOf, ENGINE_LABEL, type Engine, type EngineStatus } from './api';
 import { useApp } from './useSettings';
@@ -10,6 +10,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
   const { settings, me, refreshThreads } = useApp();
   const [dir, setDir] = useState<Listing | null>(null);
   const [busy, setBusy] = useState(false);
+  const [browsing, setBrowsing] = useState(false); // the in-page browser is the fallback; the Finder dialog comes first
   const [mode, setMode] = useState<'build' | 'learn'>('build');
   const [engines, setEngines] = useState<EngineStatus | null>(null);
   useEffect(() => { get<EngineStatus>('/api/engines').then(setEngines); }, []);
@@ -23,9 +24,9 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
   const browse = (path?: string) => get<Listing>(`/api/fs${path ? `?path=${encodeURIComponent(path)}` : ''}`).then((l) => !l.error && setDir(l));
   useEffect(() => { browse(); }, []);
 
-  const start = async (folder: string) => {
+  const start = async (folder: string | null) => {
     setBusy(true);
-    const t = await send<{ id: string }>('/api/threads', { folder, mode, providerId: providerFor(engine) });
+    const t = await send<{ id: string }>('/api/threads', { folder, scratch: folder === null, mode, providerId: providerFor(engine) });
     refreshThreads();
     onCreated(t.id);
   };
@@ -53,6 +54,13 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
               );
             })}
           </div>
+          <div className="label">Project</div>
+          <div className="open-pick">
+            <button className="btn" disabled={busy} onClick={() => send<{ path?: string }>('/api/pick-folder', {}).then((r) => r.path && start(r.path))}>
+              <Icon name="folder" size={13} /> Open folder…
+            </button>
+            <button className="btn ghost" disabled={busy} onClick={() => start(null)} title="Creates an empty folder in ~/agent-stage-projects">Start without a folder</button>
+          </div>
           <div className="label">Recent folders</div>
           <div className="folder-list">
             {(settings?.recentFolders ?? []).map((f) => (
@@ -63,8 +71,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
             ))}
           </div>
 
-          <div className="label">Browse</div>
-          {dir && (
+          {dir && browsing && (
             <div className="browser">
               <div className="crumbs">
                 {dir.parent && <button className="btn ghost sm" onClick={() => browse(dir.parent!)}>↑ Up</button>}
@@ -81,8 +88,10 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
           <p className="hint">The agent can read and edit files in this folder. Shell commands still ask first.</p>
         </div>
         <div className="modal-foot">
+          {!browsing && <button className="btn ghost sm" onClick={() => setBrowsing(true)}>Browse here instead</button>}
+          <span style={{ flex: 1 }} />
           <button className="btn ghost" onClick={onClose}>Cancel</button>
-          <button className="btn primary" disabled={!dir || busy} onClick={() => dir && start(dir.path)}>Start in {dir?.name ?? '…'}</button>
+          {browsing && <button className="btn primary" disabled={!dir || busy} onClick={() => dir && start(dir.path)}>Start in {dir?.name ?? '…'}</button>}
         </div>
       </div>
     </div>

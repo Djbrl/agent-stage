@@ -1,4 +1,4 @@
-// One dot instead of a status bar: green = ready, amber = connecting, red = broken. Details on hover/click.
+// One dot instead of a status bar: green = ready, amber = starting, red = broken, grey = off on purpose. Details on hover/click.
 import { useState } from 'react';
 import { StatusBar } from './StatusBar';
 import type { HealthView } from './useHealth';
@@ -9,7 +9,8 @@ export function HealthDot({ health, serverDown, onRecheck, gpu, bare }: { health
   const [open, setOpen] = useState(false);
   const m = health?.model.state;
   const g = gpu?.gpu?.managed ? gpu.gpu : null;
-  const tone = g && gpuBusy(g) ? 'warn' : serverDown ? 'bad' : !health ? 'off' : m === 'ok' ? 'ok' : m === 'mock' ? 'off'
+  const gpuOff = Boolean(g && g.phase === 'off');
+  const tone = gpuOff && m !== 'ok' ? 'off' : g && gpuBusy(g) ? 'warn' : serverDown ? 'bad' : !health ? 'off' : m === 'ok' ? 'ok' : m === 'mock' ? 'off'
     : health.tunnel && !health.tunnel.up ? 'warn' : health.gpu?.state === 'starting' ? 'warn' : 'bad';
   const name = health ? (health.model.mock ? 'Demo' : health.model.name.split('/').pop()!.replace(/-Instruct.*$/i, '')) : '…';
   return (
@@ -19,7 +20,7 @@ export function HealthDot({ health, serverDown, onRecheck, gpu, bare }: { health
       </button>
       {open && <div className="hdot-pop">
         {g && gpu && <GpuPanel gpu={g} start={gpu.start} stop={gpu.stop} />}
-        <StatusBar health={health} serverDown={serverDown} onRecheck={onRecheck} />
+        <StatusBar gpuOff={gpuOff} health={health} serverDown={serverDown} onRecheck={onRecheck} />
       </div>}
     </div>
   );

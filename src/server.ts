@@ -54,14 +54,17 @@ let health: Health = { model: { state: 'unreachable' }, checkedAt: 0 };
 let lastHealthAt = Date.now();
 async function refreshHealth() {
   const p = provider();
-  const [model, gpu] = await Promise.all([checkModel(toConfig(p)), checkGpu(p.brevInstance)]);
+  const [model, brev] = await Promise.all([checkModel(toConfig(p)), checkGpu(p.brevInstance)]);
   const now = Date.now();
-  if (p.gpuHourly && (gpu?.state === 'running' || (!gpu && model.state === 'ok'))) gpuMs[p.id] = (gpuMs[p.id] ?? 0) + now - lastHealthAt;
+  if (p.gpuHourly && (brev?.state === 'running' || (!brev && model.state === 'ok'))) gpuMs[p.id] = (gpuMs[p.id] ?? 0) + now - lastHealthAt;
   lastHealthAt = now;
+  // The tunnel follows the GPU: no ssh retries against a machine that doesn't exist.
+  const wantTunnel = Boolean(p.tunnelHost) && !(p.brevInstance && ['off', 'creating', 'stopping'].includes(gpu.state.phase) && model.state !== 'ok');
+  if (wantTunnel !== tunnel.state().enabled) wantTunnel ? retunnel() : (tunnel.stop(), tunnel = startTunnel(undefined, 0));
   const t = tunnel.state();
   // Someone else (a manual ssh -L) may already own the port: if the model answers, the path works.
   const tunnelView = t.enabled ? { ...t, up: t.up || model.state === 'ok', external: !t.up && model.state === 'ok' } : undefined;
-  health = { model, gpu, tunnel: tunnelView, checkedAt: now };
+  health = { model, gpu: brev, tunnel: tunnelView, checkedAt: now };
 }
 void refreshHealth();
 setInterval(refreshHealth, 8000);
@@ -170,7 +173,13 @@ app.get('/api/threads', async (c) => c.json((await listThreads()).filter((t) => 
   tokens: t.usage.promptTokens + t.usage.completionTokens,
 }))));
 app.post('/api/threads', async (c) => {
-  const { folder, mode, providerId } = await c.req.json().catch(() => ({}));
+  const { folder: picked, mode, providerId, scratch } = await c.req.json().catch(() => ({}));
+  // No folder yet: give the thread its own empty project under ~/agent-stage-projects.
+  let folder = picked;
+  if (scratch) {
+    folder = join(homedir(), 'agent-stage-projects', `project-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`);
+    await mkdir(folder, { recursive: true });
+  }
   if (providerId && settings.providers.some((p) => p.id === providerId) && providerId !== settings.activeProvider) {
     settings.activeProvider = providerId; await saveSettings(settings); retunnel();
   }
@@ -355,6 +364,15 @@ app.get('/api/fs', async (c) => {
     path: dir, parent: dirname(dir) !== dir ? dirname(dir) : null, name: basename(dir) || dir,
     folders: entries.filter((e) => e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules').map((e) => e.name).sort((a, b) => a.localeCompare(b)),
   });
+});
+
+// Native folder dialog (macOS Finder). The server runs on this computer, so it can open one; the browser can't.
+app.post('/api/pick-folder', async (c) => {
+  if (process.platform !== 'darwin') return c.json({ error: 'unsupported' }, 400);
+  const { execFile } = await import('node:child_process');
+  const out = await new Promise<string | null>((ok) => execFile('osascript', ['-e', 'POSIX path of (choose folder with prompt "Open a project folder")'],
+    { timeout: 300_000 }, (err, stdout) => ok(err ? null : stdout.trim().replace(/\/$/, ''))));
+  return out ? c.json({ path: out }) : c.json({ cancelled: true });
 });
 
 app.get('/api/gpu', (c) => c.json(gpu.view()));
