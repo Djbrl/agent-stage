@@ -32,6 +32,8 @@ agent-stage makes the agent's work **visible and controllable**:
   "Explain this change" on any diff, from the same model, so free on a self-hosted GPU, in English or French;
 - **replay**: rewind any thread and watch the agent walk the project again; a **readmap** shows what it read;
 - **Ask** opens a temporary read-only side thread, so questions never disturb the work;
+- **engines**: run each thread on agent-stage's own open harness, or on **Claude Code** (Anthropic's agent, via the
+  official Agent SDK and your API key). The map, Learn mode and approvals work the same on both;
 - **threads per folder**, a first-run tour, and **any model**: Claude, OpenAI, NVIDIA, OpenRouter, Ollama or
   your own GPU with vLLM.
 

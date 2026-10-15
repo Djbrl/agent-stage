@@ -81,6 +81,23 @@ Open models are less consistent at tool calling than frontier APIs, so the loop 
 The UI turns the worst problem into one plain sentence above the prompt box: "GPU is off, start
 it…", "tunnel down, reconnecting…", "model still loading…".
 
+## Engines
+A thread runs on one engine, chosen when it starts:
+- **agent-stage** (`src/agent.ts`): our own loop and tools, any OpenAI-compatible or Anthropic model.
+- **Claude Code** (`src/claudecode.ts`): Anthropic's agent loop through the Claude Agent SDK, authenticated with an
+  Anthropic **API key**. We translate its messages into our events (Read → `read_file`, Edit → `edit_file`,
+  Bash → `run_command`…), route Bash through our approval card (`canUseTool`), enforce the Learn-mode lock with a
+  `PreToolUse` hook, expose the checkpoint tool through an in-process MCP server, compute diffs with
+  Pre/PostToolUse hooks, and resume the SDK session per thread. Ask side threads fork that session in plan mode.
+  We never offer claude.ai login or touch subscription credentials, per Anthropic's terms for third-party apps.
+
+Both engines emit the same event stream, so the UI doesn't know or care which one is running.
+
+## Context
+Our engine keeps the model's context bounded: files are read 400 lines at a time, and when the conversation passes
+~120k characters older tool outputs are replaced by short stubs (the model can re-read). `AGENTS.md` / `CLAUDE.md`
+at the project root are loaded as project instructions.
+
 ## Mock mode
 With no API key, `src/model.ts` plays a scripted run. The whole UI can be developed, tested
 and demoed offline.
