@@ -5,6 +5,7 @@ import { ThreadView } from './ThreadView';
 import { NewThreadModal } from './NewThreadModal';
 import { SettingsModal } from './SettingsModal';
 import { Icon } from './icons';
+import { Tour } from './Tour';
 
 export function App() {
   return <AppProvider><Shell /></AppProvider>;
@@ -14,6 +15,22 @@ function Shell() {
   const { threads } = useApp();
   const [active, setActive] = useState<string | null>(() => { try { return localStorage.getItem('thread'); } catch { return null; } });
   const [modal, setModal] = useState<null | 'new' | 'settings'>(null);
+  const [touring, setTouring] = useState(false);
+  // First visit with a thread open → tour. "?" brings it back.
+  useEffect(() => {
+    let seen = true;
+    try { seen = localStorage.getItem('toured') === '1'; } catch { /* private mode */ }
+    if (!seen && active) { const t = setTimeout(() => setTouring(true), 900); return () => clearTimeout(t); }
+  }, [active]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (e.key === '?' && tag !== 'TEXTAREA' && tag !== 'INPUT') setTouring(true);
+    };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, []);
+  const endTour = () => { setTouring(false); try { localStorage.setItem('toured', '1'); } catch { /* ignore */ } };
   const select = (id: string | null) => {
     setActive(id);
     try { id ? localStorage.setItem('thread', id) : localStorage.removeItem('thread'); } catch { /* private mode */ }
@@ -38,7 +55,8 @@ function Shell() {
         </div>
       )}
       {modal === 'new' && <NewThreadModal onClose={() => setModal(null)} onCreated={(id) => { select(id); setModal(null); }} />}
-      {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
+      {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} onTour={() => { setModal(null); setTouring(true); }} />}
+      {touring && active && !modal && <Tour onDone={endTour} />}
     </div>
   );
 }

@@ -336,3 +336,12 @@ kbd { font: 10.5px var(--mono); color: var(--dim); border: 1px solid var(--line)
 .rm-head { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; font-size: 11px; color: #8cc3ff; border-bottom: 1px solid var(--line-soft); }
 .rm-head .mono { color: var(--dim); font-size: 10.5px; }
 .readmap canvas { display: block; }
+.tour { position: fixed; inset: 0; z-index: 60; }
+.tour-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.62), 0 0 0 2px var(--accent); transition: all .35s cubic-bezier(.45,0,.15,1); pointer-events: none; }
+.tour-card { position: fixed; width: 320px; background: var(--raised); border: 1px solid var(--line); border-radius: 12px; padding: 14px; box-shadow: 0 20px 60px #000c;
+  transition: top .35s, left .35s; animation: fade .25s; }
+.tour-step { font-size: 11px; color: var(--accent); }
+.tour-title { font-weight: 600; font-size: 15px; margin: 4px 0 6px; }
+.tour-body { color: var(--dim); font-size: 13px; line-height: 1.55; }
+.tour-actions { display: flex; gap: 6px; margin-top: 12px; align-items: center; }
+.btn.primary.sm { background: var(--text); color: #0b0c0e; }

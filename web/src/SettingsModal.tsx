@@ -7,7 +7,7 @@ import { Icon } from './icons';
 type Tab = 'models' | 'learning' | 'usage' | 'safety' | 'about';
 const KIND_LABEL = { mock: 'Scripted demo', openai: 'OpenAI-compatible', anthropic: 'Anthropic (Claude)' };
 
-export function SettingsModal({ onClose, initialTab = 'models' }: { onClose: () => void; initialTab?: Tab }) {
+export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onClose: () => void; onTour?: () => void; initialTab?: Tab }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   return (
     <div className="modal-back" onMouseDown={onClose}>
@@ -24,7 +24,7 @@ export function SettingsModal({ onClose, initialTab = 'models' }: { onClose: () 
             {tab === 'learning' && <Learning />}
             {tab === 'usage' && <Usage />}
             {tab === 'safety' && <Safety />}
-            {tab === 'about' && <About />}
+            {tab === 'about' && <About onTour={onTour} />}
           </div>
         </div>
       </div>
@@ -212,13 +212,14 @@ function Safety() {
   );
 }
 
-function About() {
+function About({ onTour }: { onTour?: () => void }) {
   const { me } = useApp();
   return (
     <div className="about">
       <p><b>agent-stage</b>: a visual, open-source coding agent. Watch it work, stop it, steer it, and run it on the model you choose, including your own GPU.</p>
       <p className="muted">Data folder: <span className="mono">~/.agent-stage</span> · Sandbox: <span className="mono">{me?.sandbox}</span></p>
-      <p className="muted">MIT licensed.</p>
+      <p className="muted">MIT licensed. Learn mode is adapted from VibeWise by nykooi1 (MIT).</p>
+      {onTour && <button className="btn ghost" onClick={onTour}>Take the tour again (?)</button>}
     </div>
   );
 }
