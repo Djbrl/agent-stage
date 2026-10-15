@@ -23,9 +23,12 @@ const BUILD = `You are a coding agent working inside a project folder.
 Use the tools to inspect and change files. Prefer small edits. Read before you write.
 When the task is finished, reply with a short summary and no tool calls.`;
 
-export type Mode = 'build' | 'learn';
+export type Mode = 'build' | 'learn' | 'ask';
 export type AgentOptions = { mode: Mode; learn: LearnPrefs; checkpoint?: (cp: Checkpoint & { id: string }) => Promise<CheckpointAnswer> };
-const systemFor = (o: AgentOptions) => (o.mode === 'learn' ? learnPrompt(o.learn) : BUILD + languageLine(o.learn.language));
+const ASK = `You answer questions about this project and about what the coding agent has done in it so far (the conversation above).
+You may read files and search to answer accurately, but you cannot change anything. Explain clearly and briefly, like a patient tutor.`;
+const systemFor = (o: AgentOptions) => (o.mode === 'learn' ? learnPrompt(o.learn) : o.mode === 'ask' ? ASK + languageLine(o.learn.language) : BUILD + languageLine(o.learn.language));
+const READ_ONLY = new Set(['list_files', 'read_file', 'search']);
 
 export class Agent {
   messages: Message[];
@@ -58,6 +61,17 @@ export class Agent {
   }
   // Steer: the message joins the main conversation before the next model call.
   interject(text: string) { this.pending.push(text); }
+
+  // Conversation so far, safe to continue elsewhere (unfinished tool calls get a placeholder result).
+  snapshot(): Message[] {
+    const context = this.messages.slice(1);
+    const last = context.at(-1);
+    if (last?.role === 'assistant' && last.tool_calls?.length) {
+      const answered = new Set(context.filter((m) => m.role === 'tool').map((m) => m.tool_call_id));
+      for (const c of last.tool_calls) if (!answered.has(c.id)) context.push({ role: 'tool', tool_call_id: c.id, content: '(still running)' });
+    }
+    return context;
+  }
 
   // Ask: a side question answered right away from the current context. No tools, nothing changes on disk,
   // and the main run keeps going untouched.
@@ -98,7 +112,8 @@ export class Agent {
     this.emit({ type: 'user', text: task });
     this.unlocked = false;
     const learning = this.opts.mode === 'learn';
-    const tools = learning ? [...toolSchemas, checkpointSchema] : toolSchemas;
+    const asking = this.opts.mode === 'ask';
+    const tools = learning ? [...toolSchemas, checkpointSchema] : asking ? toolSchemas.filter((t) => READ_ONLY.has(t.function.name)) : toolSchemas;
     this.abort = new AbortController();
     this.running = true;
     try {
@@ -121,6 +136,7 @@ export class Agent {
           try {
             if (!args) throw new Error(`arguments were not valid JSON: ${call.function.arguments.slice(0, 200)}. Retry with valid JSON.`);
             if (call.function.name === 'checkpoint') output = await this.runCheckpoint(call.id, args);
+            else if (asking && !READ_ONLY.has(call.function.name)) throw new Error('This is a read-only side thread: you can only read and search.');
             else if (learning && WRITE_TOOLS.has(call.function.name) && !this.unlocked)
               throw new Error('Locked by the harness: in Learn mode you must call the checkpoint tool with kind "implementation" and get the learner\'s confirmation before writing files or running commands.');
             else output = await runTool(this.ctx, call.function.name, args);

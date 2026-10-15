@@ -101,6 +101,12 @@ async function mockChat(messages: Message[], tools: unknown[]): Promise<Message>
     return { role: 'assistant', content: `(mock answer) You asked: "${q}". A real model would answer from everything it has seen so far in this run.` };
   }
   if (tools.some((t: any) => t.function?.name === 'checkpoint')) return mockLearn(messages);
+  if (!tools.some((t: any) => t.function?.name === 'write_file')) {
+    // read-only side thread: peek at a file once, then answer
+    const q = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+    if (messages.at(-1)?.role === 'user') return { role: 'assistant', content: 'Let me check the code.', tool_calls: [{ id: 'mock-ask', type: 'function', function: { name: 'list_files', arguments: '{}' } }] };
+    return { role: 'assistant', content: `(demo answer) You asked: *${q}*\n\n✦ Concept: reading before writing\n\nThis side thread can read the project and everything the agent did, but it can't change anything, so your work thread stays clean.` };
+  }
   const done = messages.filter((m) => m.role === 'tool').length;
   if (done >= MOCK_SCRIPT.length) return { role: 'assistant', content: 'Done. Here is what changed:\n\n- **`src/greet.js`**: a `greet(name)` function, with a fallback for empty names\n- **`index.js`**: entry point that prints the greeting\n- **`README.md`**: how to run it\n\nRunning `node index.js` prints *Hello, Dakar!*' };
   const [name, args, thought] = MOCK_SCRIPT[done];

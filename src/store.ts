@@ -23,7 +23,7 @@ export type Settings = {
 };
 export type ThreadUsage = { promptTokens: number; completionTokens: number; modelMs: number; calls: number };
 export type Thread = {
-  id: string; title: string; folder: string; providerId: string; mode?: 'build' | 'learn'; parent?: string;
+  id: string; title: string; folder: string; providerId: string; mode?: 'build' | 'learn' | 'ask'; parent?: string; temp?: boolean;
   createdAt: number; updatedAt: number;
   messages: Message[]; events: any[]; usage: ThreadUsage;
 };

@@ -11,6 +11,10 @@ import { useApp } from './useSettings';
 import { shortPath } from './api';
 
 export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings: () => void }) {
+  const [sideId, setSideId] = useState<string | null>(null);
+  const openSide = (question: string) =>
+    fetch(`/api/threads/${id}/ask-thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
+      .then((r) => r.json()).then((j) => j.id && setSideId(j.id));
   const { state, meta, run, ask, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
   const { health, serverDown, recheck } = useHealth();
   const { me, refreshThreads } = useApp();
@@ -30,7 +34,8 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
     <div className="thread">
       <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
         problem={problem} onOpenSettings={onOpenSettings}
-        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={ask} onStop={stop} onSelect={setSelected} />
+        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={setSelected} />
+      {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={setSelected} />}
 
       <main className="surface">
         <div className="surface-head">
@@ -55,6 +60,25 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
         </div>
         <Inspector state={state} selected={selected} onSelect={setSelected} threadId={id} />
       </main>
+    </div>
+  );
+}
+
+// Temporary, read-only side thread for questions: it starts from the work thread's context and never touches it.
+function SideThread({ id, onClose, onOpenSettings, onSelect }: { id: string; onClose: () => void; onOpenSettings: () => void; onSelect: (k: string) => void }) {
+  const { state, meta, run } = useAgent(id);
+  const { refreshThreads } = useApp();
+  const [kept, setKept] = useState(false);
+  const close = () => {
+    if (!kept) fetch(`/api/threads/${id}`, { method: 'DELETE' });
+    onClose();
+  };
+  const keep = () => fetch(`/api/threads/${id}/keep`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+    .then(() => { setKept(true); refreshThreads(); });
+  return (
+    <div className="side-thread-wrap">
+      <AgentPanel state={state} title={`Ask · ${meta.title}`} mode="build" onMode={() => {}} onCheckpoint={() => {}} problem={null}
+        onOpenSettings={onOpenSettings} onRun={run} onAsk={() => {}} onStop={() => {}} onSelect={onSelect} side={{ onKeep: keep, onClose: close, kept }} />
     </div>
   );
 }

@@ -313,3 +313,9 @@ kbd { font: 10.5px var(--mono); color: var(--dim); border: 1px solid var(--line)
 .file-summary { padding: 8px 12px; font-size: 12.5px; color: var(--dim); border-bottom: 1px solid var(--line-soft); background: #7b8cff0d; }
 .explain { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; max-height: 45%; overflow: auto; }
 .detail .drawer-head .btn.sm { margin-left: auto; } .detail .drawer-head .btn.sm + .icon-btn { margin-left: 0; }
+.thread { position: relative; }
+.side-thread-wrap { position: absolute; left: 0; top: 8px; bottom: 8px; width: clamp(330px, 30vw, 420px); z-index: 15; animation: slidein .2s ease-out;
+  box-shadow: 18px 0 40px #0008; border-radius: 12px; }
+.side-thread-wrap .agent-panel { height: 100%; border-color: #7b8cff55; }
+@keyframes slidein { from { transform: translateX(-12px); opacity: 0; } }
+.side-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }

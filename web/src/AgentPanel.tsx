@@ -18,8 +18,9 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings }: {
+export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
+  side?: { onKeep: () => void; onClose: () => void; kept: boolean };
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => void; onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
 }) {
   const [text, setText] = useState('');
@@ -36,14 +37,20 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
   };
 
   return (
-    <aside className="agent-panel">
+    <aside className={`agent-panel ${side ? 'side' : ''}`}>
       <div className="panel-head">
         <span className="title thread-title" title={title}>{title || 'New thread'}</span>
-        <div className="seg" title={state.running ? 'Switch when idle' : 'Build: the agent does the work. Learn: you design, it teaches and implements what you agree.'}>
+        {side ? (
+          <span className="side-actions">
+            <span className="pill">{side.kept ? 'kept' : 'temporary'}</span>
+            {!side.kept && <button className="btn ghost sm" onClick={side.onKeep}>Keep</button>}
+            <button className="icon-btn" onClick={side.onClose} title="Close"><Icon name="x" size={13} /></button>
+          </span>
+        ) : <div className="seg" title={state.running ? 'Switch when idle' : 'Build: the agent does the work. Learn: you design, it teaches and implements what you agree.'}>
           {(['build', 'learn'] as const).map((m) => (
             <button key={m} className={mode === m ? 'on' : ''} disabled={state.running} onClick={() => onMode(m)}>{m === 'build' ? 'Build' : 'Learn'}</button>
           ))}
-        </div>
+        </div>}
         <span className={`status ${state.running ? 'on' : ''}`}><span className="dot" />{state.running ? 'Working' : 'Idle'}</span>
       </div>
 
@@ -105,13 +112,13 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
           rows={3}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
-          placeholder={state.running ? 'Steer the agent, or ask it a question…' : 'Describe a task…'}
+          placeholder={side ? 'Ask a follow-up…' : state.running ? 'Steer the agent, or ask it a question…' : 'Describe a task…'}
         />
         <div className="composer-bar">
           <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} />
           <span className="spacer" />
           {state.running && <button className="btn danger" onClick={onStop}><Icon name="stop" size={11} /> Stop</button>}
-          <button className="btn ghost" onClick={() => submit('ask')} disabled={!text.trim()} title="Side question: answered now, changes nothing">Ask</button>
+          {!side && <button className="btn ghost" onClick={() => submit('ask')} disabled={!text.trim()} title="Opens a temporary side thread to answer your question. It can read the project but never changes it.">Ask</button>}
           <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? 'Steer: the agent reads this before its next step' : 'Run'}>
             <Icon name="arrow" size={14} />
           </button>

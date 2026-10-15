@@ -116,12 +116,13 @@ async function open(id: string): Promise<Live | null> {
   return l;
 }
 
-async function newThread(folder: string, mode: 'build' | 'learn' = 'build', parent?: string): Promise<Thread> {
+async function newThread(folder: string, mode: 'build' | 'learn' | 'ask' = 'build', parent?: string, temp = false): Promise<Thread> {
   const t: Thread = {
-    id: crypto.randomUUID().slice(0, 8), title: 'New thread', folder, providerId: settings.activeProvider, mode, parent,
+    id: crypto.randomUUID().slice(0, 8), title: 'New thread', folder, providerId: settings.activeProvider, mode, parent, temp,
     createdAt: Date.now(), updatedAt: Date.now(), messages: [], events: [], usage: { promptTokens: 0, completionTokens: 0, modelMs: 0, calls: 0 },
   };
   await saveThread(t);
+  if (temp) return t;
   settings.recentFolders = [folder, ...settings.recentFolders.filter((f) => f !== folder)].slice(0, 8);
   await saveSettings(settings);
   return t;
@@ -145,7 +146,7 @@ const app = new Hono();
 const T = '/api/threads/:id';
 
 // threads
-app.get('/api/threads', async (c) => c.json((await listThreads()).map((t) => ({
+app.get('/api/threads', async (c) => c.json((await listThreads()).filter((t) => !t.temp).map((t) => ({
   id: t.id, title: t.title, folder: t.folder, updatedAt: t.updatedAt, running: live.get(t.id)?.agent.running ?? false,
   tokens: t.usage.promptTokens + t.usage.completionTokens,
 }))));
@@ -224,6 +225,17 @@ app.post(`${T}/explain`, withThread(async (l, { path, before, after }) => {
   try { return { text: await explainChange(toConfig(provider(l.thread.providerId)), settings, path, before ?? '', after ?? '') }; }
   catch (e: any) { return { error: e.message }; }
 }));
+// Ask opens a temporary, read-only side thread that starts from the work thread's context.
+app.post(`${T}/ask-thread`, withThread(async (l, { question }) => {
+  const t = await newThread(l.thread.folder, 'ask', l.thread.id, true);
+  t.title = String(question).slice(0, 60);
+  const side = await open(t.id);
+  if (!side) return { error: 'could not open side thread' };
+  side.agent.messages = [side.agent.messages[0], ...l.agent.snapshot()];
+  void side.agent.run(String(question), 12);
+  return { id: t.id };
+}));
+app.post(`${T}/keep`, withThread((l) => { l.thread.temp = false; persist(l); }));
 app.post(`${T}/checkpoint`, withThread((l, { id, choice, text }) => {
   l.checkpoints.get(id)?.({ choice: choice === 'confirm' ? 'confirm' : 'discuss', text });
   l.checkpoints.delete(id);
