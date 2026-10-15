@@ -10,9 +10,23 @@ LM Studio, OpenRouter.
 
 > Open Source × AI Hackathon 2026 (Galsen Dev): track *Productivity & developer tools*.
 
+## The problem
+AI coding agents now write real code, but following what they do means reading long text logs
+and reviewing a diff at the end. It is hard to see *where* the agent is, catch it going the wrong
+way, or trust it with your machine. Most agents are also tied to one proprietary model.
+
+## The solution
+agent-stage makes the agent's work **visible and controllable**:
+- a **live project map**: the agent is a marker that moves to each file it reads or edits, changed
+  files show `+N −M`, failures turn red;
+- an **activity log and diff view**: every step with its timing, and exactly what changed;
+- **human controls**: Stop, Steer (redirect mid-run), Ask (side question, changes nothing) and
+  Approve (every shell command needs your OK);
+- **open models**: any OpenAI-compatible endpoint, from NVIDIA's API to a local Ollama.
+
 ## Status
-Working prototype: agent loop, Hono server, live visual UI (project map, moving agent marker,
-red errors, stop / ask / approve). A **mock model** runs when no key is set, so the UI can be
+Working prototype: agent loop hardened for open models, Hono server, live visual UI (project
+map, agent marker and trail, activity log, diff view, stop / steer / ask / approve). A **mock model** runs when no key is set, so the UI can be
 tried in 10 seconds.
 
 ## Quick start
@@ -39,15 +53,26 @@ browser (React, web/)  ──HTTP + Server-Sent Events──▶  Hono server (sr
 ## Dependencies
 `hono`, `@hono/node-server` (server) · `react`, `react-dom`, `vite`, `@vitejs/plugin-react` (UI).
 
+More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · how it was made: [docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md)
+
 ## How AI is used
 The model is the agent. It decides which tool to call (`list_files`, `read_file`, `write_file`,
 `edit_file`, `search`, `run_command`), the harness runs the tool inside a sandboxed workspace
-folder, and the model gets the result back. That loop repeats until the task is done.
+folder, and the model gets the result back. That loop repeats until the task is done. The same
+model answers **side questions** mid-run from its current context.
+
+AI tools used to build it (Claude Code, Mobbin MCP) are listed in
+[docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md).
 
 ## Models
 | Model | Provider | Role |
 |---|---|---|
 | `nvidia/nemotron-3-super-120b-a12b` | NVIDIA API | default agent model |
+| `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8` | self-hosted with vLLM on one L40S GPU ([script](scripts/serve-vllm.sh)) | open-weight agent model we develop and demo with |
+| any OpenAI-compatible model | Ollama, vLLM, LM Studio, OpenRouter | swap via `.env` |
+
+## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 MIT
