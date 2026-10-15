@@ -80,7 +80,7 @@ function layout(files: MapFile[]) {
 }
 
 // ── component ───────────────────────────────────────────────────────────────
-export function ProjectMap({ state, onSelect, selected }: { state: State; onSelect: (path: string) => void; selected: string | null }) {
+export function ProjectMap({ state, onSelect, selected, mapUrl }: { state: State; onSelect: (path: string) => void; selected: string | null; mapUrl: string }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<MapData>({ files: [], edges: [] });
@@ -91,8 +91,8 @@ export function ProjectMap({ state, onSelect, selected }: { state: State; onSele
   // Re-read the map whenever the agent finishes a step.
   const doneSteps = state.steps.filter((s) => s.endedAt).length;
   useEffect(() => {
-    fetch('/api/map').then((r) => r.json()).then(setData).catch(() => {});
-  }, [doneSteps, state.running]);
+    fetch(mapUrl).then((r) => r.json()).then(setData).catch(() => {});
+  }, [doneSteps, state.running, mapUrl]);
 
   const layoutKey = data.files.map((f) => `${f.path}:${Math.ceil(radius(f.lines) * 1.15)}`).join('|');
   const lay = useMemo(() => layout(data.files), [layoutKey]);

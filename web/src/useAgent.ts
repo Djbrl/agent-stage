@@ -105,28 +105,29 @@ function reduce(s: State, a: Action): State {
   }
 }
 
-export function useAgent() {
+export function useAgent(threadId: string) {
+  const base = `/api/threads/${threadId}`;
   const [state, dispatch] = useReducer(reduce, initial);
-  const [meta, setMeta] = useReducer((_: any, m: any) => m, { model: '…', workspace: '…' });
+  const [meta, setMeta] = useReducer((_: any, m: any) => m, { workspace: '…', title: '' });
 
   useEffect(() => {
     const refresh = () =>
-      fetch('/api/state').then((r) => r.json()).then((st) => {
+      fetch(`${base}/state`).then((r) => r.json()).then((st) => {
         setMeta(st);
         dispatch({ kind: 'files', files: st.files, running: st.running });
       });
     refresh();
-    const es = new EventSource('/api/events');
+    const es = new EventSource(`${base}/events`);
     es.onmessage = (m) => {
       const e = JSON.parse(m.data) as AgentEvent;
       dispatch({ kind: 'event', e });
       if (e.type === 'tool_end' || e.type === 'done') refresh();
     };
     return () => es.close();
-  }, []);
+  }, [threadId]);
 
   const post = (path: string, body?: object) =>
-    fetch(`/api/${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+    fetch(`${base}/${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
 
   return {
     state,
@@ -136,6 +137,5 @@ export function useAgent() {
     steer: (text: string) => post('steer', { text }),
     stop: () => post('stop'),
     approve: (id: string, ok: boolean) => post('approve', { id, ok }),
-    reset: () => post('reset'),
   };
 }

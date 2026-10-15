@@ -1,64 +1,44 @@
 import { useEffect, useState } from 'react';
-import { useAgent } from './useAgent';
-import { ProjectMap } from './MapCanvas';
-import { AgentPanel } from './AgentPanel';
-import { Inspector } from './Inspector';
+import { AppProvider, useApp } from './useSettings';
+import { Sidebar } from './Sidebar';
+import { ThreadView } from './ThreadView';
+import { NewThreadModal } from './NewThreadModal';
+import { SettingsModal } from './SettingsModal';
 import { Icon } from './icons';
-import { StatusBar } from './StatusBar';
-import { useHealth, diagnose } from './useHealth';
 
 export function App() {
-  const { state, meta, run, ask, steer, stop, approve, reset } = useAgent();
-  const { health, serverDown, recheck } = useHealth();
-  const problem = diagnose(health, serverDown);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!state.running) return;
-    const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
-  }, [state.running]);
+  return <AppProvider><Shell /></AppProvider>;
+}
 
-  const elapsed = state.startedAt ? Math.max(0, Math.round(((state.running ? now : state.steps.at(-1)?.endedAt ?? now) - state.startedAt) / 1000)) : 0;
-  const workspace = String(meta.workspace).split('/').slice(-2).join('/');
+function Shell() {
+  const { threads } = useApp();
+  const [active, setActive] = useState<string | null>(() => { try { return localStorage.getItem('thread'); } catch { return null; } });
+  const [modal, setModal] = useState<null | 'new' | 'settings'>(null);
+  const select = (id: string | null) => {
+    setActive(id);
+    try { id ? localStorage.setItem('thread', id) : localStorage.removeItem('thread'); } catch { /* private mode */ }
+  };
+  // Remembered thread was deleted → fall back to the most recent one.
+  useEffect(() => {
+    if (threads.length && active && !threads.some((t) => t.id === active)) select(threads[0].id);
+    if (threads.length && !active) select(threads[0].id);
+  }, [threads]);
 
   return (
-    <div className="frame">
-      <header className="topbar">
-        <div className="brand"><span className="logo" />agent-stage</div>
-        <span className="crumb-sep">/</span>
-        <span className="crumb mono">{workspace}</span>
-        <span className="spacer" />
-        <StatusBar health={health} serverDown={serverDown} onRecheck={recheck} />
-        {state.startedAt && <span className="muted mono">{elapsed}s</span>}
-        <button className="btn ghost" onClick={() => { setSelected(null); reset(); }} disabled={state.running}>
-          <Icon name="plus" size={12} /> New session
-        </button>
-      </header>
-
-      <div className="body">
-        <main className="surface">
-          <div className="surface-head">
-            <span className="title">Project map</span>
+    <div className="shell">
+      <Sidebar active={active} onSelect={select} onNew={() => setModal('new')} onSettings={() => setModal('settings')} />
+      {active ? <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} /> : (
+        <div className="welcome">
+          <div className="welcome-card">
+            <span className="logo big" />
+            <h1>Watch your agent work.</h1>
+            <p className="muted">Pick a folder, give it a task, and follow it across your project on the map. Stop it, steer it, ask it things, and approve every command.</p>
+            <button className="btn primary" onClick={() => setModal('new')}><Icon name="plus" size={12} /> New thread</button>
           </div>
-          <div className="canvas">
-            <ProjectMap state={state} selected={selected} onSelect={(f) => setSelected(f)} />
-            {state.approval && (
-              <div className="approval">
-                <div className="approval-head"><Icon name="shield" /> Approve command</div>
-                <code>$ {state.approval.command}</code>
-                <div className="approval-actions">
-                  <button className="btn ghost" onClick={() => approve(state.approval!.id, false)}>Deny</button>
-                  <button className="btn primary" onClick={() => approve(state.approval!.id, true)}>Run it</button>
-                </div>
-              </div>
-            )}
-          </div>
-          <Inspector state={state} selected={selected} onSelect={setSelected} />
-        </main>
-
-        <AgentPanel state={state} model={meta.model} problem={problem} onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={ask} onStop={stop} onSelect={setSelected} />
-      </div>
+        </div>
+      )}
+      {modal === 'new' && <NewThreadModal onClose={() => setModal(null)} onCreated={(id) => { select(id); setModal(null); }} />}
+      {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
     </div>
   );
 }

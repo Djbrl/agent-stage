@@ -1,9 +1,10 @@
-// Right panel: the conversation, with tool calls collapsed into "Read 1 file, edited 2" groups (text takes a back seat).
+// Left panel: the conversation, with tool calls collapsed into "Read 1 file, edited 2" groups (text takes a back seat).
 import { useEffect, useRef, useState } from 'react';
 import type { State, Step } from './useAgent';
 import { Icon, TOOL_ICON } from './icons';
 import { stepLabel } from './Inspector';
 import { Markdown } from './Markdown';
+import { useApp } from './useSettings';
 
 function summarize(steps: Step[]) {
   const c = (n: string[]) => steps.filter((s) => n.includes(s.name)).length;
@@ -17,8 +18,8 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, model, problem, onRun, onAsk, onStop, onSelect }: {
-  state: State; model: string; problem: string | null; onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
+export function AgentPanel({ state, title, problem, onRun, onAsk, onStop, onSelect, onOpenSettings }: {
+  state: State; title: string; problem: string | null; onOpenSettings: () => void; onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
 }) {
   const [text, setText] = useState('');
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -36,7 +37,7 @@ export function AgentPanel({ state, model, problem, onRun, onAsk, onStop, onSele
   return (
     <aside className="agent-panel">
       <div className="panel-head">
-        <span className="title"><Icon name="spark" /> Agent</span>
+        <span className="title thread-title" title={title}>{title || 'New thread'}</span>
         <span className={`status ${state.running ? 'on' : ''}`}><span className="dot" />{state.running ? 'Working' : 'Idle'}</span>
       </div>
 
@@ -93,7 +94,7 @@ export function AgentPanel({ state, model, problem, onRun, onAsk, onStop, onSele
           placeholder={state.running ? 'Steer the agent, or ask it a question…' : 'Describe a task…'}
         />
         <div className="composer-bar">
-          <span className="chip mono">{model}</span>
+          <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} />
           <span className="spacer" />
           {state.running && <button className="btn danger" onClick={onStop}><Icon name="stop" size={11} /> Stop</button>}
           <button className="btn ghost" onClick={() => submit('ask')} disabled={!text.trim()} title="Side question: answered now, changes nothing">Ask</button>
@@ -103,5 +104,31 @@ export function AgentPanel({ state, model, problem, onRun, onAsk, onStop, onSele
         </div>
       </div>
     </aside>
+  );
+}
+
+// The model chip in the composer: switch provider without opening settings.
+function ModelPicker({ disabled, onOpenSettings }: { disabled: boolean; onOpenSettings: () => void }) {
+  const { settings, save } = useApp();
+  const [open, setOpen] = useState(false);
+  if (!settings) return null;
+  const active = settings.providers.find((p) => p.id === settings.activeProvider);
+  return (
+    <div className="picker">
+      <button className="chip" disabled={disabled} onClick={() => setOpen(!open)} title={disabled ? 'Switch models when the agent is idle' : 'Switch model'}>
+        {active?.name ?? 'Pick a model'} <Icon name="chevron" size={10} className="rot" />
+      </button>
+      {open && (
+        <div className="picker-menu" onMouseLeave={() => setOpen(false)}>
+          {settings.providers.map((p) => (
+            <button key={p.id} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }); setOpen(false); }}>
+              <span>{p.name}</span><span className="muted mono">{p.kind === 'mock' ? 'demo' : p.model}</span>
+              {p.kind !== 'mock' && !p.apiKey && <span className="pill">no key</span>}
+            </button>
+          ))}
+          <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Manage models…</button>
+        </div>
+      )}
+    </div>
   );
 }
