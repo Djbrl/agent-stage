@@ -88,7 +88,8 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
             if (e.kind === 'done') return <div key={i} className="final"><Markdown text={e.text} /></div>;
             if (e.kind === 'error') return <div key={i} className="final bad"><Icon name="x" size={13} /> {e.text}</div>;
             // A burst of tool calls: one quiet line. Live while working, a summary after. Click → steps on the stage.
-            const steps = e.steps.map((id) => byId[id]).filter(Boolean);
+            const steps = e.steps.map((id) => byId[id]).filter((s) => s && s.name !== 'checkpoint'); // the card says it already
+            if (!steps.length) return null;
             const live = steps.some((s) => s.ok === undefined);
             const bad = steps.some((s) => s.ok === false);
             const lastStep = steps.at(-1);
