@@ -2,19 +2,25 @@
 import { useState } from 'react';
 import { StatusBar } from './StatusBar';
 import type { HealthView } from './useHealth';
+import { GpuPanel, gpuBusy, type GpuView } from './useGpu';
 
-export function HealthDot({ health, serverDown, onRecheck }: { health: HealthView | null; serverDown: boolean; onRecheck: () => void }) {
+export function HealthDot({ health, serverDown, onRecheck, gpu }: { health: HealthView | null; serverDown: boolean; onRecheck: () => void;
+  gpu?: { gpu: GpuView | null; start: () => void; stop: () => void } }) {
   const [open, setOpen] = useState(false);
   const m = health?.model.state;
-  const tone = serverDown ? 'bad' : !health ? 'off' : m === 'ok' ? 'ok' : m === 'mock' ? 'off'
+  const g = gpu?.gpu?.managed ? gpu.gpu : null;
+  const tone = g && gpuBusy(g) ? 'warn' : serverDown ? 'bad' : !health ? 'off' : m === 'ok' ? 'ok' : m === 'mock' ? 'off'
     : health.tunnel && !health.tunnel.up ? 'warn' : health.gpu?.state === 'starting' ? 'warn' : 'bad';
   const name = health ? (health.model.mock ? 'Demo' : health.model.name.split('/').pop()!.replace(/-Instruct.*$/i, '')) : '…';
   return (
     <div className="hdot" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
       <button className="hdot-btn" onClick={() => { setOpen(!open); onRecheck(); }} title="Model status">
-        <span className={`sdot ${tone}`} /><span className="hdot-name">{name}</span>
+        <span className={`sdot ${tone}`} /><span className="hdot-name">{g && gpuBusy(g) ? `${g.phase}…` : name}</span>
       </button>
-      {open && <div className="hdot-pop"><StatusBar health={health} serverDown={serverDown} onRecheck={onRecheck} /></div>}
+      {open && <div className="hdot-pop">
+        {g && gpu && <GpuPanel gpu={g} start={gpu.start} stop={gpu.stop} />}
+        <StatusBar health={health} serverDown={serverDown} onRecheck={onRecheck} />
+      </div>}
     </div>
   );
 }

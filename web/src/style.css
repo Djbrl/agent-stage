@@ -479,3 +479,20 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
   .thread.split > .chat-col { grid-row: 2; }
 }
 .filelink { cursor: help; border-bottom: 1px dashed var(--faint); } .filelink:hover { color: var(--text); border-color: var(--text); }
+
+/* one-click GPU */
+.gpu { display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; min-width: 260px; }
+.gpu-head { display: flex; align-items: center; gap: 7px; }
+.gpu-head .icon { color: var(--dim); }
+.gpu.ready .gpu-head .icon { color: var(--write); } .gpu.error .gpu-head .icon { color: var(--error); }
+.gpu p { margin: 0; font-size: 12px; line-height: 1.5; }
+.gpu-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.gpu-steps span { height: 3px; border-radius: 2px; background: var(--line); }
+.gpu-steps span.done { background: var(--write); }
+.gpu-steps span.now { background: var(--accent); animation: blink 1.2s infinite; }
+.gpu-log { font-size: 10.5px; color: var(--faint); line-height: 1.5; max-width: 340px; white-space: nowrap; overflow: hidden; }
+.gpu-log div { overflow: hidden; text-overflow: ellipsis; }
+.bad-text { color: var(--error); }
+.banner { margin: 0 12px 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); }
+.agent-panel.centered .banner { width: min(720px, calc(100% - 24px)); margin-left: auto; margin-right: auto; }
+.hdot-pop { display: flex; flex-direction: column; gap: 10px; }

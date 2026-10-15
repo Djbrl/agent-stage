@@ -98,9 +98,15 @@ function Models() {
               </Field>
               {draft.kind === 'openai' && (
                 <details className="advanced" open={Boolean(draft.tunnelHost || draft.gpuHourly)}>
-                  <summary>Self-hosted GPU (optional)</summary>
+                  <summary>Self-hosted GPU (one-click start/stop)</summary>
                   <Field label="SSH tunnel host" hint="The server keeps ssh -L open to this host."><input className="mono" value={draft.tunnelHost ?? ''} placeholder="agent-gpu" onChange={(e) => set({ tunnelHost: e.target.value || undefined })} /></Field>
-                  <Field label="Brev instance" hint="Shows the GPU's state in the status bar."><input className="mono" value={draft.brevInstance ?? ''} placeholder="agent-gpu" onChange={(e) => set({ brevInstance: e.target.value || undefined })} /></Field>
+                  <Field label="Brev instance name" hint="Set this to get Start / Stop GPU buttons: the app creates and destroys the machine for you."><input className="mono" value={draft.brevInstance ?? ''} placeholder="agent-gpu" onChange={(e) => set({ brevInstance: e.target.value || undefined })} /></Field>
+                  <Field label="Machine types to try" hint="Brev types, cheapest first. If one is sold out the next is tried. Empty = sensible L40S defaults.">
+                    <input className="mono" value={draft.gpuTypes ?? ''} placeholder="massedcompute_L40S,hyperstack_L40,…" onChange={(e) => set({ gpuTypes: e.target.value || undefined })} />
+                  </Field>
+                  <Field label="Auto-stop after (idle minutes)" hint="The machine is destroyed after this long without activity. 0 = never.">
+                    <input type="number" min={0} value={draft.autoStopMin ?? 20} onChange={(e) => set({ autoStopMin: Number(e.target.value) })} />
+                  </Field>
                   <Field label="GPU price ($/hour)" hint="For the cost meter. You pay GPU time, not tokens."><input type="number" step="0.01" value={draft.gpuHourly ?? ''} onChange={(e) => set({ gpuHourly: e.target.value ? Number(e.target.value) : undefined })} /></Field>
                 </details>
               )}

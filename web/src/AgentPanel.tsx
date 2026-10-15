@@ -20,12 +20,12 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered }: {
+export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
   side?: { onKeep: () => void; onClose: () => void; kept: boolean };
-  replaying?: boolean; header?: ReactNode; centered?: boolean;
+  replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode;
 }) {
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
@@ -109,6 +109,7 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
         </div>
       </div>
 
+      {banner && !side && <div className="banner">{banner}</div>}
       {problem && !side && <div className="problem"><span className="sdot bad" />{problem}</div>}
       {replaying ? <div className="composer replay-note">You're watching a replay. Press <b>● Live</b> (or End) to get back.</div> :
       <div className="composer">

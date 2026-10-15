@@ -11,11 +11,13 @@ import { useHealth, diagnose } from './useHealth';
 import { useApp } from './useSettings';
 import { Resizer, storedNumber, store } from './Resizer';
 import { HighlightContext } from './highlight';
+import { useGpu, GpuPanel } from './useGpu';
 
 export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings: () => void }) {
   const { state, replay, meta, run, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
   const { health, serverDown, recheck } = useHealth();
   const { refreshThreads } = useApp();
+  const gpuCtl = useGpu();
   const problem = diagnose(health, serverDown);
   const [selected, setSelected] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -50,7 +52,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
 
   const header = (
     <>
-      <HealthDot health={health} serverDown={serverDown} onRecheck={recheck} />
+      <HealthDot health={health} serverDown={serverDown} onRecheck={recheck} gpu={gpuCtl} />
       {hasWork && !stageOpen && (
         <button className={`tool ${state.running ? 'pulse' : ''}`} onClick={() => setStageOpen(true)} title="Show the map">
           <Icon name="map" size={13} />{state.running && <span className="live-dot" />}
@@ -64,7 +66,8 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
     <div className={`thread ${showStage ? 'split' : 'solo'}`} style={showStage ? { gridTemplateColumns: `${chatW}px 8px minmax(0, 1fr)` } : undefined}>
       <div className="chat-col">
         <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
-          problem={problem} onOpenSettings={onOpenSettings} replaying={replay.active} header={header} centered={!showStage}
+          problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
+          banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} compact={gpuCtl.gpu.phase !== 'error'} /> : null} replaying={replay.active} header={header} centered={!showStage}
           onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} />
         {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={showStep} />}
       </div>

@@ -6,7 +6,7 @@ export const send = <T = any>(path: string, body?: unknown, method = 'POST'): Pr
 export type Provider = {
   id: string; name: string; kind: 'mock' | 'openai' | 'anthropic';
   baseUrl: string; apiKey: string; model: string;
-  gpuHourly?: number; tunnelHost?: string; brevInstance?: string;
+  gpuHourly?: number; tunnelHost?: string; brevInstance?: string; gpuTypes?: string; autoStopMin?: number;
 };
 export type Settings = { providers: Provider[]; activeProvider: string; approval: 'always' | 'safe'; maxSteps: number; recentFolders: string[];
   insights?: 'auto' | 'on' | 'off'; learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' } };
