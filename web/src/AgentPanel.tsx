@@ -21,12 +21,13 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status }: {
+export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, git }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
   side?: { onKeep: () => void; onClose: () => void; kept: boolean };
   replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean; status?: ReactNode;
+  onUndo?: (ref: string) => void; git?: { repo: boolean; onInit: () => void } | null;
 }) {
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
@@ -82,7 +83,31 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
                 <div className="qa-a">{e.answer ? <Markdown text={e.answer} /> : <span className="spin" />}</div>
               </div>
             );
-            if (e.kind === 'done') return <div key={i} className="final"><Markdown text={e.text} /></div>;
+            if (e.kind === 'done') {
+              const undone = e.ref && state.undone.includes(e.ref);
+              const later = state.timeline.slice(i + 1).some((x) => x.kind === 'done' && x.ref && !state.undone.includes(x.ref));
+              return (
+                <div key={i} className="final">
+                  <Markdown text={e.text} />
+                  {e.ref && onUndo && !side && (
+                    <div className="undo-row">
+                      {undone ? <span className="muted">Undone</span> : (
+                        <button className="btn ghost sm" disabled={state.running}
+                          title={later ? 'Puts your files back as they were before this task (later tasks are undone too)' : 'Puts your files back as they were before this task'}
+                          onClick={() => confirm(later ? 'Undo this task and every task after it? Your files go back to how they were before it.' : 'Undo this task? Your files go back to how they were before it.') && onUndo(e.ref!)}>
+                          <Icon name="undo" size={12} /> Undo
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            if (e.kind === 'restored') return (
+              <div key={i} className="restored muted">
+                {e.files.length ? `Restored ${e.files.length} file${e.files.length > 1 ? 's' : ''}: ${e.files.slice(0, 4).map((f) => f.path.split('/').pop()).join(', ')}${e.files.length > 4 ? '…' : ''}` : 'Nothing to restore: the files were already like that.'}
+              </div>
+            );
             if (e.kind === 'error') return <div key={i} className="final bad"><Icon name="x" size={13} /> {e.text}</div>;
             // A burst of tool calls: one quiet line. Live while working, a summary after. Click → steps on the stage.
             const steps = e.steps.map((id) => byId[id]).filter((s) => s && s.name !== 'checkpoint'); // the card says it already
@@ -107,6 +132,10 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
       </div>
 
       {banner && !side && <div className="banner">{banner}</div>}
+      {git && !git.repo && !side && !banner && (
+        <div className="git-note">No version history in this folder, so the agent's changes can't be undone.
+          <button className="btn ghost sm" onClick={git.onInit}>Turn it on</button></div>
+      )}
       {problem && !side && <div className="problem"><span className="sdot bad" />{problem}</div>}
       {replaying ? <div className="composer replay-note">You're watching a replay. Press <b>● Live</b> (or End) to get back.</div> :
       <div className="composer">

@@ -10,6 +10,7 @@ import { basename, dirname, join, relative, resolve } from 'node:path';
 import { Agent, type AgentEvent } from './agent.ts';
 import { configFromEnv } from './model.ts';
 import { startTunnel } from './tunnel.ts';
+import { checkpoint, restore, isRepo, initRepo } from './git.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap } from './mapdata.ts';
 import { enqueue, insightsOn, labelStep, summarizeFile, explainChange } from './insight.ts';
@@ -72,7 +73,7 @@ setTimeout(() => void gpu.adopt(), 1500);
 
 // ── threads: each has its own agent, folder, event history and usage ───────
 type Stamped = AgentEvent & { at: number };
-type Live = { thread: Thread; agent: Agent | ClaudeCodeAgent; listeners: Set<(e: Stamped) => void>; approvals: Map<string, (ok: boolean) => void>;
+type Live = { thread: Thread; agent: Agent | ClaudeCodeAgent; emit: (e: AgentEvent) => void; listeners: Set<(e: Stamped) => void>; approvals: Map<string, (ok: boolean) => void>;
   checkpoints: Map<string, (a: { choice: 'confirm' | 'discuss'; text?: string }) => void> };
 const live = new Map<string, Live>();
 const saveSoon = new Map<string, NodeJS.Timeout>();
@@ -93,7 +94,7 @@ async function open(id: string): Promise<Live | null> {
   if (existing) return existing;
   const thread = await loadThread(id);
   if (!thread) return null;
-  const l: Live = { thread, agent: null!, listeners: new Set(), approvals: new Map(), checkpoints: new Map() };
+  const l: Live = { thread, agent: null!, emit: null!, listeners: new Set(), approvals: new Map(), checkpoints: new Map() };
   const emit = (event: AgentEvent) => {
     if (event.type === 'usage') {
       const u = thread.usage;
@@ -116,6 +117,7 @@ async function open(id: string): Promise<Live | null> {
     for (const fn of l.listeners) fn(e);
     persist(l);
   };
+  l.emit = emit;
   const Engine = thread.engine === 'claude-code' ? ClaudeCodeAgent : Agent;
   l.agent = new Engine(toConfig(provider(thread.providerId)), {
     root: thread.folder,
@@ -179,6 +181,7 @@ app.post('/api/threads', async (c) => {
   if (scratch) {
     folder = join(homedir(), 'agent-stage-projects', `project-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`);
     await mkdir(folder, { recursive: true });
+    await initRepo(folder).catch(() => {}); // new projects get version history from the start
   }
   if (providerId && settings.providers.some((p) => p.id === providerId) && providerId !== settings.activeProvider) {
     settings.activeProvider = providerId; await saveSettings(settings); retunnel();
@@ -231,10 +234,37 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
   const out = await fn(l, body);
   return c.json(out ?? { ok: true });
 };
+// Every task starts from a git checkpoint (when the folder is a repo), so it can be undone.
+async function runTask(l: Live, task: string) {
+  const ref = await checkpoint(l.thread.folder, l.thread.id, task).catch(() => null);
+  if (ref) l.emit({ type: 'snapshot', ref });
+  await l.agent.run(task, settings.maxSteps);
+}
 app.post(`${T}/task`, withThread((l, { task }) => {
   if (l.agent.running) return { error: 'agent is busy' };
-  void l.agent.run(task, settings.maxSteps);
+  void runTask(l, task);
 }));
+app.post(`${T}/undo`, async (c) => {
+  const l = await open(c.req.param('id'));
+  const { ref } = await c.req.json().catch(() => ({}));
+  if (!l || !/^[0-9a-f]{40}$/.test(ref ?? '')) return c.json({ error: 'bad request' }, 400);
+  if (l.agent.running) return c.json({ error: 'Stop the agent first' }, 409);
+  try {
+    const files = await restore(l.thread.folder, ref);
+    l.emit({ type: 'restored', ref, files });
+    return c.json({ files });
+  } catch (e: any) { return c.json({ error: e.message }, 500); }
+});
+app.get(`${T}/git`, async (c) => {
+  const l = await open(c.req.param('id'));
+  return l ? c.json({ repo: await isRepo(l.thread.folder) }) : c.json({ error: 'not found' }, 404);
+});
+app.post(`${T}/git/init`, async (c) => {
+  const l = await open(c.req.param('id'));
+  if (!l) return c.json({ error: 'not found' }, 404);
+  try { if (!(await isRepo(l.thread.folder))) await initRepo(l.thread.folder); return c.json({ repo: true }); }
+  catch (e: any) { return c.json({ error: e.message }, 500); }
+});
 app.post(`${T}/stop`, withThread((l) => {
   l.agent.stop();
   for (const [, ok] of l.approvals) ok(false);
@@ -245,7 +275,7 @@ app.post(`${T}/stop`, withThread((l) => {
 app.post(`${T}/ask`, withThread((l, { text }) => { void l.agent.ask(text); }));
 app.post(`${T}/steer`, withThread((l, { text }) => {
   if (l.agent.running) l.agent.interject(text);
-  else void l.agent.run(text, settings.maxSteps); // idle: steering is just the next task, with full context
+  else void runTask(l, text); // idle: steering is just the next task, with full context
 }));
 app.get(`${T}/summary`, async (c) => {
   const l = await open(c.req.param('id'));

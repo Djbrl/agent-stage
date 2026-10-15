@@ -494,7 +494,7 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .gpu-log div { overflow: hidden; text-overflow: ellipsis; }
 .bad-text { color: var(--error); }
 .banner { margin: 0 12px 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); }
-.agent-panel.centered .banner { width: min(720px, calc(100% - 24px)); margin-left: auto; margin-right: auto; }
+.agent-panel.centered .banner, .agent-panel.centered .git-note { width: min(720px, calc(100% - 24px)); margin-left: auto; margin-right: auto; }
 .hdot-pop { display: flex; flex-direction: column; gap: 10px; }
 /* engines */
 .engine-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -616,3 +616,6 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .gpu { gap: 9px; }
 
 .open-pick { display: flex; gap: 8px; margin-bottom: 14px; }
+.undo-row { margin-top: 6px; }
+.restored { font-size: 12px; padding: 2px 0; }
+.git-note { margin: 0 12px 8px; padding: 8px 12px; border-radius: 10px; background: var(--surface); font-size: 12px; color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 10px; }

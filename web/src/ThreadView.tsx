@@ -50,6 +50,13 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
   // Clicking a work line in the chat opens that step on the stage.
   const showStep = (stepId: string) => { setStageOpen(true); setSelected(stepId); setSheetOpen(true); };
 
+  // Version history: undo needs the folder to be a git repo.
+  const [repo, setRepo] = useState<boolean | null>(null);
+  useEffect(() => { fetch(`/api/threads/${id}/git`).then((r) => r.json()).then((j) => setRepo(Boolean(j.repo))).catch(() => {}); }, [id]);
+  const git = repo === null ? null : { repo, onInit: () => fetch(`/api/threads/${id}/git/init`, { method: 'POST' }).then((r) => r.ok && setRepo(true)) };
+  const undo = (ref: string) => fetch(`/api/threads/${id}/undo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
+    .then((r) => r.json()).then((j) => j.error && alert(j.error));
+
   const header = (
     <>
       {hasWork && !stageOpen && (
@@ -69,7 +76,7 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
           banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null} replaying={replay.active} header={header} centered={!showStage}
-          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} />
+          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} onUndo={undo} git={git} />
         {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={showStep} />}
       </div>
       {showStage && <Resizer onDrag={(dx) => setChatW((w) => Math.max(320, Math.min(760, w + dx)))} onReset={() => setChatW(400)} title="Drag to give the chat or the map more room" />}

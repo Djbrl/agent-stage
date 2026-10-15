@@ -15,6 +15,8 @@ export type AgentEvent = Base & (
   | { type: 'answer'; id: string; text: string }
   | { type: 'label'; stepId: string; label: string; why: string }
   | { type: 'usage'; promptTokens: number; completionTokens: number; ms: number; costUsd?: number }
+  | { type: 'snapshot'; ref: string }
+  | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
 );
@@ -26,7 +28,9 @@ export type Step = {
   startedAt: number; endedAt?: number; ok?: boolean; output?: string; change?: Change; label?: string; why?: string;
 };
 export type Entry =
-  | { kind: 'user' | 'thought' | 'done' | 'error'; text: string; at: number }
+  | { kind: 'user' | 'thought' | 'error'; text: string; at: number }
+  | { kind: 'done'; text: string; at: number; ref?: string } // ref: git checkpoint taken before this task
+  | { kind: 'restored'; files: { status: string; path: string }[]; at: number }
   | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
   | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss'; text?: string }; at: number }
   | { kind: 'actions'; steps: string[]; at: number };
@@ -42,10 +46,12 @@ export type State = {
   planned: string[]; // files named by an open checkpoint (highlighted on the map)
   running: boolean;
   startedAt: number | null;
+  snapshot: string | null; // checkpoint of the task in progress
+  undone: string[]; // checkpoints already restored
 };
 
 export const initial: State = {
-  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null,
+  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null, snapshot: null, undone: [],
 };
 
 export function targetOf(name: string, args: any): string {
@@ -110,8 +116,16 @@ function reduce(s: State, a: Action): State {
     }
     case 'approval':
       return { ...s, marker: '$terminal', approval: { id: e.id, command: e.command } };
+    case 'snapshot':
+      return { ...s, snapshot: e.ref };
+    case 'restored': {
+      // The files are back as they were: the map shows them untouched again.
+      const files = { ...s.files }, changes = { ...s.changes };
+      for (const f of e.files) { if (f.status === 'A') delete files[f.path]; else files[f.path] = 'idle'; delete changes[f.path]; }
+      return { ...s, files, changes, undone: [...s.undone, e.ref], timeline: [...s.timeline, { kind: 'restored', files: e.files, at: e.at }] };
+    }
     case 'done':
-      return { ...s, running: false, approval: null, planned: [], timeline: [...s.timeline, { kind: 'done', text: e.text, at: e.at }] };
+      return { ...s, running: false, approval: null, planned: [], snapshot: null, timeline: [...s.timeline, { kind: 'done', text: e.text, at: e.at, ref: s.snapshot ?? undefined }] };
     case 'error':
       return { ...s, running: false, approval: null, timeline: [...s.timeline, { kind: 'error', text: e.message, at: e.at }] };
     default:

@@ -18,6 +18,8 @@ export type AgentEvent =
   | { type: 'answer'; id: string; text: string }
   | ({ type: 'usage' } & Usage)
   | { type: 'label'; stepId: string; label: string; why: string }
+  | { type: 'snapshot'; ref: string }
+  | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
 
