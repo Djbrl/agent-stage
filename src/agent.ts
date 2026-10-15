@@ -38,6 +38,7 @@ export class Agent {
 
   stop() { this.abort?.abort(); }
   get root() { return this.ctx.root; }
+  setConfig(cfg: ModelConfig) { this.cfg = cfg; }
   // Steer: the message joins the main conversation before the next model call.
   interject(text: string) { this.pending.push(text); }
 
