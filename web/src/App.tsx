@@ -4,9 +4,13 @@ import { ProjectMap } from './Map';
 import { AgentPanel } from './AgentPanel';
 import { Inspector } from './Inspector';
 import { Icon } from './icons';
+import { StatusBar } from './StatusBar';
+import { useHealth, diagnose } from './useHealth';
 
 export function App() {
   const { state, meta, run, ask, steer, stop, approve, reset } = useAgent();
+  const { health, serverDown, recheck } = useHealth();
+  const problem = diagnose(health, serverDown);
   const [selected, setSelected] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -26,6 +30,7 @@ export function App() {
         <span className="crumb-sep">/</span>
         <span className="crumb mono">{workspace}</span>
         <span className="spacer" />
+        <StatusBar health={health} serverDown={serverDown} onRecheck={recheck} />
         {state.startedAt && <span className="muted mono">{elapsed}s</span>}
         <button className="btn ghost" onClick={() => { setSelected(null); reset(); }} disabled={state.running}>
           <Icon name="plus" size={12} /> New session
@@ -58,7 +63,7 @@ export function App() {
           <Inspector state={state} selected={selected} onSelect={setSelected} />
         </main>
 
-        <AgentPanel state={state} model={meta.model} onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={ask} onStop={stop} onSelect={setSelected} />
+        <AgentPanel state={state} model={meta.model} problem={problem} onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={ask} onStop={stop} onSelect={setSelected} />
       </div>
     </div>
   );

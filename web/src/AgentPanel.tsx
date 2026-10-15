@@ -16,8 +16,8 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, model, onRun, onAsk, onStop, onSelect }: {
-  state: State; model: string; onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
+export function AgentPanel({ state, model, problem, onRun, onAsk, onStop, onSelect }: {
+  state: State; model: string; problem: string | null; onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
 }) {
   const [text, setText] = useState('');
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -82,6 +82,7 @@ export function AgentPanel({ state, model, onRun, onAsk, onStop, onSelect }: {
         <div ref={end} />
       </div>
 
+      {problem && <div className="problem"><span className="sdot bad" />{problem}</div>}
       <div className="composer">
         <textarea
           value={text}

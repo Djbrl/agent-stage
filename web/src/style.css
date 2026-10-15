@@ -152,3 +152,20 @@ body { margin: 0; background: var(--frame); }
 .qa-q { color: var(--text); display: flex; gap: 8px; align-items: baseline; }
 .qa-tag { font-size: 10.5px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 4px; }
 .qa-a { color: var(--dim); }
+
+/* status bar */
+.statusbar { display: flex; gap: 6px; cursor: pointer; min-width: 0; overflow: hidden; }
+.schip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border: 1px solid var(--line-soft); border-radius: 7px;
+  font-size: 12px; white-space: nowrap; background: var(--surface); }
+.schip:hover { border-color: var(--line); }
+.slabel { color: var(--faint); }
+.svalue { color: var(--text); font-family: var(--mono); font-size: 11.5px; }
+.sdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--faint); }
+.sdot.ok { background: var(--write); box-shadow: 0 0 0 3px #3ecf8e22; }
+.sdot.warn { background: var(--warn); box-shadow: 0 0 0 3px #f5b84a22; animation: blink 1.2s infinite; }
+.sdot.bad { background: var(--error); box-shadow: 0 0 0 3px #f2555a22; }
+@keyframes blink { 50% { opacity: .35; } }
+.problem { margin: 0 12px; padding: 9px 11px; display: flex; gap: 9px; align-items: baseline; font-size: 12.5px; color: #f7a3a6;
+  background: #f2555a12; border: 1px solid #f2555a33; border-radius: 9px; }
+.problem .sdot { transform: translateY(-1px); }
+@media (max-width: 1100px) { .schip .slabel { display: none; } }
