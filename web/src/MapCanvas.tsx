@@ -1,0 +1,433 @@
+// The project map, after Rundown's: folders circle-packed (stable, no physics), files sized by
+// lines and coloured by how recently the agent touched them, one agent marker gliding between
+// writes, and a camera that follows the work until you take over. Drawn on a single canvas.
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { hierarchy, pack, type HierarchyCircularNode } from 'd3-hierarchy';
+import type { State } from './useAgent';
+
+type MapFile = { path: string; lines: number; mtime: number };
+type MapData = { files: MapFile[]; edges: { from: string; to: string }[] };
+type Pt = { x: number; y: number };
+type Circle = Pt & { r: number };
+type Tree = { name: string; path: string; children?: Tree[]; lines?: number };
+type Cam = { x: number; y: number; k: number };
+
+// Tuning (Rundown's numbers, adjusted for a dark theme).
+const C = {
+  hot: '#ff5b1f', warm: '#ffa66e', cool: '#4b515c', red: '#f2555a', amber: '#f5b84a', accent: '#7b8cff',
+  ink: '#e8e9ec', halo: 'rgba(15,16,17,0.88)', importOut: 'rgba(95,168,255,0.75)', importIn: 'rgba(62,207,142,0.75)',
+};
+const GLIDE = 650, RIPPLE = 700, ERROR_MS = 2600, SIGHT = 1500, TWEEN = 650, MOVE = 700;
+const radius = (lines: number) => Math.min(22, 3.5 + Math.sqrt(lines) * 0.55);
+const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+function mix(a: string, b: string, t: number) {
+  const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return `rgb(${x.map((v, i) => Math.round(lerp(v, y[i], t))).join(',')})`;
+}
+
+// ── layout ──────────────────────────────────────────────────────────────────
+function buildTree(files: MapFile[]): Tree {
+  const root: Tree = { name: '', path: '', children: [] };
+  for (const f of files) {
+    const parts = f.path.split('/');
+    let node = root;
+    parts.forEach((part, i) => {
+      if (i === parts.length - 1) { node.children!.push({ name: part, path: f.path, lines: f.lines }); return; }
+      let next = node.children!.find((c) => c.children && c.name === part);
+      if (!next) { next = { name: part, path: parts.slice(0, i + 1).join('/'), children: [] }; node.children!.push(next); }
+      node = next;
+    });
+  }
+  // A folder whose only child is a folder becomes one circle: "web" + "src" → "web/src".
+  const merge = (t: Tree): Tree => {
+    if (!t.children) return t;
+    let n = t;
+    while (n.path && n.children && n.children.length === 1 && n.children[0].children) {
+      const c = n.children[0];
+      n = { name: `${n.name}/${c.name}`, path: c.path, children: c.children };
+    }
+    return { ...n, children: n.children!.map(merge) };
+  };
+  return merge(root);
+}
+
+function layout(files: MapFile[]) {
+  const root = hierarchy(buildTree(files))
+    .sum((d) => (d.children ? 0 : 1))
+    .sort((a, b) => (b.value ?? 0) - (a.value ?? 0) || a.data.name.localeCompare(b.data.name));
+  // Reserve a little more room than the dot needs, so small edits don't re-layout.
+  pack<Tree>().radius((d) => Math.ceil(radius(d.data.lines ?? 1) * 1.15) + 4).padding((d) => (d.children ? 9 : 0))(root);
+  const nodes = root.descendants() as HierarchyCircularNode<Tree>[];
+  const files_: Record<string, Circle> = {};
+  const folders: Array<Circle & { name: string; depth: number }> = [];
+  for (const n of nodes) {
+    if (n.data.children) { if (n.depth > 0) folders.push({ x: n.x, y: n.y, r: n.r, name: n.data.name, depth: n.depth }); }
+    else files_[n.data.path] = { x: n.x, y: n.y, r: radius(n.data.lines ?? 1) };
+  }
+  const R = Math.max(nodes[0]?.r ?? 40, 40);
+  const cx = nodes[0]?.x ?? 0, cy = nodes[0]?.y ?? 0;
+  // Two "islands" outside the project for things that aren't files.
+  const islands: Record<string, Circle & { label: string }> = {
+    $workspace: { x: cx + R + 60, y: cy - 30, r: 11, label: 'scan & search' },
+    $terminal: { x: cx + R + 60, y: cy + 30, r: 11, label: 'terminal' },
+  };
+  return { files: files_, folders, islands, root: { x: cx, y: cy, r: R }, bounds: { x: cx - R, y: cy - R, w: 2 * R + 160, h: 2 * R } };
+}
+
+// ── component ───────────────────────────────────────────────────────────────
+export function ProjectMap({ state, onSelect, selected }: { state: State; onSelect: (path: string) => void; selected: string | null }) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [data, setData] = useState<MapData>({ files: [], edges: [] });
+  const [following, setFollowing] = useState(true);
+  const live = useRef({ state, selected, following, data, onSelect });
+  live.current = { state, selected, following, data, onSelect };
+
+  // Re-read the map whenever the agent finishes a step.
+  const doneSteps = state.steps.filter((s) => s.endedAt).length;
+  useEffect(() => {
+    fetch('/api/map').then((r) => r.json()).then(setData).catch(() => {});
+  }, [doneSteps, state.running]);
+
+  const layoutKey = data.files.map((f) => `${f.path}:${Math.ceil(radius(f.lines) * 1.15)}`).join('|');
+  const lay = useMemo(() => layout(data.files), [layoutKey]);
+
+  const target = useMemo(() => {
+    for (let i = state.steps.length - 1; i >= 0; i--) {
+      const s = state.steps[i];
+      if (s.name === 'write_file' || s.name === 'edit_file') return s.target;
+      if (s.name === 'run_command' && i === state.steps.length - 1) return '$terminal';
+      if ((s.name === 'list_files' || s.name === 'search') && i === state.steps.length - 1) return '$workspace';
+    }
+    return state.steps.length ? '$workspace' : null;
+  }, [state.steps]);
+
+  // Mutable animation state, shared with the draw loop.
+  const v = useRef({
+    cam: { x: 0, y: 0, k: 1 } as Cam, camAnim: null as null | { from: Cam; to: Cam; t0: number },
+    fitted: false, w: 0, h: 0, hover: null as string | null, userAt: 0,
+    pos: {} as Record<string, Circle>, tween: null as null | { from: Record<string, Circle>; t0: number },
+    marker: null as null | { from: Pt; to: Pt; t0: number; target: string },
+    ripples: {} as Record<string, number>, lastChange: {} as Record<string, number>,
+    lay: lay, target: target as string | null,
+    fitAll: () => {},
+    fitNow: () => {},
+  }).current;
+
+  // New layout → glide files to their new places.
+  if (v.lay !== lay) {
+    v.tween = Object.keys(v.pos).length ? { from: { ...v.pos }, t0: performance.now() } : null;
+    v.lay = lay;
+  }
+  v.target = target;
+
+  // Edits → ripple once, and remember when (drives the hot → warm colour).
+  useEffect(() => {
+    for (const s of state.steps) if (s.change && s.endedAt && v.lastChange[s.target] !== s.endedAt) {
+      v.lastChange[s.target] = s.endedAt;
+      v.ripples[s.target] = performance.now();
+    }
+    if (!state.steps.length) { v.lastChange = {}; v.ripples = {}; v.marker = null; }
+  }, [state.steps]);
+
+  // ── draw loop + input (mounted once) ──────────────────────────────────────
+  useEffect(() => {
+    const cv = canvas.current!, ctx = cv.getContext('2d')!;
+    let raf = 0;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+    const resize = () => {
+      const r = wrap.current!.getBoundingClientRect();
+      v.w = r.width; v.h = r.height;
+      cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+      cv.style.width = `${r.width}px`; cv.style.height = `${r.height}px`;
+      // Panel sizes settle after first paint: keep re-fitting until the user takes the camera.
+      if (v.fitted && !v.userAt) v.cam = fit(v.lay.bounds);
+    };
+    const fit = (b: { x: number; y: number; w: number; h: number }, pad = 48): Cam => {
+      const k = clamp(Math.min((v.w - pad * 2) / Math.max(b.w, 60), (v.h - pad * 2) / Math.max(b.h, 60)), 0.3, 3);
+      return { k, x: v.w / 2 - (b.x + b.w / 2) * k, y: v.h / 2 - (b.y + b.h / 2) * k };
+    };
+    const moveTo = (to: Cam) => { v.camAnim = { from: { ...v.cam }, to, t0: performance.now() }; };
+    v.fitAll = () => { if (Object.keys(v.lay.files).length) moveTo(fit(v.lay.bounds)); };
+    v.fitNow = () => { if (v.w && Object.keys(v.lay.files).length) { v.camAnim = null; v.cam = fit(v.lay.bounds); v.fitted = true; } };
+    const ro = new ResizeObserver(resize);
+    ro.observe(wrap.current!);
+    resize();
+    const where = (key: string): Circle | undefined => v.pos[key] ?? v.lay.files[key] ?? v.lay.islands[key];
+
+    // Director-lite: only move when the marker leaves the middle 60% of the view.
+    let lastDirect = 0;
+    const direct = (now: number) => {
+      if (!live.current.following || !v.marker || now - lastDirect < 150 || v.camAnim) return;
+      lastDirect = now;
+      const p = v.marker.to, { cam } = v;
+      const sx = p.x * cam.k + cam.x, sy = p.y * cam.k + cam.y;
+      const inside = sx > v.w * 0.2 && sx < v.w * 0.8 && sy > v.h * 0.2 && sy < v.h * 0.8;
+      if (!inside) moveTo({ k: cam.k, x: v.w / 2 - p.x * cam.k, y: v.h / 2 - p.y * cam.k });
+    };
+
+    const frame = (now: number) => {
+      raf = requestAnimationFrame(frame);
+      const { state: st, selected: sel, data } = live.current;
+      const lay = v.lay;
+
+      if (!v.fitted && Object.keys(lay.files).length && v.w) { v.cam = fit(lay.bounds); v.fitted = true; }
+      if (v.tween) {
+        const t = ease(clamp((now - v.tween.t0) / TWEEN, 0, 1));
+        const next: Record<string, Circle> = {};
+        for (const [key, c] of Object.entries(lay.files)) {
+          const a = v.tween.from[key] ?? { ...c, r: 0 };
+          next[key] = { x: lerp(a.x, c.x, t), y: lerp(a.y, c.y, t), r: lerp(a.r, c.r, t) };
+        }
+        v.pos = next;
+        if (t >= 1) v.tween = null;
+      } else v.pos = lay.files;
+      if (v.camAnim) {
+        const t = ease(clamp((now - v.camAnim.t0) / MOVE, 0, 1)), { from, to } = v.camAnim;
+        const k = Math.exp(lerp(Math.log(from.k), Math.log(to.k), t));
+        const c0 = { x: (v.w / 2 - from.x) / from.k, y: (v.h / 2 - from.y) / from.k };
+        const c1 = { x: (v.w / 2 - to.x) / to.k, y: (v.h / 2 - to.y) / to.k };
+        const cx = lerp(c0.x, c1.x, t), cy = lerp(c0.y, c1.y, t);
+        v.cam = { k, x: v.w / 2 - cx * k, y: v.h / 2 - cy * k };
+        if (t >= 1) v.camAnim = null;
+      }
+
+      const tgt = v.target ? where(v.target) : undefined;
+      if (tgt && (!v.marker || v.marker.target !== v.target)) {
+        const cur = v.marker ? markerPos(v.marker, now) : tgt;
+        v.marker = { from: cur, to: { x: tgt.x, y: tgt.y }, t0: now, target: v.target! };
+      } else if (tgt && v.marker) v.marker.to = { x: tgt.x, y: tgt.y };
+      direct(now);
+
+      const { k, x, y } = v.cam;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, v.w, v.h);
+      ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * x, dpr * y);
+      const px = 1 / k;
+
+      // folders
+      for (const f of lay.folders) {
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        if (f.depth <= 3) { ctx.fillStyle = 'rgba(255,255,255,0.02)'; ctx.fill(); }
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = px; ctx.stroke();
+        if (f.r * k > 30) label(ctx, f.name, f.x, f.y - f.r - 6 * px, px, 11, 'rgba(232,233,236,0.45)', 'center', 500);
+      }
+
+      // islands
+      for (const [key, is] of Object.entries(lay.islands)) {
+        ctx.beginPath(); ctx.arc(is.x, is.y, is.r, 0, Math.PI * 2);
+        ctx.setLineDash([3 * px, 3 * px]); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = px; ctx.stroke(); ctx.setLineDash([]);
+        const on = v.marker?.target === key;
+        label(ctx, is.label, is.x + is.r + 8 * px, is.y + 4 * px, px, 11, on ? C.ink : 'rgba(232,233,236,0.45)', 'left', 500);
+      }
+
+      // import lines, only for the hovered/selected file
+      const focus = v.hover ?? sel;
+      if (focus) for (const e of data.edges) {
+        const out = e.from === focus, inn = e.to === focus;
+        if (!out && !inn) continue;
+        const a = v.pos[e.from], b = v.pos[e.to];
+        if (!a || !b) continue;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo((a.x + b.x) / 2 - (b.y - a.y) * 0.12, (a.y + b.y) / 2 + (b.x - a.x) * 0.12, b.x, b.y);
+        ctx.strokeStyle = out ? C.importOut : C.importIn; ctx.lineWidth = 1.6 * px; ctx.stroke();
+        ctx.beginPath(); ctx.arc(b.x, b.y, 2.6 * px, 0, Math.PI * 2); ctx.fillStyle = out ? C.importOut : C.importIn; ctx.fill();
+      }
+
+      // trail: last 7 writes, curved, fading in toward the marker
+      const writes = st.steps.filter((s) => s.change).map((s) => s.target);
+      const trail: Pt[] = writes.filter((p, i) => p !== writes[i - 1]).slice(-7).map((p) => v.pos[p]).filter(Boolean);
+      if (v.marker && trail.length) trail.push(markerPos(v.marker, now));
+      for (let i = 1; i < trail.length; i++) {
+        const w = i / (trail.length - 1), a = trail[i - 1], b = trail[i];
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx - dy * 0.15, my + dx * 0.15, b.x, b.y);
+        ctx.strokeStyle = `rgba(123,140,255,${0.08 + 0.4 * w})`; ctx.lineWidth = (1.2 + 1.6 * w) * px; ctx.stroke();
+      }
+
+      // reads: dotted line of sight from the marker, fading over 1.5s (last 4)
+      if (v.marker) {
+        const m = markerPos(v.marker, now);
+        for (const r of st.steps.filter((s) => s.name === 'read_file' && s.endedAt && Date.now() - s.endedAt < SIGHT).slice(-4)) {
+          const p = v.pos[r.target];
+          if (!p) continue;
+          const a = 1 - (Date.now() - r.endedAt!) / SIGHT;
+          ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(p.x, p.y);
+          ctx.setLineDash([2 * px, 4 * px]); ctx.strokeStyle = `rgba(95,168,255,${0.75 * a})`; ctx.lineWidth = 1.4 * px; ctx.stroke(); ctx.setLineDash([]);
+        }
+      }
+
+      // files
+      const labels: Array<{ text: string; x: number; y: number; pri: number; strong: boolean }> = [];
+      for (const [path, c] of Object.entries(v.pos)) {
+        const status = st.files[path];
+        const changedAt = v.lastChange[path];
+        let col = C.cool;
+        if (status === 'error') col = C.red;
+        else if (changedAt) {
+          const age = Date.now() - changedAt;
+          col = age < 300_000 ? mix(C.hot, C.warm, Math.pow(age / 300_000, 1.5)) : C.warm;
+        } else if (status === 'read') col = '#6b8fc4';
+        ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
+        if (path === sel || path === v.hover) { ctx.strokeStyle = C.ink; ctx.lineWidth = (path === sel ? 1.6 : 1.1) * px; ctx.stroke(); }
+
+        const rip = v.ripples[path];
+        if (rip && now - rip < RIPPLE) {
+          const t = (now - rip) / RIPPLE;
+          ring(ctx, c, c.r + (3 + easeOut(t) * 26) * px, '#ff8c50', (1 - t) * 0.75, 2 * px);
+        }
+        const active = v.marker?.target === path;
+        const pri = path === sel || path === v.hover ? 4 : active ? 3 : changedAt ? 2 : c.r * k > 8 || k > 1.6 ? 1 : 0;
+        if (pri > 0) labels.push({ text: path.split('/').pop()!, x: c.x + c.r + 5 * px, y: c.y + 4 * px, pri, strong: pri >= 3 });
+      }
+
+      // labels, highest priority first, skipping collisions (screen space)
+      const taken: Array<[number, number, number, number]> = [];
+      for (const l of labels.sort((a, b) => b.pri - a.pri)) {
+        ctx.font = `${l.strong ? 600 : 500} ${12 * px}px Inter, system-ui, sans-serif`;
+        const w = ctx.measureText(l.text).width * k, sx = l.x * k + x, sy = l.y * k + y;
+        const box: [number, number, number, number] = [sx - 2, sy - 12, sx + w + 2, sy + 4];
+        if (taken.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+        taken.push(box);
+        label(ctx, l.text, l.x, l.y, px, 12, l.strong ? C.ink : 'rgba(232,233,236,0.62)', 'left', l.strong ? 600 : 500);
+      }
+
+      // agent marker + one ring (error > waiting > thinking)
+      if (v.marker) {
+        const m = markerPos(v.marker, now);
+        const last = st.steps.at(-1);
+        const err = Boolean(last?.ok === false && last.endedAt && Date.now() - last.endedAt < ERROR_MS);
+        const waiting = Boolean(st.approval);
+        const busy = last && last.endedAt === undefined;
+        const thinking = st.running && !busy && !waiting;
+        if (err) {
+          const t = (now % 1100) / 1100;
+          ring(ctx, m, (10 + 26 * easeOut(t)) * px, C.red, 0.8 * (1 - t), 2.4 * px);
+        } else if (waiting) {
+          const b = (now % 1800) / 1800;
+          ring(ctx, m, (11 + b * 9) * px, C.amber, Math.sin(b * Math.PI) * 0.85, 2 * px);
+        } else if (thinking) {
+          const b = (now % 2400) / 2400;
+          ring(ctx, m, (11 + b * 9) * px, C.accent, Math.sin(b * Math.PI) * 0.7, 2 * px);
+        }
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 1;
+        ctx.beginPath(); ctx.arc(m.x, m.y, 9 * px, 0, Math.PI * 2);
+        ctx.fillStyle = err ? C.red : st.running ? C.accent : mix(C.accent, '#8a8f98', 0.55); ctx.fill();
+        ctx.restore();
+        ctx.strokeStyle = '#0f1011'; ctx.lineWidth = 2 * px; ctx.stroke();
+        const doing: Record<string, string> = { read_file: 'Reading…', write_file: 'Writing…', edit_file: 'Editing…', run_command: 'Running…', search: 'Searching…', list_files: 'Scanning…' };
+        const verb = waiting ? 'Waiting for you' : err ? 'Failed' : !st.running ? 'Idle' : busy ? doing[last!.name] ?? 'Working…' : 'Thinking…';
+        label(ctx, `Agent · ${verb}`, m.x + 12 * px, m.y - 13 * px, px, 12, err ? C.red : waiting ? C.amber : C.ink, 'left', 600);
+      }
+    };
+    raf = requestAnimationFrame(frame);
+
+    // ── input: wheel zoom about the cursor, drag to pan, click to select ───
+    const toWorld = (sx: number, sy: number) => ({ x: (sx - v.cam.x) / v.cam.k, y: (sy - v.cam.y) / v.cam.k });
+    const takeOver = () => { v.userAt = Date.now(); v.camAnim = null; setFollowing(false); };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault(); takeOver();
+      const r = cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top;
+      const f = Math.pow(2, -e.deltaY * 0.002 * (e.ctrlKey ? 10 : 1));
+      const k = clamp(v.cam.k * f, 0.2, 8), p = toWorld(sx, sy);
+      v.cam = { k, x: sx - p.x * k, y: sy - p.y * k };
+    };
+    let drag: null | { x: number; y: number; cx: number; cy: number; moved: boolean } = null;
+    const hit = (sx: number, sy: number) => {
+      const p = toWorld(sx, sy);
+      let best: string | null = null, bd = Infinity;
+      for (const [path, c] of Object.entries(v.pos)) {
+        const d = Math.hypot(c.x - p.x, c.y - p.y);
+        if (d < Math.max(c.r, 6 / v.cam.k) && d < bd) { best = path; bd = d; }
+      }
+      return best;
+    };
+    const onDown = (e: MouseEvent) => { drag = { x: e.clientX, y: e.clientY, cx: v.cam.x, cy: v.cam.y, moved: false }; };
+    const onMove = (e: MouseEvent) => {
+      const r = cv.getBoundingClientRect();
+      if (drag) {
+        const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+        if (!drag.moved && Math.abs(dx) + Math.abs(dy) > 4) { takeOver(); drag.moved = true; }
+        if (drag.moved) v.cam = { ...v.cam, x: drag.cx + dx, y: drag.cy + dy };
+      }
+      const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      v.hover = inside ? hit(e.clientX - r.left, e.clientY - r.top) : null;
+      if (inside) cv.style.cursor = drag?.moved ? 'grabbing' : v.hover ? 'pointer' : 'grab';
+    };
+    const onUp = (e: MouseEvent) => {
+      if (drag && !drag.moved) {
+        const r = cv.getBoundingClientRect(), h = hit(e.clientX - r.left, e.clientY - r.top);
+        if (h) live.current.onSelect(h);
+      }
+      drag = null;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+      if (e.key === 'f' || e.key === 'F' || e.key === 'Escape') setFollowing(true);
+      if (e.key === '0') v.fitAll();
+    };
+    const idle = setInterval(() => { if (!live.current.following && Date.now() - v.userAt > 60_000) setFollowing(true); }, 5000);
+    cv.addEventListener('wheel', onWheel, { passive: false });
+    cv.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      cancelAnimationFrame(raf); ro.disconnect(); clearInterval(idle);
+      cv.removeEventListener('wheel', onWheel); cv.removeEventListener('mousedown', onDown);
+      window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  // First real layout → fit it straight away (don't wait for an animation frame).
+  useEffect(() => { if (!v.fitted) v.fitNow(); }, [lay]);
+
+  // Following again → frame the agent, or the whole project if there is no agent yet.
+  useEffect(() => { if (following && !v.marker) v.fitAll(); }, [following]);
+
+  return (
+    <div className="map-wrap" ref={wrap}>
+      <canvas ref={canvas} />
+      {data.files.length === 0 && <div className="map-empty">Empty workspace. Give the agent a task to start.</div>}
+      <div className="map-tools">
+        {!following && <button className="btn ghost sm" onClick={() => setFollowing(true)}>Follow agent <kbd>F</kbd></button>}
+        <button className="btn ghost sm" onClick={() => v.fitAll()} title="Fit the whole project (0)">Fit</button>
+      </div>
+      <div className="map-legend">
+        <span><i style={{ background: C.hot }} />just edited</span>
+        <span><i style={{ background: C.warm }} />edited this session</span>
+        <span><i style={{ background: '#6b8fc4' }} />read</span>
+        <span><i style={{ background: C.cool }} />untouched</span>
+        <span className="hint">scroll to zoom · drag to pan · hover for imports</span>
+      </div>
+    </div>
+  );
+}
+
+function markerPos(m: { from: Pt; to: Pt; t0: number }, now: number): Pt {
+  const t = ease(clamp((now - m.t0) / GLIDE, 0, 1));
+  return { x: lerp(m.from.x, m.to.x, t), y: lerp(m.from.y, m.to.y, t) };
+}
+
+function ring(ctx: CanvasRenderingContext2D, p: Pt, r: number, color: string, alpha: number, width: number) {
+  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+  ctx.globalAlpha = Math.max(0, alpha); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); ctx.globalAlpha = 1;
+}
+
+// Text sized in screen pixels, with a dark halo so it reads over lines and dots.
+function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, px: number, size: number, color: string, align: CanvasTextAlign, weight: number) {
+  ctx.font = `${weight} ${size * px}px Inter, system-ui, sans-serif`;
+  ctx.textAlign = align;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = C.halo; ctx.lineWidth = 3.5 * px; ctx.strokeText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+}

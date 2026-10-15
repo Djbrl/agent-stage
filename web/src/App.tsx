@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAgent } from './useAgent';
-import { ProjectMap } from './Map';
+import { ProjectMap } from './MapCanvas';
 import { AgentPanel } from './AgentPanel';
 import { Inspector } from './Inspector';
 import { Icon } from './icons';
@@ -19,7 +19,6 @@ export function App() {
     return () => clearInterval(t);
   }, [state.running]);
 
-  const counts = Object.values(state.files).reduce((a, s) => ({ ...a, [s]: (a[s] ?? 0) + 1 }), {} as Record<string, number>);
   const elapsed = state.startedAt ? Math.max(0, Math.round(((state.running ? now : state.steps.at(-1)?.endedAt ?? now) - state.startedAt) / 1000)) : 0;
   const workspace = String(meta.workspace).split('/').slice(-2).join('/');
 
@@ -41,11 +40,6 @@ export function App() {
         <main className="surface">
           <div className="surface-head">
             <span className="title">Project map</span>
-            <span className="legend">
-              <span className="lg read" /> read {counts.read ?? 0}
-              <span className="lg written" /> changed {counts.written ?? 0}
-              <span className="lg error" /> failed {counts.error ?? 0}
-            </span>
           </div>
           <div className="canvas">
             <ProjectMap state={state} selected={selected} onSelect={(f) => setSelected(f)} />
