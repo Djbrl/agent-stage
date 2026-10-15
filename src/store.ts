@@ -18,10 +18,11 @@ export type Settings = {
   approval: 'always' | 'safe'; // safe = auto-approve read-only commands
   maxSteps: number;
   recentFolders: string[];
+  learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' };
 };
 export type ThreadUsage = { promptTokens: number; completionTokens: number; modelMs: number; calls: number };
 export type Thread = {
-  id: string; title: string; folder: string; providerId: string;
+  id: string; title: string; folder: string; providerId: string; mode?: 'build' | 'learn'; parent?: string;
   createdAt: number; updatedAt: number;
   messages: Message[]; events: any[]; usage: ThreadUsage;
 };
@@ -33,7 +34,7 @@ const read = async <T>(p: string, fallback: T): Promise<T> => {
 export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunnelHost?: string; brevInstance?: string }, sandbox: string): Promise<Settings> {
   await mkdir(THREADS, { recursive: true });
   const saved = await read<Settings | null>(join(DATA_DIR, 'settings.json'), null);
-  if (saved) return saved;
+  if (saved) return { learn: { level: 'beginner', frequency: 'normal', language: 'en' }, ...saved };
   // First run: seed from .env so existing setups keep working.
   const providers: Provider[] = [{ id: 'mock', name: 'Demo (scripted)', kind: 'mock', baseUrl: '', apiKey: '', model: 'mock' }];
   if (env.apiKey && env.apiKey !== 'mock') providers.push({
@@ -46,7 +47,8 @@ export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunne
     { id: 'nvidia', name: 'NVIDIA API', kind: 'openai', baseUrl: 'https://integrate.api.nvidia.com/v1', apiKey: '', model: 'nvidia/nemotron-3-super-120b-a12b' },
     { id: 'ollama', name: 'Ollama (this computer)', kind: 'openai', baseUrl: 'http://localhost:11434/v1', apiKey: 'ollama', model: 'qwen3-coder:30b' },
   );
-  const s: Settings = { providers, activeProvider: providers[1]?.id === 'env' ? 'env' : 'mock', approval: 'always', maxSteps: 30, recentFolders: [sandbox] };
+  const s: Settings = { providers, activeProvider: providers[1]?.id === 'env' ? 'env' : 'mock', approval: 'always', maxSteps: 30, recentFolders: [sandbox],
+    learn: { level: 'beginner', frequency: 'normal', language: 'en' } };
   await saveSettings(s);
   return s;
 }

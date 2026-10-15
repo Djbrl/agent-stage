@@ -1,12 +1,15 @@
 // The loop: model picks a tool, we run it, feed the result back. Emits events so a UI can draw it.
 import { chat, type Message, type ModelConfig, type Usage } from './model.ts';
 import { toolSchemas, runTool, type ToolContext } from './tools.ts';
+import { checkpointSchema, learnPrompt, languageLine, WRITE_TOOLS, type Checkpoint, type CheckpointAnswer, type LearnPrefs } from './learn.ts';
 
 export type AgentEvent =
   | { type: 'thinking'; text: string }
   | { type: 'tool_start'; id: string; name: string; args: any }
   | { type: 'tool_end'; id: string; name: string; ok: boolean; output: string }
   | { type: 'approval'; id: string; command: string }
+  | ({ type: 'checkpoint'; id: string } & Checkpoint)
+  | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss'; text?: string }
   | { type: 'file_change'; path: string; before: string; after: string }
   | { type: 'user'; text: string }
   | { type: 'question'; id: string; text: string }
@@ -15,12 +18,18 @@ export type AgentEvent =
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
 
-const SYSTEM = `You are a coding agent working inside a project folder.
+const BUILD = `You are a coding agent working inside a project folder.
 Use the tools to inspect and change files. Prefer small edits. Read before you write.
 When the task is finished, reply with a short summary and no tool calls.`;
 
+export type Mode = 'build' | 'learn';
+export type AgentOptions = { mode: Mode; learn: LearnPrefs; checkpoint?: (cp: Checkpoint & { id: string }) => Promise<CheckpointAnswer> };
+const systemFor = (o: AgentOptions) => (o.mode === 'learn' ? learnPrompt(o.learn) : BUILD + languageLine(o.learn.language));
+
 export class Agent {
-  messages: Message[] = [{ role: 'system', content: SYSTEM }];
+  messages: Message[];
+  opts: AgentOptions;
+  private unlocked = false; // learn mode: set by a confirmed Implementation checkpoint, cleared each request
   private abort?: AbortController;
   private pending: string[] = []; // user messages injected mid-run
   running = false;
@@ -30,7 +39,9 @@ export class Agent {
   private ctx: ToolContext;
   private emit: (e: AgentEvent) => void;
 
-  constructor(cfg: ModelConfig, ctx: ToolContext, emit: (e: AgentEvent) => void) {
+  constructor(cfg: ModelConfig, ctx: ToolContext, emit: (e: AgentEvent) => void, opts?: Partial<AgentOptions>) {
+    this.opts = { mode: 'build', learn: { level: 'beginner', frequency: 'normal', language: 'en' }, ...opts };
+    this.messages = [{ role: 'system', content: systemFor(this.opts) }];
     this.cfg = cfg;
     this.ctx = { ...ctx, onChange: (path, before, after) => emit({ type: 'file_change', path, before, after }) };
     this.emit = emit;
@@ -39,6 +50,11 @@ export class Agent {
   stop() { this.abort?.abort(); }
   get root() { return this.ctx.root; }
   setConfig(cfg: ModelConfig) { this.cfg = cfg; }
+  // Mode/prefs can change between requests; the system prompt is swapped in place.
+  setOptions(o: Partial<AgentOptions>) {
+    this.opts = { ...this.opts, ...o };
+    if (this.messages[0]?.role === 'system') this.messages[0] = { role: 'system', content: systemFor(this.opts) };
+  }
   // Steer: the message joins the main conversation before the next model call.
   interject(text: string) { this.pending.push(text); }
 
@@ -62,9 +78,26 @@ export class Agent {
     }
   }
 
+  private async runCheckpoint(id: string, args: any): Promise<string> {
+    if (!this.opts.checkpoint) return 'No learner UI attached; continue.';
+    const cp = { id, kind: args.kind === 'implementation' ? 'implementation' : 'design', title: String(args.title ?? ''), summary: String(args.summary ?? ''),
+      additions: Array.isArray(args.additions) ? args.additions : undefined, files: Array.isArray(args.files) ? args.files : undefined } as Checkpoint & { id: string };
+    this.emit({ type: 'checkpoint', ...cp });
+    const answer = await this.opts.checkpoint(cp);
+    this.emit({ type: 'checkpoint_answer', id, choice: answer.choice, text: answer.text });
+    if (answer.choice === 'confirm') {
+      if (cp.kind === 'implementation') { this.unlocked = true; return 'Learner confirmed: implement exactly this step now. Then give the Implementation report.'; }
+      return 'Learner confirmed this design. Record it and continue planning; you still need an implementation checkpoint before writing code.';
+    }
+    return `Learner wants to discuss before deciding${answer.text ? `: "${answer.text}"` : ''}. Answer them, then end your turn or offer the checkpoint again.`;
+  }
+
   async run(task: string, maxSteps = 30) {
     this.messages.push({ role: 'user', content: task });
     this.emit({ type: 'user', text: task });
+    this.unlocked = false;
+    const learning = this.opts.mode === 'learn';
+    const tools = learning ? [...toolSchemas, checkpointSchema] : toolSchemas;
     this.abort = new AbortController();
     this.running = true;
     try {
@@ -74,7 +107,7 @@ export class Agent {
           this.messages.push({ role: 'user', content: text });
           this.emit({ type: 'user', text });
         }
-        const reply = await chat(this.cfg, this.messages, toolSchemas, this.abort.signal, (u) => this.emit({ type: 'usage', ...u }));
+        const reply = await chat(this.cfg, this.messages, tools, this.abort.signal, (u) => this.emit({ type: 'usage', ...u }));
         this.messages.push(reply);
         if (reply.content && reply.tool_calls?.length) this.emit({ type: 'thinking', text: reply.content });
         if (!reply.tool_calls?.length) return this.emit({ type: 'done', text: reply.content ?? '' });
@@ -86,7 +119,10 @@ export class Agent {
           this.emit({ type: 'tool_start', id: call.id, name: call.function.name, args: args ?? { raw: call.function.arguments } });
           try {
             if (!args) throw new Error(`arguments were not valid JSON: ${call.function.arguments.slice(0, 200)}. Retry with valid JSON.`);
-            output = await runTool(this.ctx, call.function.name, args);
+            if (call.function.name === 'checkpoint') output = await this.runCheckpoint(call.id, args);
+            else if (learning && WRITE_TOOLS.has(call.function.name) && !this.unlocked)
+              throw new Error('Locked by the harness: in Learn mode you must call the checkpoint tool with kind "implementation" and get the learner\'s confirmation before writing files or running commands.');
+            else output = await runTool(this.ctx, call.function.name, args);
           } catch (e: any) {
             ok = false;
             output = `error: ${e.message}`;

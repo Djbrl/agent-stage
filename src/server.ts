@@ -53,7 +53,8 @@ setInterval(refreshHealth, 8000);
 
 // ── threads: each has its own agent, folder, event history and usage ───────
 type Stamped = AgentEvent & { at: number };
-type Live = { thread: Thread; agent: Agent; listeners: Set<(e: Stamped) => void>; approvals: Map<string, (ok: boolean) => void> };
+type Live = { thread: Thread; agent: Agent; listeners: Set<(e: Stamped) => void>; approvals: Map<string, (ok: boolean) => void>;
+  checkpoints: Map<string, (a: { choice: 'confirm' | 'discuss'; text?: string }) => void> };
 const live = new Map<string, Live>();
 const saveSoon = new Map<string, NodeJS.Timeout>();
 
@@ -72,7 +73,7 @@ async function open(id: string): Promise<Live | null> {
   if (existing) return existing;
   const thread = await loadThread(id);
   if (!thread) return null;
-  const l: Live = { thread, agent: null!, listeners: new Set(), approvals: new Map() };
+  const l: Live = { thread, agent: null!, listeners: new Set(), approvals: new Map(), checkpoints: new Map() };
   const emit = (event: AgentEvent) => {
     if (event.type === 'usage') {
       const u = thread.usage;
@@ -94,15 +95,19 @@ async function open(id: string): Promise<Live | null> {
         emit({ type: 'approval', id: aid, command });
       });
     },
-  }, emit);
+  }, emit, {
+    mode: thread.mode ?? 'build', learn: settings.learn,
+    checkpoint: (cp) => new Promise((ok) => l.checkpoints.set(cp.id, ok)),
+  });
   if (thread.messages.length) l.agent.messages = thread.messages;
+  l.agent.setOptions({}); // refresh the system prompt for the current mode/prefs
   live.set(id, l);
   return l;
 }
 
-async function newThread(folder: string): Promise<Thread> {
+async function newThread(folder: string, mode: 'build' | 'learn' = 'build', parent?: string): Promise<Thread> {
   const t: Thread = {
-    id: crypto.randomUUID().slice(0, 8), title: 'New thread', folder, providerId: settings.activeProvider,
+    id: crypto.randomUUID().slice(0, 8), title: 'New thread', folder, providerId: settings.activeProvider, mode, parent,
     createdAt: Date.now(), updatedAt: Date.now(), messages: [], events: [], usage: { promptTokens: 0, completionTokens: 0, modelMs: 0, calls: 0 },
   };
   await saveThread(t);
@@ -134,11 +139,11 @@ app.get('/api/threads', async (c) => c.json((await listThreads()).map((t) => ({
   tokens: t.usage.promptTokens + t.usage.completionTokens,
 }))));
 app.post('/api/threads', async (c) => {
-  const { folder } = await c.req.json().catch(() => ({}));
+  const { folder, mode } = await c.req.json().catch(() => ({}));
   const dir = resolve(folder || sandbox);
   const st = await stat(dir).catch(() => null);
   if (!st?.isDirectory()) return c.json({ error: 'not a folder' }, 400);
-  return c.json(await newThread(dir));
+  return c.json(await newThread(dir, mode === 'learn' ? 'learn' : 'build'));
 });
 app.delete(T, async (c) => {
   const id = c.req.param('id'), l = live.get(id);
@@ -149,7 +154,8 @@ app.delete(T, async (c) => {
 app.get(`${T}/state`, async (c) => {
   const l = await open(c.req.param('id'));
   if (!l) return c.json({ error: 'no such thread' }, 404);
-  return c.json({ workspace: l.thread.folder, title: l.thread.title, running: l.agent.running, files: await listFiles(l.thread.folder) });
+  return c.json({ workspace: l.thread.folder, title: l.thread.title, mode: l.thread.mode ?? 'build', parent: l.thread.parent,
+    running: l.agent.running, files: await listFiles(l.thread.folder) });
 });
 app.get(`${T}/map`, async (c) => {
   const l = await open(c.req.param('id'));
@@ -171,7 +177,10 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
   if (!l) return c.json({ error: 'no such thread' }, 404);
   const body = await c.req.json().catch(() => ({}));
   // A thread always runs on the currently selected model.
-  if (!l.agent.running) { l.thread.providerId = settings.activeProvider; l.agent.setConfig(toConfig(provider())); }
+  if (!l.agent.running) {
+    l.thread.providerId = settings.activeProvider; l.agent.setConfig(toConfig(provider()));
+    l.agent.setOptions({ mode: l.thread.mode ?? 'build', learn: settings.learn });
+  }
   const out = await fn(l, body);
   return c.json(out ?? { ok: true });
 };
@@ -183,11 +192,24 @@ app.post(`${T}/stop`, withThread((l) => {
   l.agent.stop();
   for (const [, ok] of l.approvals) ok(false);
   l.approvals.clear();
+  for (const [, ok] of l.checkpoints) ok({ choice: 'discuss', text: '(stopped by the learner)' });
+  l.checkpoints.clear();
 }));
 app.post(`${T}/ask`, withThread((l, { text }) => { void l.agent.ask(text); }));
 app.post(`${T}/steer`, withThread((l, { text }) => {
   if (l.agent.running) l.agent.interject(text);
   else void l.agent.run(text, settings.maxSteps); // idle: steering is just the next task, with full context
+}));
+app.post(`${T}/checkpoint`, withThread((l, { id, choice, text }) => {
+  l.checkpoints.get(id)?.({ choice: choice === 'confirm' ? 'confirm' : 'discuss', text });
+  l.checkpoints.delete(id);
+}));
+app.post(`${T}/mode`, withThread((l, { mode }) => {
+  if (l.agent.running) return { error: 'agent is busy' };
+  l.thread.mode = mode === 'learn' ? 'learn' : 'build';
+  l.agent.setOptions({ mode: l.thread.mode });
+  persist(l);
+  return { mode: l.thread.mode };
 }));
 app.post(`${T}/approve`, withThread((l, { id, ok }) => {
   l.approvals.get(id)?.(Boolean(ok));

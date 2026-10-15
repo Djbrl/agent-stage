@@ -32,7 +32,7 @@ export async function chat(
   onUsage?: (u: Usage) => void,
 ): Promise<Message> {
   const t0 = Date.now();
-  if (!cfg.apiKey || cfg.apiKey === 'mock') return mockChat(messages, tools.length > 0);
+  if (!cfg.apiKey || cfg.apiKey === 'mock') return mockChat(messages, tools);
   if (cfg.kind === 'anthropic') return (await import('./anthropic.ts')).chatAnthropic(cfg, messages, tools, signal, onUsage);
   // Hosted free tiers rate-limit and hiccup: retry 429/5xx with backoff before giving up.
   let res!: Response;
@@ -94,12 +94,13 @@ const MOCK_SCRIPT: Array<[string, object, string?]> = [
   ['run_command', { command: 'node index.js' }, 'Everything is in place. Running it to check.'],
 ];
 
-async function mockChat(messages: Message[], withTools: boolean): Promise<Message> {
+async function mockChat(messages: Message[], tools: unknown[]): Promise<Message> {
   await new Promise((r) => setTimeout(r, 700 + Math.random() * 700));
-  if (!withTools) {
+  if (!tools.length) {
     const q = (messages.at(-1)?.content ?? '').split('\n\n').pop();
     return { role: 'assistant', content: `(mock answer) You asked: "${q}". A real model would answer from everything it has seen so far in this run.` };
   }
+  if (tools.some((t: any) => t.function?.name === 'checkpoint')) return mockLearn(messages);
   const done = messages.filter((m) => m.role === 'tool').length;
   if (done >= MOCK_SCRIPT.length) return { role: 'assistant', content: 'Done. Here is what changed:\n\n- **`src/greet.js`**: a `greet(name)` function, with a fallback for empty names\n- **`index.js`**: entry point that prints the greeting\n- **`README.md`**: how to run it\n\nRunning `node index.js` prints *Hello, Dakar!*' };
   const [name, args, thought] = MOCK_SCRIPT[done];
@@ -108,4 +109,28 @@ async function mockChat(messages: Message[], withTools: boolean): Promise<Messag
     content: thought ?? null,
     tool_calls: [{ id: `mock-${done}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }],
   };
+}
+
+// Learn mode demo: explore, ask the learner first, then an implementation checkpoint, then build + report.
+function mockLearn(messages: Message[]): Message {
+  const users = messages.filter((m) => m.role === 'user').length;
+  const sinceUser = messages.slice(messages.findLastIndex((m) => m.role === 'user') + 1);
+  const toolsSince = sinceUser.filter((m) => m.role === 'tool');
+  const call = (name: string, args: object, content: string | null = null): Message =>
+    ({ role: 'assistant', content, tool_calls: [{ id: `mock-${Math.random().toString(36).slice(2, 8)}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] });
+  if (users === 1) {
+    if (!toolsSince.length) return call('list_files', {}, 'Let me look at the project first.');
+    return { role: 'assistant', content: '✦ Build checkpoint: where the greeting logic lives\n\nBefore I write anything: how would **you** split this up? For example, would the greeting text be built in the same file that prints it, or somewhere else?\n\n✦ Concept: module\n\nA module is a file that exports functions other files can import. Splitting code into modules lets you reuse and test pieces separately.' };
+  }
+  const last = toolsSince.at(-1)?.content ?? '';
+  if (!toolsSince.length) return call('checkpoint', {
+    kind: 'implementation', title: 'Greeting module + entry point',
+    summary: 'Following your idea: `src/greet.js` builds the text, `index.js` only prints it. That keeps the logic testable on its own.',
+    additions: [{ detail: 'Empty name', proposal: 'Fall back to "stranger"', why: 'Avoids printing "Hello, !" when no name is given' }],
+    files: ['src/greet.js', 'index.js'],
+  }, '✦ Why this matters: separation\n\nIf printing and building the text stay apart, you can change one without breaking the other.');
+  if (/discuss/i.test(last)) return { role: 'assistant', content: 'Good question. Ask me anything about the plan, and when you are ready, tell me to continue.' };
+  if (toolsSince.length === 1) return call('write_file', { path: 'src/greet.js', content: "export function greet(name) {\n  if (!name) return 'Hello, stranger!';\n  return `Hello, ${name}!`;\n}\n" });
+  if (toolsSince.length === 2) return call('write_file', { path: 'index.js', content: "import { greet } from './src/greet.js';\n\nconsole.log(greet(process.argv[2]));\n" });
+  return { role: 'assistant', content: '✦ Implementation report\n\n- **`src/greet.js`** exports `greet(name)`, with the empty-name fallback we agreed.\n- **`index.js`** imports it and prints the result for the name passed on the command line.\n\nI did not run anything yet. Try `node index.js Dakar`.' };
 }
