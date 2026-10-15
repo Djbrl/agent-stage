@@ -17,8 +17,11 @@ way, or trust it with your machine. Most agents are also tied to one proprietary
 
 ## The solution
 agent-stage makes the agent's work **visible and controllable**:
-- a **live project map**: the agent is a marker that moves to each file it reads or edits, changed
-  files show `+N −M`, failures turn red;
+- a **live project map**: your project as circle-packed folders and files; the agent is a marker
+  that glides to each file it edits, fresh edits glow orange, failures turn red, and the camera
+  follows the work;
+- a **status bar**: model, GPU and tunnel health, tokens per second and GPU cost, so you know
+  it's ready *before* you send a prompt;
 - an **activity log and diff view**: every step with its timing, and exactly what changed;
 - **human controls**: Stop, Steer (redirect mid-run), Ask (side question, changes nothing) and
   Approve (every shell command needs your OK);
@@ -40,6 +43,10 @@ npm start            # → http://localhost:3000 (mock model, no key needed)
 To use a real model, copy `.env.example` to `.env` and fill in the key, then run `npm start` again.
 The agent works inside `./workspace`; point it at another folder with `WORKSPACE=/path npm start`.
 
+Self-hosting on a GPU: run `scripts/serve-vllm.sh` on the GPU machine, then set `TUNNEL_HOST`
+(the server keeps the SSH tunnel up), and optionally `BREV_INSTANCE` and `GPU_HOURLY_USD` for the
+status bar. See `.env.example`.
+
 Terminal-only harness: `npm run agent -- workspace "your task"`.
 
 ## Architecture
@@ -51,7 +58,7 @@ browser (React, web/)  ──HTTP + Server-Sent Events──▶  Hono server (sr
 ```
 
 ## Dependencies
-`hono`, `@hono/node-server` (server) · `react`, `react-dom`, `vite`, `@vitejs/plugin-react` (UI).
+`hono`, `@hono/node-server` (server) · `react`, `react-dom`, `d3-hierarchy`, `vite`, `@vitejs/plugin-react` (UI).
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · how it was made: [docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md)
 

@@ -44,6 +44,21 @@ OpenAI-compatible API, so agent-stage needed zero code changes, only three lines
 compiles GPU code at startup and needs `nvcc`, which the image lacked, so the script turns that
 sampler off. First real run: a 3-file task with clean tool calls in about 4 seconds.
 
+## Night 2: the map and the status bar (15 → 16 10)
+- **A real project map.** We replaced the file-card grid with a canvas map: circle-packed folders
+  (`d3-hierarchy`), dots sized by lines, colour by recency, and one agent marker gliding between
+  writes, with a follow-camera that gets out of your way when you pan. We tuned the timings
+  (650 ms glides, 700 ms ripples, a 60% dead zone before the camera moves) until it felt calm
+  rather than busy.
+- **No more surprises.** Testing on a real GPU taught us the failure modes: the tunnel drops, the
+  GPU is off, the model is still loading. The server now checks all three every few seconds,
+  keeps the tunnel alive itself, and the UI says what's wrong *before* you send a prompt.
+- **What it costs.** On a self-hosted model you pay for GPU time, not tokens. The status bar shows
+  tokens, throughput, GPU dollars, and the resulting price per million tokens.
+- **Lessons from the first real runs**, now fixed: the model re-ran a command 9 times (the loop
+  guard now catches repeats that aren't back to back), and replies showed raw markdown (now
+  rendered, without injecting HTML).
+
 ## AI in this project
 | Where | What | Why |
 |---|---|---|
@@ -57,6 +72,6 @@ Every line was reviewed and steered by the team. The assistant drafted and we de
 ## Tools and dependencies
 - Runtime: Node.js ≥ 22.18 (runs TypeScript natively)
 - Server: `hono`, `@hono/node-server`
-- UI: `react`, `react-dom`, `vite`, `@vitejs/plugin-react`
+- UI: `react`, `react-dom`, `d3-hierarchy` (circle packing), `vite`, `@vitejs/plugin-react`
 - Fonts: Inter, JetBrains Mono (Google Fonts)
 - Models: see the README

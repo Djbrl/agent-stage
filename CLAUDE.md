@@ -19,7 +19,7 @@ in a new repo**. Don't copy code from Rundown; rebuild it.
   problem and solution, **clear explanation of the AI's role**, list of models/APIs/tools, demo
   video of 3 minutes or less. Final in Dakar on 24 10 (7-min pitch and 3 min of Q&A).
 - Scoring: problem 25% · AI use 20% · technical quality 20% · **open-source practices 20%** · UX/pitch 15%.
-- **Never commit or push without Jib's explicit OK.** The history is public and read by the jury; propose commits and wait. Document how things were built in `docs/HOW-WE-BUILT-IT.md`.
+- **Small local commits are fine; never push until Jib reviews them** (`git log origin/main..HEAD`). The history is public and read by the jury. Document how things were built in `docs/HOW-WE-BUILT-IT.md`.
 - Team of 2.
 
 ## What exists
@@ -31,9 +31,8 @@ in a new repo**. Don't copy code from Rundown; rebuild it.
 - `src/cli.ts`: terminal harness for testing models.
 - `src/server.ts`: **Hono** server on :3000 (chosen by Jib). Routes: GET /api/state,
   GET /api/events (SSE, replays history), POST /api/task|steer|ask|stop|approve|reset (ask = side question, no tools; steer = queued for next step). Serves web/dist.
-- `web/`: Vite + React UI. `useAgent.ts` turns events into state; `Map.tsx` is the SVG project map
-  (folders become columns, files become tiles, a marker walks to the current target, plus terminal
-  and workspace tiles); `App.tsx` holds the side panel (messages, step list, ask box) and the approval prompt.
+- `web/`: Vite + React UI. `useAgent.ts` turns events into state; `MapCanvas.tsx` is the canvas project map
+  (circle-packed folders, recency colours, agent marker + follow camera; see docs/ARCHITECTURE.md); `App.tsx` holds the side panel (messages, step list, ask box) and the approval prompt.
 - **Mock model**: when MODEL_API_KEY is empty or `mock`, `model.ts` plays a scripted run. Useful for UI work.
 - Node ≥ 22.18 runs `.ts` directly on the server (type stripping only: **no parameter
   properties, enums or namespaces**). `npm start` builds the UI, then serves everything.
@@ -41,7 +40,8 @@ in a new repo**. Don't copy code from Rundown; rebuild it.
 ## Status
 - 14 10: full UI loop verified in the browser with the mock model (writes, red error, approval, done).
 - 15 10 (overnight): UI redesigned from Mobbin references (Linear frame, Vercel-style log, agent-panel groups); diff view; Ask vs Steer; loop hardening (retries, text tool-call recovery, bad-JSON feedback, repeat guard); docs (ARCHITECTURE, HOW-WE-BUILT-IT, CONTRIBUTING, CoC, issue templates). **Uncommitted, awaiting Jib's review.**
-- **Not yet tested with a real model/key.** That's the first job.
+- 15 10: real model verified: Qwen3-Coder-30B-FP8 on vLLM, Brev L40S (`scripts/serve-vllm.sh`). The Brev instance was deleted afterwards to stop billing (this provider type can't pause). Recreate: `brev create agent-gpu --type massedcompute_L40S`, scp+run serve-vllm.sh (~10 min). `.env` keeps the key; the script makes a new one, so update MODEL_API_KEY or copy the old key to ~/.vllm-key first.
+- 16 10 (night): canvas project map (`web/src/MapCanvas.tsx`, server `src/mapdata.ts`), health/status bar (`src/health.ts`, `src/tunnel.ts`, `web/src/StatusBar.tsx`), usage/cost, smarter loop guard, markdown replies. All committed locally, **not pushed**.
 - Known rough edges: a failed read of a nonexistent file still adds a red tile (arguably a feature); mock durations show 0.0s; map layout is simple columns (fine up to ~40 files).
 - Default model `nvidia/nemotron-3-super-120b-a12b`. Candidates: `moonshotai/kimi-k2.6`,
   `z-ai/glm-5.3`, `openai/gpt-oss-20b`. Pick the one whose tool calling is reliable.

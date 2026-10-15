@@ -53,6 +53,34 @@ Open models are less consistent at tool calling than frontier APIs, so the loop 
 - feeds invalid JSON arguments back as an error so the model can correct itself;
 - detects the same call repeated 3 times and nudges the model to change approach.
 
+## The project map
+`GET /api/map` returns every workspace file with its line count, plus relative imports
+(JS/TS/Python) as edges. The UI (`web/src/MapCanvas.tsx`) draws it on one canvas:
+- **Layout**: the folder tree is circle-packed (`d3-hierarchy`). Folders are circles, files are
+  dots sized by line count, and single-child folders are merged (`web/src`). It's deterministic,
+  so nothing jitters, and new files glide into place.
+- **Colour = recency**: hot orange for a fresh edit, fading to warm over 5 minutes, then cool grey
+  for untouched. Read files are blue, failures red. Each edit gives one ripple.
+- **Agent marker**: sits on the last file written, or on the *terminal* / *scan & search*
+  islands. It glides between them, leaves a fading trail through recent writes, and draws a
+  dotted line of sight to files it reads. Its ring shows state: breathing = thinking,
+  amber = waiting for your approval, red pulse = a step failed.
+- **Camera**: wheel to zoom, drag to pan. It follows the agent but only moves when the marker
+  leaves the middle 60% of the view. Any manual move hands you control; **F** or 60 s idle
+  gives it back. **0** fits the whole project.
+- **Hover** a file to see its imports (blue) and the files that import it (green).
+
+## Status and cost
+`GET /api/health` (polled every 5 s) reports:
+- **Model**: reachable, latency, API key accepted, right model served.
+- **GPU**: Brev instance state, when `BREV_INSTANCE` is set.
+- **Tunnel**: when `TUNNEL_HOST` is set, the server itself keeps `ssh -L` open and reconnects it.
+- **Usage**: tokens in and out, tokens per second, and GPU cost (`GPU_HOURLY_USD` × the time the GPU
+  was seen running), plus the effective price per million tokens.
+
+The UI turns the worst problem into one plain sentence above the prompt box: "GPU is off, start
+it…", "tunnel down, reconnecting…", "model still loading…".
+
 ## Mock mode
 With no API key, `src/model.ts` plays a scripted run. The whole UI can be developed, tested
 and demoed offline.
