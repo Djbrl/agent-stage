@@ -38,7 +38,7 @@ export type Entry =
 export type State = {
   files: Record<string, FileStatus>;
   changes: Record<string, Change>; // cumulative per file: first "before", latest "after"
-  marker: string | null; // file path, '$terminal' or '$workspace'
+  marker: string | null; // file path, '$terminal', '$browser' or '$workspace'
   trail: string[];
   steps: Step[];
   timeline: Entry[];
@@ -55,7 +55,8 @@ export const initial: State = {
 };
 
 export function targetOf(name: string, args: any): string {
-  if (name === 'run_command') return '$terminal';
+  if (name === 'run_command' || name === 'open_on_computer') return '$terminal';
+  if (name.startsWith('browser_')) return '$browser';
   if (name === 'list_files' || name === 'search') return '$workspace';
   return args?.path ?? '$workspace';
 }

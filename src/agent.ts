@@ -25,6 +25,7 @@ export type AgentEvent =
 
 const BUILD = `You are a coding agent working inside a project folder.
 Use the tools to inspect and change files. Prefer small edits. Read before you write.
+For web work, check the result yourself: start the dev server with run_command (background: true), then use browser_open on its local address and click through it.
 When the task is finished, reply with a short summary and no tool calls.`;
 
 export type Mode = 'build' | 'learn' | 'ask';
@@ -32,7 +33,7 @@ export type AgentOptions = { mode: Mode; learn: LearnPrefs; checkpoint?: (cp: Ch
 const ASK = `You answer questions about this project and about what the coding agent has done in it so far (the conversation above).
 You may read files and search to answer accurately, but you cannot change anything. Explain clearly and briefly, like a patient tutor.`;
 const systemFor = (o: AgentOptions) => (o.mode === 'learn' ? learnPrompt(o.learn) : o.mode === 'ask' ? ASK + languageLine(o.learn.language) : BUILD + languageLine(o.learn.language));
-const READ_ONLY = new Set(['list_files', 'read_file', 'search']);
+const READ_ONLY = new Set(['list_files', 'read_file', 'search', 'browser_open', 'browser_read']);
 
 export class Agent {
   messages: Message[];

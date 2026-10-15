@@ -7,10 +7,15 @@ import { Icon, TOOL_ICON } from './icons';
 import { Markdown } from './Markdown';
 
 export function stepLabel(s: Step) {
-  const v: Record<string, string> = { list_files: 'Scanned the project', read_file: 'Read', write_file: 'Wrote', edit_file: 'Edited', search: 'Searched', run_command: 'Ran', checkpoint: 'Checkpoint' };
-  const what = s.name === 'run_command' ? s.args.command : s.name === 'search' ? `“${s.args.text}”` : s.name === 'checkpoint' ? s.args.title ?? '' : s.args.path ?? '';
+  const v: Record<string, string> = { list_files: 'Scanned the project', read_file: 'Read', write_file: 'Wrote', edit_file: 'Edited', search: 'Searched', run_command: 'Ran', checkpoint: 'Checkpoint',
+    browser_open: 'Opened', browser_read: 'Looked at the page', browser_click: 'Clicked', browser_type: 'Typed into', open_on_computer: 'Opened on your computer' };
+  const what = s.name === 'run_command' ? s.args.command : s.name === 'browser_open' ? s.args.url : s.name === 'browser_type' ? `“${s.args.text}”` : s.name === 'browser_click' ? `control ${s.args.n}` : s.name === 'open_on_computer' ? s.args.target : s.name === 'browser_read' ? '' : s.name === 'search' ? `“${s.args.text}”` : s.name === 'checkpoint' ? s.args.title ?? '' : s.args.path ?? '';
   return { verb: v[s.name] ?? s.name, what };
 }
+// Browser steps carry a screenshot reference at the top of their output.
+export const shotOf = (s?: Step) => s?.output?.match(/^\[screenshot: (\/api\/shots\/[\w-]+\.png)\]/)?.[1] ?? null;
+// …followed by "<title> — <url>".
+export const pageOf = (s: Step) => (s.output?.split('\n')[1]?.split(' — ').at(-1) ?? '').replace(/^https?:\/\//, '') || 'browser';
 export const stepText = (s: Step) => s.label ?? `${stepLabel(s).verb} ${stepLabel(s).what}`.trim();
 
 export function StepsSheet({ state, selected, onSelect, onClose, threadId, replay }: {
@@ -81,6 +86,11 @@ function Detail({ state, step, filePath, threadId }: { state: State; step?: Step
                 <span className="sign">{l.kind === 'add' ? '+' : l.kind === 'del' ? '−' : ' '}</span><span className="code">{l.text || ' '}</span></div>
             ))}
           </div>
+        </>
+      ) : shotOf(step) ? (
+        <>
+          <img className="shot" src={shotOf(step)!} alt="What the browser showed" />
+          <pre className={`output ${step?.ok === false ? 'bad' : ''}`}>{step!.output!.replace(/^\[screenshot: [^\]]+\]\n/, '')}</pre>
         </>
       ) : <pre className={`output ${step?.ok === false ? 'bad' : ''}`}>{step?.output ?? 'No changes to this file yet.'}</pre>}
     </div>

@@ -14,7 +14,9 @@ function summarize(steps: Step[]) {
   const c = (n: string[]) => steps.filter((s) => n.includes(s.name)).length;
   const parts: string[] = [];
   const read = c(['read_file', 'list_files', 'search']), wrote = c(['write_file', 'edit_file']), ran = c(['run_command']);
+  const web = steps.filter((s) => s.name.startsWith('browser_')).length;
   if (wrote) parts.push(`changed ${wrote} file${wrote > 1 ? 's' : ''}`);
+  if (web) parts.push(`used the browser`);
   if (ran) parts.push(`ran ${ran} command${ran > 1 ? 's' : ''}`);
   if (read && !parts.length) parts.push(`looked at ${read} thing${read > 1 ? 's' : ''}`);
   const s = parts.join(', ');

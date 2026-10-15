@@ -1,7 +1,8 @@
 // The agent's hands. Everything is confined to the workspace folder.
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { resolve, relative, dirname, join } from 'node:path';
+import { browserSchemas, BROWSER_TOOLS, runBrowserTool } from './browser.ts';
 
 export type ToolContext = {
   root: string;
@@ -35,7 +36,10 @@ export const toolSchemas = [
     path: { type: 'string' }, old: { type: 'string' }, new: { type: 'string' },
   }, ['path', 'old', 'new']),
   fn('search', 'Find lines containing text across the workspace.', { text: { type: 'string' } }, ['text']),
-  fn('run_command', 'Run a shell command in the workspace (needs human approval).', { command: { type: 'string' } }, ['command']),
+  fn('run_command', 'Run a shell command in the workspace (needs human approval). Commands stop after 60s; for servers that keep running (npm run dev…) set background: true.', {
+    command: { type: 'string' }, background: { type: 'boolean', description: 'Keep it running and return its first few seconds of output.' },
+  }, ['command']),
+  ...browserSchemas,
 ];
 
 export async function runTool(ctx: ToolContext, name: string, args: any): Promise<string> {
@@ -78,12 +82,14 @@ export async function runTool(ctx: ToolContext, name: string, args: any): Promis
     }
     case 'run_command': {
       if (!(await ctx.approve(args.command))) return 'user denied this command';
+      if (args.background) return startBackground(ctx.root, args.command);
       return await new Promise((ok) =>
         execFile('sh', ['-c', args.command], { cwd: ctx.root, timeout: 60_000 }, (err, stdout, stderr) =>
           ok(`${err ? `exit ${err.code}\n` : ''}${stdout}${stderr}`.slice(0, 8000))),
       );
     }
     default:
+      if (BROWSER_TOOLS.has(name)) return runBrowserTool(ctx, name, args);
       throw new Error(`unknown tool ${name}`);
   }
 }
@@ -91,3 +97,18 @@ export async function runTool(ctx: ToolContext, name: string, args: any): Promis
 function fn(name: string, description: string, properties: object, required: string[] = []) {
   return { type: 'function', function: { name, description, parameters: { type: 'object', properties, required } } };
 }
+
+// Long-running commands (dev servers): kept alive while agent-stage runs, stopped when it exits.
+const background = new Set<ChildProcess>();
+function startBackground(cwd: string, command: string): Promise<string> {
+  const proc = spawn('sh', ['-c', command], { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  background.add(proc);
+  let out = '';
+  proc.stdout?.on('data', (d) => { out += d; }); proc.stderr?.on('data', (d) => { out += d; });
+  return new Promise((ok) => {
+    const done = (why: string) => { clearTimeout(t); ok(`${why}\n${out.slice(-4000)}`); };
+    const t = setTimeout(() => done(`running in the background (pid ${proc.pid}); first output:`), 5000);
+    proc.on('exit', (code) => { background.delete(proc); done(`exited with code ${code}:`); });
+  });
+}
+export function stopBackground() { for (const p of background) try { process.kill(-p.pid!, 'SIGTERM'); } catch {} }

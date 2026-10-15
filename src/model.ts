@@ -94,6 +94,16 @@ const MOCK_SCRIPT: Array<[string, object, string?]> = [
   ['run_command', { command: 'node index.js' }, 'Everything is in place. Running it to check.'],
 ];
 
+// Web variant (task mentions a page/site/web): build a page, serve it, and check it in the browser.
+const PAGE = `<!doctype html>\n<title>Greeter</title>\n<style>body{font:18px system-ui;margin:60px;background:#f6f3ee}input,button{font:inherit;padding:8px 12px}</style>\n<h1>Greeter</h1>\n<form id=f><input id=who placeholder="Your name" autofocus> <button>Greet me</button></form>\n<p id=out></p>\n<script>f.onsubmit=(e)=>{e.preventDefault();out.textContent='Hello, '+(who.value || 'stranger')+'!';}</script>\n`;
+const MOCK_WEB: Array<[string, object, string?]> = [
+  ['list_files', {}, 'Let me look at what is in the workspace first.'],
+  ['write_file', { path: 'index.html', content: PAGE }, 'A single page with a name field and a button is enough.'],
+  ['run_command', { command: 'python3 -m http.server 8765', background: true }, 'Serving it locally so I can try it in the browser.'],
+  ['browser_open', { url: 'http://localhost:8765' }],
+  ['browser_type', { n: 1, text: 'Dakar', submit: true }, 'Typing a name and submitting the form to check it works.'],
+];
+
 async function mockChat(messages: Message[], tools: unknown[]): Promise<Message> {
   await new Promise((r) => setTimeout(r, 700 + Math.random() * 700));
   if (!tools.length) {
@@ -108,6 +118,12 @@ async function mockChat(messages: Message[], tools: unknown[]): Promise<Message>
     return { role: 'assistant', content: `(demo answer) You asked: *${q}*\n\n✦ Concept: reading before writing\n\nThis side thread can read the project and everything the agent did, but it can't change anything, so your work thread stays clean.` };
   }
   const done = messages.filter((m) => m.role === 'tool').length;
+  const task = messages.find((m) => m.role === 'user')?.content ?? '';
+  if (/\b(web|page|site|html|browser)\b/i.test(String(task))) {
+    if (done >= MOCK_WEB.length) return { role: 'assistant', content: 'Done. **`index.html`** is a small greeter page, served on http://localhost:8765. I typed *Dakar* into it in the browser and it answered *Hello, Dakar!*' };
+    const [name, args, thought] = MOCK_WEB[done];
+    return { role: 'assistant', content: thought ?? null, tool_calls: [{ id: `mock-w${done}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] };
+  }
   if (done >= MOCK_SCRIPT.length) return { role: 'assistant', content: 'Done. Here is what changed:\n\n- **`src/greet.js`**: a `greet(name)` function, with a fallback for empty names\n- **`index.js`**: entry point that prints the greeting\n- **`README.md`**: how to run it\n\nRunning `node index.js` prints *Hello, Dakar!*' };
   const [name, args, thought] = MOCK_SCRIPT[done];
   return {

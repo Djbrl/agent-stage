@@ -72,10 +72,11 @@ function layout(files: MapFile[]) {
   }
   const R = Math.max(nodes[0]?.r ?? 40, 40);
   const cx = nodes[0]?.x ?? 0, cy = nodes[0]?.y ?? 0;
-  // Two "islands" outside the project for things that aren't files.
+  // "Islands" outside the project for things that aren't files.
   const islands: Record<string, Circle & { label: string }> = {
     $workspace: { x: cx + R + 60, y: cy - 30, r: 11, label: 'scan & search' },
     $terminal: { x: cx + R + 60, y: cy + 30, r: 11, label: 'terminal' },
+    $browser: { x: cx + R + 60, y: cy + 90, r: 11, label: 'browser' },
   };
   return { files: files_, folders, islands, root: { x: cx, y: cy, r: R }, bounds: { x: cx - R, y: cy - R, w: 2 * R + 160, h: 2 * R } };
 }
@@ -109,7 +110,8 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
     for (let i = state.steps.length - 1; i >= 0; i--) {
       const s = state.steps[i];
       if (s.name === 'write_file' || s.name === 'edit_file') return s.target;
-      if (s.name === 'run_command' && i === state.steps.length - 1) return '$terminal';
+      if ((s.name === 'run_command' || s.name === 'open_on_computer') && i === state.steps.length - 1) return '$terminal';
+      if (s.name.startsWith('browser_') && i === state.steps.length - 1) return '$browser';
       if ((s.name === 'list_files' || s.name === 'search') && i === state.steps.length - 1) return '$workspace';
     }
     return state.steps.length ? '$workspace' : null;

@@ -21,6 +21,8 @@ const P = {
   map: 'M2 4l4-1.5 4 1.5 4-1.5v9.5l-4 1.5-4-1.5-4 1.5z M6 2.5v9.5 M10 4v9.5',
   folder: 'M2 4.5h4l1.5 1.5H14v6.5H2z',
   gear: 'M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z M8 1.5v2 M8 12.5v2 M1.5 8h2 M12.5 8h2 M3.4 3.4l1.4 1.4 M11.2 11.2l1.4 1.4 M3.4 12.6l1.4-1.4 M11.2 4.8l1.4-1.4',
+  globe: 'M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12Z M2 8h12 M8 2c-2 2.2-2 9.8 0 12 M8 2c2 2.2 2 9.8 0 12',
+  pointer: 'M4 2.5l8 5-3.5 1 2 4-1.5.7-2-4L4 12z',
   undo: 'M5 3L2.5 5.5 5 8 M2.5 5.5H10a3.5 3.5 0 0 1 0 7H6',
   cpu: 'M4 4h8v8H4z M6 1.5v2.5 M10 1.5v2.5 M6 12v2.5 M10 12v2.5 M1.5 6H4 M1.5 10H4 M12 6h2.5 M12 10h2.5',
 };
@@ -37,6 +39,7 @@ export function Icon({ name, size = 14, className }: { name: IconName; size?: nu
 
 export const TOOL_ICON: Record<string, IconName> = {
   list_files: 'list', read_file: 'read', write_file: 'write', edit_file: 'write', search: 'search', run_command: 'terminal', checkpoint: 'shield',
+  browser_open: 'globe', browser_read: 'read', browser_click: 'pointer', browser_type: 'write', open_on_computer: 'arrow',
 };
 
 const EXT_COLOR: Record<string, string> = {

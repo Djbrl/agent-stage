@@ -2,7 +2,7 @@
 // details in a sheet only when asked, and the approval prompt when the agent needs you.
 import { useEffect, useRef, useState } from 'react';
 import { ProjectMap, type MapApi } from './MapCanvas';
-import { StepsSheet, stepText } from './StepsSheet';
+import { StepsSheet, stepText, shotOf, pageOf } from './StepsSheet';
 import type { Replay, State } from './useAgent';
 import { Icon } from './icons';
 import { store } from './Resizer';
@@ -49,6 +49,9 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
     : state.approval ? 'Waiting for your approval' : pendingCp ? 'Waiting for your decision'
     : state.running ? (last && last.endedAt === undefined ? stepText(last) : 'Thinking…') : '';
   const folder = workspace.split('/').pop();
+  // A little browser window on the stage while the agent is using the browser.
+  const recent = state.steps.slice(-3).reverse().find((s) => shotOf(s));
+  const browserShot = !sheetOpen ? recent : undefined;
 
   return (
     <section ref={box} className={`stage ${sheetOpen ? 'with-sheet' : ''} ${stageW < 560 ? 'narrow' : ''}`} style={{ ['--sheet-w' as any]: `${sheetW}px` }}>
@@ -79,6 +82,13 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
         </div>
       )}
 
+      {browserShot && (
+        <button className="browser-win" onClick={() => { onSelect(browserShot.id); setSheetOpen(true); }} title="Open this step">
+          <div className="browser-bar"><Icon name="globe" size={11} /><span className="mono">{pageOf(browserShot)}</span></div>
+          <img src={shotOf(browserShot)!} alt="" />
+        </button>
+      )}
+
       {caption && <div className={`caption ${state.approval || pendingCp ? 'wait' : ''}`}>{caption}</div>}
 
       {replay.active && (
@@ -93,7 +103,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
 
       {state.approval && (
         <div className="approval">
-          <div className="approval-head"><Icon name="shield" /> The agent wants to run a command</div>
+          <div className="approval-head"><Icon name="shield" /> {state.approval.command.startsWith('browse ') ? 'The agent wants to visit a website' : state.approval.command.startsWith('open ') ? 'The agent wants to open something on your computer' : 'The agent wants to run a command'}</div>
           <code>$ {state.approval.command}</code>
           <div className="approval-actions">
             <button className="btn ghost" onClick={() => approve(state.approval!.id, false)}>Deny</button>

@@ -8,11 +8,14 @@ import { isAbsolute, join, relative } from 'node:path';
 import type { AgentEvent, AgentOptions } from './agent.ts';
 import type { Message, ModelConfig } from './model.ts';
 import type { ToolContext } from './tools.ts';
+import { browserSchemas, runBrowserTool } from './browser.ts';
+import { SHOTS } from './browser.ts';
 import { learnPrompt, languageLine, type Checkpoint } from './learn.ts';
 
 const WRITES = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const READ_ONLY = ['Read', 'Glob', 'Grep', 'LS', 'WebFetch', 'WebSearch', 'TodoWrite'];
 const CHECKPOINT = 'mcp__agentstage__checkpoint';
+const MCP = 'mcp__agentstage__';
 
 // A tiny push-able async queue: the prompt stream we feed Claude Code (task first, then any steering).
 class Inbox {
@@ -71,7 +74,7 @@ export class ClaudeCodeAgent {
       case 'Grep': return { name: 'search', args: { text: input.pattern } };
       case 'Glob': case 'LS': return { name: 'list_files', args: { pattern: input.pattern ?? input.path } };
       case CHECKPOINT: return { name: 'checkpoint', args: input };
-      default: return { name, args: input };
+      default: return name.startsWith(MCP) ? { name: name.slice(MCP.length), args: input } : { name, args: input };
     }
   }
 
@@ -101,11 +104,19 @@ export class ClaudeCodeAgent {
       ? `${learnPrompt(this.opts.learn)}\nThe checkpoint tool is named ${CHECKPOINT}.`
       : asking ? 'You are answering a side question. Read and search as needed but do not change anything.' : '') + languageLine(this.opts.learn.language);
     const server = createSdkMcpServer({ name: 'agentstage', version: '1.0.0', tools: [
-      tool('checkpoint', 'Show the learner a Design or Implementation checkpoint and wait for their decision. Implementation checkpoints are the only way to unlock file edits and shell commands.', {
+      ...(!learning ? [] : [tool('checkpoint', 'Show the learner a Design or Implementation checkpoint and wait for their decision. Implementation checkpoints are the only way to unlock file edits and shell commands.', {
         kind: z.enum(['design', 'implementation']), title: z.string(), summary: z.string(),
         additions: z.array(z.object({ detail: z.string(), proposal: z.string(), why: z.string() })).optional(),
         files: z.array(z.string()).optional(),
-      }, async (args) => ({ content: [{ type: 'text' as const, text: await this.checkpoint(args) }] })),
+      }, async (args) => ({ content: [{ type: 'text' as const, text: await this.checkpoint(args) }] }))]),
+      // The same browser and computer tools as our own engine. Claude also gets the screenshot itself.
+      ...browserSchemas.filter((b) => !asking || b.function.name === 'browser_read' || b.function.name === 'browser_open').map((b) => tool(b.function.name, b.function.description, zodOf(b.function.parameters as any),
+        async (args: any) => {
+          const text = await runBrowserTool(this.ctx, b.function.name, args).catch((e) => `error: ${e.message}`);
+          const m = text.match(/\[screenshot: \/api\/shots\/([\w-]+\.png)\]/);
+          const img = m ? await readFile(join(SHOTS, m[1])).catch(() => null) : null;
+          return { content: [{ type: 'text' as const, text }, ...(img ? [{ type: 'image' as const, data: img.toString('base64'), mimeType: 'image/png' }] : [])] };
+        })),
     ] });
 
     this.q = query({ prompt: this.inbox as any, options: {
@@ -117,7 +128,7 @@ export class ClaudeCodeAgent {
       maxTurns: maxSteps,
       permissionMode: asking ? 'plan' : 'default',
       ...(asking ? { disallowedTools: [...WRITES, 'Bash'] } : {}),
-      ...(learning ? { mcpServers: { agentstage: server } } : {}),
+      mcpServers: { agentstage: server },
       ...(this.sessionId ? { resume: this.sessionId, forkSession: this.fork } : {}),
       // Edits run freely (like our own engine); shell commands go through the approval card.
       canUseTool: async (name: string, input: Record<string, unknown>) => {
@@ -196,4 +207,15 @@ export class ClaudeCodeAgent {
       this.inbox?.close();
     }
   }
+}
+
+// JSON-schema properties (as written for the open-model tools) → the zod shape the SDK's tool() wants.
+function zodOf(schema: { properties: Record<string, { type: string; description?: string }>; required?: string[] }) {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const [k, v] of Object.entries(schema.properties)) {
+    let t: z.ZodTypeAny = v.type === 'number' ? z.number() : v.type === 'boolean' ? z.boolean() : z.string();
+    if (v.description) t = t.describe(v.description);
+    shape[k] = schema.required?.includes(k) ? t : t.optional();
+  }
+  return shape;
 }

@@ -34,6 +34,10 @@ agent-stage makes the agent's work **visible and controllable**:
 - **Ask** opens a temporary read-only side thread, so questions never disturb the work;
 - **engines**: run each thread on agent-stage's own open harness, or on **Claude Code** (Anthropic's agent, via the
   official Agent SDK and your API key). The map, Learn mode and approvals work the same on both;
+- **undo**: a git checkpoint before every task (your branch and staging untouched) and an Undo button per task;
+- **computer use**: the agent drives your installed Chrome as text (page text + numbered controls), so open
+  models can test the web apps they build; screenshots show up on the stage. Local pages are free, other sites
+  and "open on my computer" ask first. Long-running dev servers can run in the background;
 - **threads per folder**, a first-run tour, and **any model**: Claude, OpenAI, NVIDIA, OpenRouter, Ollama or
   your own GPU with vLLM.
 
@@ -68,7 +72,7 @@ browser (React, web/)  ──HTTP + Server-Sent Events──▶  Hono server (sr
 ```
 
 ## Dependencies
-`hono`, `@hono/node-server` (server) · `react`, `react-dom`, `d3-hierarchy`, `vite`, `@vitejs/plugin-react` (UI).
+`hono`, `@hono/node-server`, `playwright-core` (uses your installed Chrome) (server) · `react`, `react-dom`, `d3-hierarchy`, `vite`, `@vitejs/plugin-react` (UI).
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · how it was made: [docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md)
 

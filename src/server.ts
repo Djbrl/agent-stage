@@ -4,13 +4,15 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { streamSSE } from 'hono/streaming';
-import { mkdir, readdir, stat } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import { homedir, userInfo } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { Agent, type AgentEvent } from './agent.ts';
 import { configFromEnv } from './model.ts';
 import { startTunnel } from './tunnel.ts';
 import { checkpoint, restore, isRepo, initRepo } from './git.ts';
+import { closeBrowser, SHOTS } from './browser.ts';
+import { stopBackground } from './tools.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap } from './mapdata.ts';
 import { enqueue, insightsOn, labelStep, summarizeFile, explainChange } from './insight.ts';
@@ -405,6 +407,14 @@ app.post('/api/pick-folder', async (c) => {
   return out ? c.json({ path: out }) : c.json({ cancelled: true });
 });
 
+// Browser screenshots for the stage.
+app.get('/api/shots/:name', async (c) => {
+  const name = c.req.param('name');
+  if (!/^[\w-]+\.png$/.test(name)) return c.json({ error: 'bad name' }, 400);
+  const buf = await readFile(join(SHOTS, name)).catch(() => null);
+  return buf ? c.body(buf, 200, { 'content-type': 'image/png', 'cache-control': 'max-age=31536000' }) : c.json({ error: 'gone' }, 404);
+});
+
 app.get('/api/gpu', (c) => c.json(gpu.view()));
 app.post('/api/gpu/start', async (c) => {
   try { void gpu.start(); return c.json(gpu.view()); } catch (e: any) { return c.json({ error: e.message }, 400); }
@@ -433,4 +443,4 @@ app.use('/*', serveStatic({ root: './web/dist' }));
 const port = Number(process.env.PORT ?? 3000);
 serve({ fetch: app.fetch, port });
 console.log(`agent-stage → http://localhost:${port}  ·  model ${provider().name}  ·  data ~/.agent-stage`);
-for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { tunnel.stop(); process.exit(0); });
+for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, async () => { tunnel.stop(); stopBackground(); await closeBrowser(); process.exit(0); });
