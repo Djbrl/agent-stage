@@ -12,8 +12,15 @@ import { useApp } from './useSettings';
 import { Resizer, storedNumber, store } from './Resizer';
 import { HighlightContext } from './highlight';
 import { useGpu, GpuPanel } from './useGpu';
+import { StepsSheet } from './StepsSheet';
+import { Sidebar, type Nav } from './Sidebar';
 
-export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings: () => void }) {
+export type Layout = 'studio' | 'classic';
+type Tab = 'chat' | 'steps' | 'threads';
+
+export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayout }: {
+  id: string; onOpenSettings: () => void; layout?: Layout; nav?: Nav; onLayout?: (l: Layout) => void;
+}) {
   const { state, replay, meta, run, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
   const { health, serverDown, recheck } = useHealth();
   const { refreshThreads } = useApp();
@@ -66,6 +73,65 @@ export function ThreadView({ id, onOpenSettings }: { id: string; onOpenSettings:
       )}
     </>
   );
+
+  // ── studio: the map fills the window; chat, steps and threads are tabs of one floating panel ──
+  const [tab, setTab] = useState<Tab>('chat');
+  const [panelW, setPanelW] = useState(() => storedNumber('panelW', 400));
+  const [panelOpen, setPanelOpen] = useState(true);
+  useEffect(() => store('panelW', Math.round(panelW)), [panelW]);
+  // Asking for a step (from the map, a work line or the steps button) shows it in the Steps tab.
+  const openSteps = (o: boolean) => { if (o) { setTab('steps'); setPanelOpen(true); } else if (tab === 'steps') setTab('chat'); };
+  const pickStep = (stepId: string) => { setSelected(stepId); setTab('steps'); setPanelOpen(true); };
+  if (layout === 'studio') {
+    const agentPanel = (
+      <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
+        status={<HealthDot health={health} serverDown={serverDown} onRecheck={recheck} gpu={gpuCtl} bare />}
+        engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
+        problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
+        banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null}
+        replaying={replay.active} centered={false}
+        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={pickStep} onUndo={undo} git={git} />
+    );
+    const left = panelOpen ? panelW + 24 : 0;
+    return (
+      <HighlightContext.Provider value={{ paths: lit, set: (p) => setLit(p ?? []), known }}>
+      <div className="studio">
+        <Stage state={state} replay={replay} threadId={id} workspace={String(meta.workspace)} full left={left}
+          selected={selected} onSelect={(k) => { setSelected(k); if (k) openSteps(true); }} sheetOpen={tab === 'steps' && panelOpen} setSheetOpen={openSteps}
+          approve={approve} onCollapse={() => {}} lit={lit} />
+        {panelOpen ? (
+          <aside className="studio-panel" style={{ width: panelW }}>
+            <div className="studio-head">
+              <div className="studio-tabs">
+                <button className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>Chat{state.running && <span className="live-dot" />}</button>
+                <button className={tab === 'steps' ? 'on' : ''} onClick={() => setTab('steps')}>Steps{state.steps.length ? <span className="count">{state.steps.length}</span> : null}</button>
+                <button className={tab === 'threads' ? 'on' : ''} onClick={() => setTab('threads')}>Threads</button>
+              </div>
+              <button className="icon-btn" onClick={() => setPanelOpen(false)} title="Hide the panel: just the map"><Icon name="chevron" size={13} className="flip" /></button>
+            </div>
+            <div className="studio-body">
+              {/* The chat stays mounted so a half-typed prompt survives a look at the steps. */}
+              <div className="studio-pane" hidden={tab !== 'chat'}>{agentPanel}</div>
+              {tab === 'steps' && <StepsSheet embedded state={state} selected={selected} onSelect={setSelected} onClose={() => setTab('chat')} threadId={id} replay={replay} />}
+              {tab === 'threads' && nav && (
+                <div className="studio-pane">
+                  <Sidebar embedded railed={false} onToggle={() => {}} {...nav} />
+                  {onLayout && <button className="btn ghost sm studio-switch" onClick={() => onLayout('classic')}>Switch to the classic layout</button>}
+                </div>
+              )}
+            </div>
+            <Resizer onDrag={(dx) => setPanelW((w) => Math.max(320, Math.min(640, w + dx)))} onReset={() => setPanelW(400)} title="Drag to resize the panel" />
+          </aside>
+        ) : (
+          <button className="studio-reopen" onClick={() => setPanelOpen(true)} title="Show the panel">
+            <Icon name="chevron" size={13} />{state.running && <span className="live-dot" />}<span>{meta.title}</span>
+          </button>
+        )}
+        {sideId && <div className="studio-side" style={{ left: left || 16 }}><SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={pickStep} /></div>}
+      </div>
+      </HighlightContext.Provider>
+    );
+  }
 
   return (
     <HighlightContext.Provider value={{ paths: lit, set: (p) => setLit(p ?? []), known }}>

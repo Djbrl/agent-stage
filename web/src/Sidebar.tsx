@@ -3,9 +3,9 @@ import { useApp } from './useSettings';
 import { ago, fmtTokens, shortPath } from './api';
 import { Icon } from './icons';
 
-export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle }: {
-  active: string | null; onSelect: (id: string) => void; onNew: () => void; onSettings: () => void; railed: boolean; onToggle: () => void;
-}) {
+export type Nav = { active: string | null; onSelect: (id: string) => void; onNew: () => void; onSettings: () => void };
+
+export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle, embedded, onLayout }: Nav & { railed: boolean; onToggle: () => void; embedded?: boolean; onLayout?: () => void }) {
   const { threads, me, settings } = useApp();
   const groups = new Map<string, typeof threads>();
   for (const t of threads) groups.set(t.folder, [...(groups.get(t.folder) ?? []), t]);
@@ -23,8 +23,8 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle 
   );
 
   return (
-    <nav className="sidebar">
-      <div className="side-brand"><span className="logo" />agent-stage<button className="icon-btn" onClick={onToggle} title="Hide threads (⌘B)"><Icon name="sidebar" size={14} /></button></div>
+    <nav className={`sidebar ${embedded ? 'embedded' : ''}`}>
+      {!embedded && <div className="side-brand"><span className="logo" />agent-stage{onLayout && <button className="icon-btn" onClick={onLayout} title="Map-first layout"><Icon name="map" size={14} /></button>}<button className="icon-btn" onClick={onToggle} title="Hide threads (⌘B)"><Icon name="sidebar" size={14} /></button></div>}
       <button className="side-new" onClick={onNew}><Icon name="plus" size={13} /> New thread</button>
 
       <div className="side-scroll">

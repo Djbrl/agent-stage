@@ -86,7 +86,7 @@ export type MapApi = { fit: () => void; follow: () => void };
 
 export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap, following, onFollowChange, api, lit = [] }: {
   state: State; onSelect: (path: string) => void; selected: string | null; mapUrl: string;
-  insets: { right: number; bottom: number; top: number }; readmap: boolean;
+  insets: { right: number; bottom: number; top: number; left?: number }; readmap: boolean;
   following: boolean; onFollowChange: (f: boolean) => void; api?: { current: MapApi | null }; lit?: string[];
 }) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -160,7 +160,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       // Panel sizes settle after first paint: keep re-fitting until the user takes the camera.
       if (v.fitted && !v.userAt && !live.current.state.running) v.cam = fit(v.lay.bounds);
     };
-    const safe = (): Safe => ({ w: v.w, h: v.h, left: 0, top: live.current.insets.top, right: live.current.insets.right, bottom: live.current.insets.bottom });
+    const safe = (): Safe => ({ w: v.w, h: v.h, left: live.current.insets.left ?? 0, top: live.current.insets.top, right: live.current.insets.right, bottom: live.current.insets.bottom });
     // Fit a box into the part of the canvas no floating panel covers.
     const fit = (b: { x: number; y: number; w: number; h: number }, pad = 48): Cam => {
       const s = safe(), w = s.w - s.left - s.right, h = s.h - s.top - s.bottom;
@@ -492,7 +492,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
   useEffect(() => { if (!v.fitted) v.fitNow(); }, [lay]);
   useEffect(() => { const t = setTimeout(() => { if (!v.userAt && !state.running) v.fitNow(); }, 450); return () => clearTimeout(t); }, [lay, state.running]);
   // A panel opened over the map (steps sheet): glide the framing into the space that's left.
-  useEffect(() => { if (v.fitted && !v.userAt && !state.running) v.fitAll(); }, [insets.right]);
+  useEffect(() => { if (v.fitted && !v.userAt && !state.running) v.fitAll(); }, [insets.right, insets.left]);
 
   // Following again with no agent on the map → show the whole project.
   useEffect(() => { if (following && !v.marker) v.fitAll(); }, [following]);

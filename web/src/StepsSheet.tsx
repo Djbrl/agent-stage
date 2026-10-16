@@ -18,20 +18,21 @@ export const shotOf = (s?: Step) => s?.output?.match(/^\[screenshot: (\/api\/sho
 export const pageOf = (s: Step) => (s.output?.split('\n')[1]?.split(' — ').at(-1) ?? '').replace(/^https?:\/\//, '') || 'browser';
 export const stepText = (s: Step) => s.label ?? `${stepLabel(s).verb} ${stepLabel(s).what}`.trim();
 
-export function StepsSheet({ state, selected, onSelect, onClose, threadId, replay }: {
+export function StepsSheet({ state, selected, onSelect, onClose, threadId, replay, embedded }: {
   state: State; selected: string | null; onSelect: (k: string | null) => void; onClose: () => void; threadId: string; replay: Replay;
+  embedded?: boolean; // inside the studio panel: no floating card, no close button
 }) {
   const step = state.steps.find((s) => s.id === selected);
   const filePath = step ? (step.target.startsWith('$') ? null : step.target) : selected;
   return (
-    <aside className="sheet">
+    <aside className={embedded ? 'sheet embedded' : 'sheet'}>
       <div className="sheet-head">
         {selected ? <button className="icon-btn" onClick={() => onSelect(null)} title="Back to steps"><Icon name="chevron" size={13} className="flip" /></button> : null}
         <span className="sheet-title">{selected ? (step ? stepText(step) : filePath?.split('/').pop()) : `${state.steps.length} steps`}</span>
         {!selected && state.steps.length > 1 && (replay.active
           ? <button className="btn ghost sm live" onClick={replay.live}>● Live</button>
           : <button className="btn ghost sm" onClick={replay.play} title="Watch the agent do it again on the map (Space)"><Icon name="play" size={11} /> Replay</button>)}
-        <button className="icon-btn" onClick={onClose} title="Close"><Icon name="x" size={12} /></button>
+        {!embedded && <button className="icon-btn" onClick={onClose} title="Close"><Icon name="x" size={12} /></button>}
       </div>
       {selected ? <Detail state={state} step={step} filePath={filePath ?? null} threadId={threadId} /> : <List state={state} onSelect={onSelect} replay={replay} />}
     </aside>

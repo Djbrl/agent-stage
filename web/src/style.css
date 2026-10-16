@@ -628,3 +628,36 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .git-note .btn { white-space: nowrap; }
 .verify.pass .work-icon { color: var(--ok, #3ecf8e); }
 .verify .output { margin: 4px 0 0 26px; max-height: 220px; overflow: auto; font-size: 11px; }
+
+/* ── studio layout: the map is the whole window, one floating panel on the left ───────────── */
+.studio { position: relative; height: 100vh; min-width: 0; overflow: hidden; }
+.studio > .stage { position: absolute; inset: 0; border: 0; border-radius: 0; animation: none; }
+/* Things centred on the stage move into the part the panel doesn't cover. */
+.stage.full .caption, .stage.full .approval, .stage.full .replay-pill { left: calc(50% + var(--left) / 2); }
+.stage.full .stage-top { left: calc(var(--left) + 12px); }
+.stage.full .browser-win { left: calc(var(--left) + 16px); }
+.studio-panel { position: absolute; top: 12px; left: 12px; bottom: 12px; z-index: 8; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--line-soft); border-radius: 14px; box-shadow: 0 12px 40px #0007; }
+.studio-panel > .resizer { position: absolute; top: 0; bottom: 0; right: -5px; width: 10px; }
+.studio-head { display: flex; align-items: center; gap: 6px; padding: 8px 8px 8px 10px; border-bottom: 1px solid var(--line-soft); flex-shrink: 0; }
+.studio-head .icon-btn { margin: 0; }
+.studio-tabs { flex: 1; display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--bg); }
+.studio-tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--dim); font: inherit; font-size: 12.5px; cursor: pointer; }
+.studio-tabs button.on { background: var(--raised); color: var(--text); }
+.studio-tabs .count { font-size: 11px; color: var(--faint); }
+.studio-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.studio-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.studio-pane[hidden] { display: none; }
+.studio-pane > .agent-panel { flex: 1; border: 0; border-radius: 0; background: transparent; }
+.studio-pane > .sidebar.embedded { flex: 1; min-height: 0; border: 0; background: transparent; }
+.studio-switch { margin: 8px 12px 12px; align-self: flex-start; }
+.sheet.embedded { position: static; width: auto; flex: 1; min-height: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.studio-reopen { position: absolute; top: 12px; left: 12px; z-index: 8; display: inline-flex; align-items: center; gap: 8px; max-width: 320px; height: 36px; padding: 0 12px;
+  border: 1px solid var(--line-soft); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; box-shadow: 0 8px 30px #0006; }
+.studio-reopen span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studio-side { position: absolute; top: 12px; bottom: 12px; width: 380px; z-index: 9; display: flex; }
+.studio-side > * { flex: 1; }
+.studio-shell { grid-template-columns: minmax(0, 1fr); }
+.studio-tabs .live-dot, .studio-reopen .live-dot { position: static; margin: 0; }
+.stage.full .stage-where { visibility: hidden; }

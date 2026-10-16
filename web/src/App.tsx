@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './useSettings';
 import { Sidebar } from './Sidebar';
-import { ThreadView } from './ThreadView';
+import { ThreadView, type Layout } from './ThreadView';
 import { NewThreadModal } from './NewThreadModal';
 import { SettingsModal } from './SettingsModal';
 import { Icon } from './icons';
@@ -21,6 +21,9 @@ function Shell() {
   const [railed, setRailed] = useState(() => { try { return localStorage.getItem('rail') === '1'; } catch { return false; } });
   useEffect(() => store('sideW', Math.round(sideW)), [sideW]);
   useEffect(() => store('rail', railed ? 1 : 0), [railed]);
+  // Studio (map first, one floating panel) is the default; classic keeps the sidebar + chat + map columns.
+  const [layout, setLayout] = useState<Layout>(() => { try { return localStorage.getItem('layout') === 'classic' ? 'classic' : 'studio'; } catch { return 'studio'; } });
+  useEffect(() => store('layout', layout), [layout]);
   // Narrow windows always get the slim rail.
   const [narrow, setNarrow] = useState(() => window.innerWidth <= 1100);
   useEffect(() => { const r = () => setNarrow(window.innerWidth <= 1100); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r); }, []);
@@ -54,9 +57,24 @@ function Shell() {
     if (threads.length && !active) select(threads[0].id);
   }, [threads]);
 
+  const nav = { active, onSelect: select, onNew: () => setModal('new'), onSettings: () => setModal('settings') };
+  const modals = (
+    <>
+      {modal === 'new' && <NewThreadModal onClose={() => setModal(null)} onCreated={(id) => { select(id); setModal(null); }} />}
+      {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} onTour={() => { setModal(null); setTouring(true); }} />}
+      {touring && active && !modal && <Tour onDone={endTour} />}
+    </>
+  );
+  if (layout === 'studio' && active) return (
+    <div className="shell studio-shell">
+      <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} layout="studio" nav={nav} onLayout={setLayout} />
+      {modals}
+    </div>
+  );
+
   return (
     <div className="shell" style={{ gridTemplateColumns: railed || narrow ? '52px minmax(0, 1fr)' : `${sideW}px 0 minmax(0, 1fr)` }}>
-      <Sidebar active={active} onSelect={select} onNew={() => setModal('new')} onSettings={() => setModal('settings')} railed={railed || narrow} onToggle={() => setRailed(!railed)} />
+      <Sidebar {...nav} railed={railed || narrow} onToggle={() => setRailed(!railed)} onLayout={() => setLayout('studio')} />
       {!railed && !narrow && <Resizer onDrag={(dx) => setSideW((w) => Math.max(200, Math.min(360, w + dx)))} onReset={() => setSideW(248)} />}
       {active ? <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} /> : (
         <div className="welcome">
@@ -68,9 +86,7 @@ function Shell() {
           </div>
         </div>
       )}
-      {modal === 'new' && <NewThreadModal onClose={() => setModal(null)} onCreated={(id) => { select(id); setModal(null); }} />}
-      {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} onTour={() => { setModal(null); setTouring(true); }} />}
-      {touring && active && !modal && <Tour onDone={endTour} />}
+      {modals}
     </div>
   );
 }

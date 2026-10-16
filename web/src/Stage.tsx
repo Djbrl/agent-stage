@@ -7,11 +7,12 @@ import type { Replay, State } from './useAgent';
 import { Icon } from './icons';
 import { store } from './Resizer';
 
-export function Stage({ state, replay, threadId, workspace, selected, onSelect, sheetOpen, setSheetOpen, approve, onCollapse, lit }: {
+export function Stage({ state, replay, threadId, workspace, selected, onSelect, sheetOpen, setSheetOpen, approve, onCollapse, lit, full, left = 0 }: {
   state: State; replay: Replay; threadId: string; workspace: string;
   selected: string | null; onSelect: (k: string | null) => void;
   sheetOpen: boolean; setSheetOpen: (o: boolean) => void;
   approve: (id: string, ok: boolean) => void; onCollapse: () => void; lit: string[];
+  full?: boolean; left?: number; // studio layout: the map fills the window, a panel floats over its left side
 }) {
   const [following, setFollowing] = useState(true);
   const [readmap, setReadmap] = useState(() => { try { return localStorage.getItem('readmap') === 'on'; } catch { return false; } });
@@ -51,12 +52,13 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
   const folder = workspace.split('/').pop();
   // A little browser window on the stage while the agent is using the browser.
   const recent = state.steps.slice(-3).reverse().find((s) => shotOf(s));
-  const browserShot = !sheetOpen ? recent : undefined;
+  const browserShot = !sheetOpen || full ? recent : undefined;
+  const inline = sheetOpen && !full; // in the studio the steps live in the left panel
 
   return (
-    <section ref={box} className={`stage ${sheetOpen ? 'with-sheet' : ''} ${stageW < 560 ? 'narrow' : ''}`} style={{ ['--sheet-w' as any]: `${sheetW}px` }}>
+    <section ref={box} className={`stage ${inline ? 'with-sheet' : ''} ${full ? 'full' : ''} ${stageW < 560 ? 'narrow' : ''}`} style={{ ['--sheet-w' as any]: `${sheetW}px`, ['--left' as any]: `${left}px` }}>
       <ProjectMap state={state} selected={selected} onSelect={(f) => { onSelect(f); setSheetOpen(true); }} mapUrl={`/api/threads/${threadId}/map`}
-        insets={{ right: sheetOpen ? sheetW + 16 : 0, bottom: state.approval ? 150 : 0, top: 48 }} readmap={readmap}
+        insets={{ right: inline ? sheetW + 16 : 0, bottom: state.approval ? 150 : 0, top: 48, left }} readmap={readmap}
         following={following} onFollowChange={setFollowing} api={api} lit={lit} />
 
       <div className="stage-top">
@@ -69,7 +71,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
           <button className={`tool steps ${sheetOpen ? 'on' : ''}`} onClick={() => setSheetOpen(!sheetOpen)} title="Steps and changes (S)">
             <Icon name="list" size={13} /> {state.steps.length || ''}{state.steps.some((s) => s.ok === false) && <span className="sdot bad" />}
           </button>
-          <button className="tool" onClick={onCollapse} title="Hide the map"><Icon name="collapse" size={13} /></button>
+          {!full && <button className="tool" onClick={onCollapse} title="Hide the map"><Icon name="collapse" size={13} /></button>}
         </div>
       </div>
 
@@ -112,7 +114,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
         </div>
       )}
 
-      {sheetOpen && <StepsSheet state={state} selected={selected} onSelect={onSelect} onClose={() => { setSheetOpen(false); onSelect(null); }} threadId={threadId} replay={replay} />}
+      {inline && <StepsSheet state={state} selected={selected} onSelect={onSelect} onClose={() => { setSheetOpen(false); onSelect(null); }} threadId={threadId} replay={replay} />}
     </section>
   );
 }
