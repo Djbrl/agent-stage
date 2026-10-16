@@ -13,6 +13,7 @@ fi
 echo "→ building the app and the sandbox image (first time takes a few minutes)…"
 npm run build --silent >/dev/null
 docker build -q -t agent-stage-sandbox -f public/Dockerfile . >/dev/null
+docker image prune -f --filter label=agent-stage=sandbox >/dev/null  # older builds left untagged by this one
 node src/public/manager.ts &
 MANAGER=$!
 # The fixed address (a small Vercel page, public/site) is pointed at this run's link, and back to "offline" after.

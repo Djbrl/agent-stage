@@ -1,6 +1,7 @@
 # One visitor's sandbox for the online demo: agent-stage in public mode, with git, Node, Python and Chromium.
 # Built and run by src/public/manager.ts. Nothing secret goes in here: the model key stays with the manager.
 FROM node:24-bookworm-slim
+LABEL agent-stage=sandbox
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git ca-certificates python3 python3-pytest chromium fonts-dejavu-core \
   && rm -rf /var/lib/apt/lists/*

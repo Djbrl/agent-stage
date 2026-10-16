@@ -131,7 +131,7 @@ function proxy(req: IncomingMessage, res: ServerResponse, s: Session) {
   res.on('close', () => out.destroy());
 }
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   try {
     if (req.url?.startsWith('/v1/')) return await modelCall(req, res);
     // For the landing page on Vercel: is the demo up, and is the live model on?
@@ -157,7 +157,14 @@ createServer(async (req, res) => {
     console.error(e);
     if (!res.headersSent) page(res, `Something went wrong: ${e.message}`);
   }
-}).listen(PORT, () => console.log(`demo manager on http://localhost:${PORT}  ·  max ${MAX} sandboxes  ·  ${INVITE ? 'invite code required' : 'no invite code'}`));
+});
+// Docker is only touched once this copy owns the port: a second copy that fails to start must not
+// wipe the running one's sandboxes.
+server.on('error', (e: any) => { console.error(e.code === 'EADDRINUSE' ? `Port ${PORT} is taken: the demo is probably already running.` : e.message); process.exit(1); });
+server.listen(PORT, async () => {
+  await setup().catch(async (e) => { console.error(e.message); await shutdown(1); });
+  console.log(`demo manager on http://localhost:${PORT}  ·  max ${MAX} sandboxes  ·  ${INVITE ? 'invite code required' : 'no invite code'}`);
+});
 
 async function page(res: ServerResponse, message = '') {
   const up = await modelUp().catch(() => false);
@@ -181,12 +188,15 @@ ${message ? `<p class="msg">${message.replace(/</g, '&lt;')}</p>` : ''}
 
 // Idle sandboxes go away; everything goes away when the manager stops.
 setInterval(() => { for (const s of sessions.values()) if (Date.now() - s.lastSeen > IDLE_MIN * 60_000) void stopSession(s); }, 60_000);
+// Leave nothing behind: on Ctrl-C, on kill, and on a crash.
 let quitting = false;
-for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, async () => {
+async function shutdown(code = 0) {
   if (quitting) return; quitting = true;
   console.log('\nremoving sandboxes…');
   await Promise.all([...sessions.values()].map(stopSession));
+  for (const name of (await docker(['ps', '-aq', '--filter', 'name=^sess-']).catch(() => '')).split('\n').filter(Boolean)) await docker(['rm', '-f', name]).catch(() => {});
   await docker(['rm', '-f', RELAY]).catch(() => {});
-  process.exit(0);
-});
-await setup();
+  process.exit(code);
+}
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(sig, () => void shutdown(0));
+process.on('uncaughtException', (e) => { console.error(e); void shutdown(1); });
