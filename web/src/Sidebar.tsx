@@ -17,7 +17,7 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle 
       <button className="rail-btn" onClick={onToggle} title="Show threads (⌘B)"><span className="logo" /></button>
       <button className="rail-btn" onClick={onNew} title="New thread"><Icon name="plus" size={15} /></button>
       <span className="spacer" />
-      <button className="rail-btn" onClick={onSettings} title="Settings"><Icon name="gear" size={15} /></button>
+      {!me?.public && <button className="rail-btn" onClick={onSettings} title="Settings"><Icon name="gear" size={15} /></button>}
       <span className="avatar sm">{(me?.name ?? '?').slice(0, 1).toUpperCase()}</span>
     </nav>
   );
@@ -28,7 +28,7 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle 
       <button className="side-new" onClick={onNew}><Icon name="plus" size={13} /> New thread</button>
 
       <div className="side-scroll">
-        {threads.length === 0 && <div className="side-empty">No threads yet. Start one in any folder on your computer.</div>}
+        {threads.length === 0 && <div className="side-empty">{me?.public ? 'No threads yet. Press New thread and pick a sample project.' : 'No threads yet. Start one in any folder on your computer.'}</div>}
         {[...groups].map(([folder, list]) => (
           <div key={folder} className="side-group">
             <div className="side-folder" title={shortPath(folder, me?.home)}>{folder.split('/').pop()}</div>
@@ -47,8 +47,8 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle 
       <div className="side-foot">
         <div className="side-account">
           <span className="avatar">{(me?.name ?? '?').slice(0, 1).toUpperCase()}</span>
-          <div className="who"><div>{me?.name ?? '…'}</div><div className="muted">Local · this computer</div></div>
-          <button className="icon-btn" onClick={onSettings} title="Settings"><Icon name="gear" size={15} /></button>
+          <div className="who"><div>{me?.name ?? '…'}</div><div className="muted">{me?.public ? 'Online demo · private sandbox' : 'Local · this computer'}</div></div>
+          {!me?.public && <button className="icon-btn" onClick={onSettings} title="Settings"><Icon name="gear" size={15} /></button>}
         </div>
       </div>
     </nav>

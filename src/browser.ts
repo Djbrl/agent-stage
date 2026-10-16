@@ -13,7 +13,11 @@ let browser: Promise<Browser> | null = null;
 const pages = new Map<string, Page>(); // one tab per project folder
 const allowed = new Set<string>(); // origins the user already approved this session
 
-const launch = () => (browser ??= chromium.launch({ channel: 'chrome', headless: process.env.BROWSER_HEADED !== '1' })
+const PUBLIC = process.env.PUBLIC === '1';
+// In the demo container there is no Google Chrome: use the Chromium it ships (CHROME_PATH).
+const launch = () => (browser ??= chromium.launch({
+  ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH, args: ['--no-sandbox'] } : { channel: 'chrome' }),
+  headless: process.env.BROWSER_HEADED !== '1' })
   .catch((e) => { browser = null; throw new Error(`Couldn't start Chrome (${String(e.message).split('\n')[0]}). Is Google Chrome installed?`); }));
 
 async function page(ctx: ToolContext) {
@@ -64,6 +68,7 @@ export const READ_ONLY_BROWSER = ['browser_read'];
 
 export async function runBrowserTool(ctx: ToolContext, name: string, args: any): Promise<string> {
   if (name === 'open_on_computer') {
+    if (PUBLIC) return 'not available in the online demo';
     const target = String(args.target ?? '');
     const full = /^[a-z]+:\/\//i.test(target) ? target : join(ctx.root, target);
     if (!(await ctx.approve(`open ${full}`))) return 'user declined';
@@ -75,6 +80,7 @@ export async function runBrowserTool(ctx: ToolContext, name: string, args: any):
     case 'browser_open': {
       let u: URL;
       try { u = new URL(/^[a-z]+:/i.test(args.url) ? args.url : `http://${args.url}`); } catch { return `not a valid address: ${args.url}`; }
+      if (!local(u) && PUBLIC) return 'the online demo can only open pages served inside it (localhost)';
       if (!local(u) && !allowed.has(u.origin)) {
         if (!(await ctx.approve(`browse ${u.origin}`))) return 'user declined to open this site';
         allowed.add(u.origin);
@@ -93,6 +99,7 @@ export async function runBrowserTool(ctx: ToolContext, name: string, args: any):
       await settle();
       // A click that leaves for another site is still a navigation: same rule as browser_open.
       const u = new URL(p.url());
+      if (u.protocol.startsWith('http') && !local(u) && PUBLIC) { await p.goBack().catch(() => {}); return 'the online demo can only open local pages; went back'; }
       if (u.protocol.startsWith('http') && !local(u) && !allowed.has(u.origin)) {
         if (!(await ctx.approve(`browse ${u.origin}`))) { await p.goBack().catch(() => {}); return 'user declined to open that site; went back'; }
         allowed.add(u.origin);

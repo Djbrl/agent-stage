@@ -1,0 +1,7 @@
+node_modules
+workspace
+.git
+.env
+docs
+web/src
+*.log

@@ -77,6 +77,8 @@ browser (React, web/)  ──HTTP + Server-Sent Events──▶  Hono server (sr
 ## Dependencies
 `hono`, `@hono/node-server`, `playwright-core` (uses your installed Chrome) (server) · `react`, `react-dom`, `d3-hierarchy`, `vite`, `@vitejs/plugin-react` (UI).
 
+Live demo from your own computer, one private sandbox per visitor: `npm run public` ([docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)).
+
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · how it was made: [docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md)
 
 ## How AI is used

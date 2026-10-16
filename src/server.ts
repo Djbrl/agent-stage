@@ -22,6 +22,9 @@ import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThre
   PRESETS, engineOf, type Provider, type Settings, type Thread } from './store.ts';
 
 const sandbox = resolve(process.env.WORKSPACE ?? 'workspace');
+// Public mode: this server runs inside a disposable container for one visitor (see src/public/). The visitor
+// can use the agent on the projects in the container, but can't change models, keys, the GPU or see other folders.
+const PUBLIC = process.env.PUBLIC === '1';
 await mkdir(sandbox, { recursive: true });
 const env = configFromEnv();
 let settings: Settings = await loadSettings({
@@ -166,9 +169,19 @@ async function listFiles(root: string, dir = root, out: string[] = []): Promise<
 }
 
 const mask = (k: string) => (!k ? '' : k.length <= 8 ? '••••' : `••••${k.slice(-4)}`);
-const publicSettings = () => ({ ...settings, providers: settings.providers.map((p) => ({ ...p, apiKey: mask(p.apiKey) })) });
+const publicSettings = () => ({ ...settings, recentFolders: PUBLIC ? [] : settings.recentFolders,
+  providers: settings.providers.filter((p) => !PUBLIC || p.id === settings.activeProvider).map((p) => ({ ...p, apiKey: mask(p.apiKey), ...(PUBLIC ? { baseUrl: '' } : {}) })) });
 
 const app = new Hono();
+if (PUBLIC) {
+  settings.insights = 'on';
+  for (const p of settings.providers) if (p.id === 'env') p.name = process.env.MODEL_LABEL ?? p.model.split('/').pop()!;
+  const blocked: Array<[string, RegExp]> = [['PUT', /^\/api\/settings/], ['POST', /^\/api\/providers/], ['GET', /^\/api\/fs/], ['POST', /^\/api\/pick-folder/], ['POST', /^\/api\/gpu\//]];
+  app.use('/api/*', async (c, next) => {
+    if (blocked.some(([m, r]) => c.req.method === m && r.test(c.req.path))) return c.json({ error: 'Not available in the online demo' }, 403);
+    await next();
+  });
+}
 const T = '/api/threads/:id';
 
 // threads
@@ -181,14 +194,15 @@ app.post('/api/threads', async (c) => {
   // No folder yet: give the thread its own empty project under ~/agent-stage-projects.
   let folder = picked;
   if (scratch) {
-    folder = join(homedir(), 'agent-stage-projects', `project-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`);
+    folder = join(PUBLIC ? sandbox : join(homedir(), 'agent-stage-projects'), `project-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`);
     await mkdir(folder, { recursive: true });
     await initRepo(folder).catch(() => {}); // new projects get version history from the start
   }
-  if (providerId && settings.providers.some((p) => p.id === providerId) && providerId !== settings.activeProvider) {
+  if (!PUBLIC && providerId && settings.providers.some((p) => p.id === providerId) && providerId !== settings.activeProvider) {
     settings.activeProvider = providerId; await saveSettings(settings); retunnel();
   }
   const dir = resolve(folder || sandbox);
+  if (PUBLIC && relative(sandbox, dir).startsWith('..')) return c.json({ error: 'not a folder' }, 400);
   const st = await stat(dir).catch(() => null);
   if (!st?.isDirectory()) return c.json({ error: 'not a folder' }, 400);
   return c.json(await newThread(dir, mode === 'learn' ? 'learn' : 'build'));
@@ -426,12 +440,16 @@ app.get('/api/engines', (c) => {
   const cc = settings.providers.filter((p) => p.kind === 'claude-code');
   return c.json({
     native: { ready: true },
-    'claude-code': { ready: cc.some((p) => p.apiKey), reason: cc.length ? (cc.some((p) => p.apiKey) ? '' : 'Add an Anthropic API key') : 'Add a Claude Code model in Settings' },
+    'claude-code': PUBLIC ? { ready: false, reason: 'Not in the online demo' } : { ready: cc.some((p) => p.apiKey), reason: cc.length ? (cc.some((p) => p.apiKey) ? '' : 'Add an Anthropic API key') : 'Add a Claude Code model in Settings' },
     codex: { ready: false, reason: 'Coming soon' },
   });
 });
 
-app.get('/api/me', (c) => c.json({ name: userInfo().username, home: homedir(), sandbox }));
+app.get('/api/me', async (c) => c.json({
+  name: PUBLIC ? 'visitor' : userInfo().username, home: homedir(), sandbox, public: PUBLIC,
+  // Online demo: the projects in the container to start from.
+  samples: PUBLIC ? (await readdir(sandbox, { withFileTypes: true }).catch(() => [])).filter((e) => e.isDirectory() && !e.name.startsWith('.')).map((e) => join(sandbox, e.name)) : undefined,
+}));
 
 // The page itself must never be cached (it names the current build's files); hashed assets can be.
 app.use('/*', async (c, next) => {

@@ -54,6 +54,18 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
               );
             })}
           </div>
+          {me?.public ? <>
+            <div className="label">Project</div>
+            <div className="folder-list">
+              {(me.samples ?? []).map((f) => (
+                <button key={f} className="folder-row" disabled={busy} onClick={() => start(f)}>
+                  <Icon name="folder" size={13} /><span>{f.split('/').pop()}</span>
+                </button>
+              ))}
+              <button className="folder-row" disabled={busy} onClick={() => start(null)}><Icon name="plus" size={13} /><span>Empty project</span></button>
+            </div>
+            <p className="hint">This is your own private sandbox: the agent can edit files, run commands and use a browser inside it. It's deleted when you leave.</p>
+          </> : <>
           <div className="label">Project</div>
           <div className="open-pick">
             <button className="btn" disabled={busy} onClick={() => send<{ path?: string }>('/api/pick-folder', {}).then((r) => r.path && start(r.path))}>
@@ -86,9 +98,10 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
             </div>
           )}
           <p className="hint">The agent can read and edit files in this folder. Shell commands still ask first.</p>
+          </>}
         </div>
         <div className="modal-foot">
-          {!browsing && <button className="btn ghost sm" onClick={() => setBrowsing(true)}>Browse here instead</button>}
+          {!browsing && !me?.public && <button className="btn ghost sm" onClick={() => setBrowsing(true)}>Browse here instead</button>}
           <span style={{ flex: 1 }} />
           <button className="btn ghost" onClick={onClose}>Cancel</button>
           {browsing && <button className="btn primary" disabled={!dir || busy} onClick={() => dir && start(dir.path)}>Start in {dir?.name ?? '…'}</button>}
