@@ -228,12 +228,20 @@ app.get(`${T}/events`, async (c) => {
   const l = await open(c.req.param('id'));
   if (!l) return c.json({ error: 'no such thread' }, 404);
   return streamSSE(c, async (stream) => {
+    await stream.writeSSE({ event: 'hello', data: '' }); // lets the page tell a live stream from a held-back one
     for (const e of l.thread.events) await stream.writeSSE({ data: JSON.stringify(e) });
     const send = (e: Stamped) => void stream.writeSSE({ data: JSON.stringify(e) });
     l.listeners.add(send);
     stream.onAbort(() => l.listeners.delete(send));
     while (!stream.aborted) await stream.sleep(15_000).then(() => stream.writeSSE({ event: 'ping', data: '' }));
   });
+});
+// The same events by polling, for links that hold streams back (Cloudflare's free tunnels do).
+app.get(`${T}/log`, async (c) => {
+  const l = await open(c.req.param('id'));
+  if (!l) return c.json({ error: 'no such thread' }, 404);
+  const from = Math.max(0, Number(c.req.query('from') ?? 0) || 0);
+  return c.json({ events: l.thread.events.slice(from), total: l.thread.events.length });
 });
 const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
   const l = await open(c.req.param('id'));

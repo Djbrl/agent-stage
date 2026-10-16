@@ -177,15 +177,30 @@ export function useAgent(threadId: string) {
         dispatch({ kind: 'files', files: st.files, running: st.running });
       });
     refresh();
-    const es = new EventSource(`${base}/events`);
-    es.onmessage = (m) => {
-      const e = JSON.parse(m.data) as AgentEvent;
+    const take = (e: AgentEvent) => {
       events.current.push(e);
       setEventCount(events.current.length);
       dispatch({ kind: 'event', e });
       if (e.type === 'tool_end' || e.type === 'done') refresh();
     };
-    return () => { es.close(); events.current = []; };
+    // Live stream first. If its greeting doesn't arrive (some tunnels hold streams back), poll instead.
+    let poll: ReturnType<typeof setInterval> | undefined, closed = false;
+    const es = new EventSource(`${base}/events`);
+    es.onmessage = (m) => take(JSON.parse(m.data));
+    let hello = false;
+    es.addEventListener('hello', () => { hello = true; });
+    const fallback = setTimeout(() => {
+      if (hello || closed) return;
+      es.close();
+      let busy = false;
+      poll = setInterval(async () => {
+        if (busy) return; busy = true;
+        const r = await fetch(`${base}/log?from=${events.current.length}`).then((x) => x.json()).catch(() => null);
+        busy = false;
+        if (!closed && r?.events) for (const e of r.events) take(e);
+      }, 1000);
+    }, 3000);
+    return () => { closed = true; es.close(); clearTimeout(fallback); clearInterval(poll); events.current = []; };
   }, [threadId]);
 
   const moments = useMemo(() => events.current.map((e, i) => (isMoment(e) ? i : -1)).filter((i) => i >= 0), [eventCount]);

@@ -114,6 +114,14 @@ function proxy(req: IncomingMessage, res: ServerResponse, s: Session) {
   const { cookie: _c, host: _h, ...headers } = req.headers;
   const out = request({ host: '127.0.0.1', port: RELAY_PORT, path: req.url, method: req.method,
     headers: { ...headers, 'x-agst-secret': SECRET, 'x-agst-target': `sess-${s.id}` } }, (up) => {
+    // Live event streams: tell Cloudflare not to compress or hold them back, and push a first chunk through.
+    if (String(up.headers['content-type']).startsWith('text/event-stream')) {
+      res.writeHead(up.statusCode ?? 200, { ...up.headers, 'cache-control': 'no-cache, no-transform', 'x-accel-buffering': 'no' });
+      res.write(`: ${' '.repeat(2048)}\n\n`);
+      up.on("data", (d) => { s.lastSeen = Date.now(); res.write(d); });
+      up.on('end', () => res.end());
+      return;
+    }
     res.writeHead(up.statusCode ?? 502, up.headers);
     up.pipe(res);
     up.on('data', () => (s.lastSeen = Date.now())); // a live run counts as activity
