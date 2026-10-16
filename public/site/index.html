@@ -18,6 +18,8 @@
   .status { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #4b515c; }
   .dot.on { background: var(--ok); box-shadow: 0 0 0 4px #3ecf8e22; } .dot.warn { background: var(--warn); }
+  .how { margin-top: 48px; padding: 24px 28px; border: 1px solid var(--line); border-radius: 14px; }
+  .how h2 { font-size: 18px; margin: 0 0 12px; } .how ol { margin: 0; padding-left: 20px; color: var(--muted); } .how li { margin: 8px 0; } .how b { color: var(--text); font-weight: 600; }
   figure { margin: 48px 0 0; } figure img { width: 100%; border-radius: 14px; border: 1px solid var(--line); display: block; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px; margin-top: 56px; }
   .grid h3 { margin: 0 0 6px; font-size: 16px; } .grid p { margin: 0; color: var(--muted); font-size: 15px; }
@@ -31,6 +33,15 @@
     <a class="btn ghost" href="https://github.com/Djbrl/agent-stage">Source on GitHub</a>
     <span class="status"><span id="dot" class="dot"></span><span id="status">Checking the live demo…</span></span>
   </div>
+  <section class="how">
+    <h2>How this live demo works</h2>
+    <ol>
+      <li><b>It runs on our own laptop.</b> The app is served from a MacBook Pro (M1) in Dakar, through a secure tunnel. If the laptop is asleep, the demo is offline.</li>
+      <li><b>You get a private sandbox.</b> Pressing "Try it live" starts a fresh Docker container just for you, with two small sample projects. The agent really creates files, runs tests and opens pages in a browser, but only inside your sandbox. It has no internet access and is deleted 20 minutes after you leave.</li>
+      <li><b>The real model is only on during tests.</b> When our GPU is running, an open model (Qwen3-Coder, on an NVIDIA L40S) does the work. When it's off, a scripted demo model plays a fixed example so you can still see how everything works. The status next to the button tells you which one you'll get.</li>
+      <li><b>You're in charge.</b> Commands wait for your approval, and every task can be undone.</li>
+    </ol>
+  </section>
   <figure><img src="stage.png" alt="agent-stage: the chat on the left, the project map on the right, with the agent checking a web page in its browser"></figure>
   <div class="grid">
     <div><h3>A real sandbox, just for you</h3><p>The live demo gives you a private sandbox with sample projects. The agent really edits files, runs tests and uses a browser inside it. It's deleted when you leave.</p></div>

@@ -6,6 +6,7 @@ import { NewThreadModal } from './NewThreadModal';
 import { SettingsModal } from './SettingsModal';
 import { Icon } from './icons';
 import { Tour } from './Tour';
+import { PublicWelcome } from './PublicWelcome';
 import { Resizer, storedNumber, store } from './Resizer';
 
 export function App() {
@@ -13,7 +14,10 @@ export function App() {
 }
 
 function Shell() {
-  const { threads } = useApp();
+  const { threads, me } = useApp();
+  // Online demo: say where the visitor is before anything else (once per sandbox).
+  const [welcomed, setWelcomed] = useState(() => { try { return localStorage.getItem('demoWelcomed') === '1'; } catch { return false; } });
+  const welcome = me?.public && !welcomed ? <PublicWelcome onDone={() => { setWelcomed(true); store('demoWelcomed', 1); }} /> : null;
   const [active, setActive] = useState<string | null>(() => { try { return localStorage.getItem('thread'); } catch { return null; } });
   const [modal, setModal] = useState<null | 'new' | 'settings'>(null);
   const [touring, setTouring] = useState(false);
@@ -62,7 +66,8 @@ function Shell() {
     <>
       {modal === 'new' && <NewThreadModal onClose={() => setModal(null)} onCreated={(id) => { select(id); setModal(null); }} />}
       {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} onTour={() => { setModal(null); setTouring(true); }} />}
-      {touring && active && !modal && <Tour onDone={endTour} />}
+      {touring && active && !modal && !welcome && <Tour onDone={endTour} />}
+      {welcome}
     </>
   );
   if (layout === 'studio' && active) return (
