@@ -83,6 +83,7 @@ async function stopSession(s: Session) {
 }
 
 // ── model calls from the sandboxes (they arrive through the relay) ─────────
+let lastTouch = 0;
 async function modelCall(req: IncomingMessage, res: ServerResponse) {
   const token = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
   const s = byToken.get(token);
@@ -91,6 +92,8 @@ async function modelCall(req: IncomingMessage, res: ServerResponse) {
   const m = await model();
   if (!m) { res.writeHead(503); return res.end('no model'); }
   s.lastSeen = Date.now();
+  // Visitors using the model count as GPU activity for agent-stage's auto-stop (at most once a minute).
+  if (Date.now() - lastTouch > 60_000) { lastTouch = Date.now(); void fetch(`http://localhost:${process.env.APP_PORT ?? 3000}/api/gpu/touch`, { method: 'POST' }).catch(() => {}); }
   const body = await new Promise<Buffer>((ok) => { const c: Buffer[] = []; req.on('data', (d) => c.push(d)); req.on('end', () => ok(Buffer.concat(c))); });
   const path = (req.url ?? '').replace(/^\/v1/, '');
   let payload: any = body.length ? JSON.parse(body.toString()) : undefined;

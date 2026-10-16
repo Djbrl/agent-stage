@@ -449,6 +449,8 @@ app.get('/api/gpu', (c) => c.json(gpu.view()));
 app.post('/api/gpu/start', async (c) => {
   try { void gpu.start(); return c.json(gpu.view()); } catch (e: any) { return c.json({ error: e.message }, 400); }
 });
+// The live demo's model calls skip this server: the demo manager reports them here so auto-stop counts them.
+app.post('/api/gpu/touch', (c) => { gpu.touch(); return c.json({ ok: true }); });
 app.post('/api/gpu/stop', async (c) => { void gpu.stop('Stopped by you'); return c.json(gpu.view()); });
 
 // Which engines can run here: Claude Code needs an Anthropic API key on one of its models.
