@@ -1,0 +1,1 @@
+{ "headers": [{ "source": "/live.json", "headers": [{ "key": "cache-control", "value": "no-store" }] }] }

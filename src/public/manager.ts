@@ -126,6 +126,11 @@ function proxy(req: IncomingMessage, res: ServerResponse, s: Session) {
 createServer(async (req, res) => {
   try {
     if (req.url?.startsWith('/v1/')) return await modelCall(req, res);
+    // For the landing page on Vercel: is the demo up, and is the live model on?
+    if (req.url === '/__status') {
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
+      return res.end(JSON.stringify({ up: true, model: (await modelUp().catch(() => false)) ? 'live' : 'scripted', free: Math.max(0, MAX - sessions.size), invite: Boolean(INVITE) }));
+    }
     const s = sessions.get(cookieOf(req) ?? '');
     if (req.method === 'POST' && req.url === '/__start') {
       const body = await new Promise<string>((ok) => { let b = ''; req.on('data', (d) => (b += d)); req.on('end', () => ok(b)); });

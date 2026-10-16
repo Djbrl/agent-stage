@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-stage</title>
+<meta name="description" content="Watch an AI coding agent work on a real project, on a map. Try it live in your own sandbox.">
+<style>
+  :root { --bg: #0b0c0e; --text: #e7e9ee; --muted: #9aa1ad; --line: #22252b; --ok: #3ecf8e; --warn: #f5b84a; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, sans-serif; }
+  main { width: min(1040px, calc(100% - 32px)); margin: 0 auto; padding: 72px 0 56px; }
+  h1 { font-size: clamp(32px, 6vw, 52px); letter-spacing: -.03em; line-height: 1.05; margin: 0 0 16px; }
+  .lede { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 0 28px; }
+  .cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 12px 20px; border-radius: 10px; background: var(--text); color: var(--bg); font-weight: 650; text-decoration: none; border: 0; font-size: 16px; cursor: pointer; }
+  .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+  .ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .status { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4b515c; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 0 4px #3ecf8e22; } .dot.warn { background: var(--warn); }
+  figure { margin: 48px 0 0; } figure img { width: 100%; border-radius: 14px; border: 1px solid var(--line); display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px; margin-top: 56px; }
+  .grid h3 { margin: 0 0 6px; font-size: 16px; } .grid p { margin: 0; color: var(--muted); font-size: 15px; }
+  footer { margin-top: 64px; color: var(--muted); font-size: 14px; } footer a { color: var(--text); }
+</style>
+<main>
+  <h1>Watch an AI agent<br>build, on a map.</h1>
+  <p class="lede">agent-stage is a coding agent you can actually follow: every file it reads or edits lights up on a map of the project, each step is explained in plain words, and nothing is "done" until the project's own checks pass. Built for open models, and for learning.</p>
+  <div class="cta">
+    <a id="try" class="btn" aria-disabled="true" href="#">Try it live</a>
+    <a class="btn ghost" href="https://github.com/Djbrl/agent-stage">Source on GitHub</a>
+    <span class="status"><span id="dot" class="dot"></span><span id="status">Checking the live demo…</span></span>
+  </div>
+  <figure><img src="stage.png" alt="agent-stage: the chat on the left, the project map on the right, with the agent checking a web page in its browser"></figure>
+  <div class="grid">
+    <div><h3>A real sandbox, just for you</h3><p>The live demo gives you a private sandbox with sample projects. The agent really edits files, runs tests and uses a browser inside it. It's deleted when you leave.</p></div>
+    <div><h3>Done means checked</h3><p>When the agent says it's finished, the harness runs the project's tests. If they fail, the agent is sent back to fix it.</p></div>
+    <div><h3>Learn mode</h3><p>You design, the agent teaches: it asks for your approach first and only writes code after you approve each step.</p></div>
+    <div><h3>Undo anything</h3><p>A checkpoint before every task. One click puts the files back.</p></div>
+  </div>
+  <footer>The live demo runs from our own machine during the event, on an open model (Qwen3-Coder) on our GPU. If it's offline, come back a little later.</footer>
+</main>
+<script>
+  const set = (dot, text) => { document.getElementById('dot').className = 'dot ' + dot; document.getElementById('status').textContent = text; };
+  fetch('live.json', { cache: 'no-store' }).then((r) => r.json()).then(async ({ url }) => {
+    if (!url) return set('', 'The live demo is offline right now.');
+    const s = await fetch(url + '/__status', { cache: 'no-store', signal: AbortSignal.timeout(6000) }).then((r) => r.json()).catch(() => null);
+    if (!s) return set('', 'The live demo is offline right now.');
+    const btn = document.getElementById('try');
+    btn.href = url; btn.removeAttribute('aria-disabled');
+    if (!s.free) return set('warn', 'Online, but every sandbox is busy. Try again in a few minutes.');
+    set(s.model === 'live' ? 'on' : 'warn', s.model === 'live' ? 'Online, with the live model on our GPU' : 'Online, with a scripted demo model (our GPU is off)');
+  }).catch(() => set('', 'The live demo is offline right now.'));
+</script>
+</html>

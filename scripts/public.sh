@@ -12,14 +12,20 @@ docker build -q -t agent-stage-sandbox -f public/Dockerfile . >/dev/null
 PORT=${PORT:-8080}
 node src/public/manager.ts &
 MANAGER=$!
-trap 'kill $MANAGER 2>/dev/null; [ -n "$TUNNEL" ] && kill $TUNNEL 2>/dev/null; wait' INT TERM EXIT
+# The fixed address (a small Vercel page, public/site) is pointed at this run's link, and back to "offline" after.
+SITE=public/site
+publish() { [ -d "$SITE/.vercel" ] && command -v vercel >/dev/null && { printf '{ "url": %s }\n' "$1" > "$SITE/live.json"; (cd "$SITE" && vercel deploy --prod --yes >/dev/null 2>&1) && return 0; }; return 1; }
+cleanup() { trap - INT TERM EXIT; kill $MANAGER 2>/dev/null; [ -n "$TUNNEL" ] && kill $TUNNEL 2>/dev/null; [ -n "$URL" ] && { echo "Marking the demo offline…"; publish null; }; wait; }
+trap cleanup INT TERM EXIT
 if [ -z "$NO_TUNNEL" ]; then
   command -v cloudflared >/dev/null || { echo "Installing cloudflared…"; brew install cloudflared >/dev/null; }
   LOG=$(mktemp)
   cloudflared tunnel --no-autoupdate --url "http://localhost:$PORT" >"$LOG" 2>&1 &
   TUNNEL=$!
   for i in $(seq 1 30); do URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$LOG" | head -1); [ -n "$URL" ] && break; sleep 1; done
+  [ -n "$URL" ] && publish "\"$URL\"" && STABLE=https://agent-stage-eta.vercel.app
   echo ""
+  [ -n "$STABLE" ] && echo "  Share this:  $STABLE"
   echo "  Live demo:  ${URL:-(tunnel failed, see $LOG)}"
   [ -n "$INVITE" ] && echo "  Invite code: $INVITE"
   echo "  Ctrl-C to take it offline."
