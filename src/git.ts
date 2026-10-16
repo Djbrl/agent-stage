@@ -43,16 +43,21 @@ export async function checkpoint(dir: string, thread: string, label: string): Pr
   return id;
 }
 
-// Files that differ between a checkpoint and the folder as it is now.
-export async function changedSince(dir: string, id: string) {
-  const now = await snapshotTree(dir);
-  const out = await git(dir, ['diff', '--name-status', '--no-renames', '--relative', id, now]);
+// Files that differ between two checkpoints (or tree objects).
+export async function changedBetween(dir: string, a: string, b: string) {
+  const out = await git(dir, ['diff', '--name-status', '--no-renames', '--relative', a, b]);
   return out ? out.split('\n').map((l) => { const [s, ...p] = l.split('\t'); return { status: s, path: p.join('\t') }; }) : [];
 }
 
-// Put every file back as it was at the checkpoint (and remove files created since).
-export async function restore(dir: string, id: string) {
-  const files = await changedSince(dir, id);
+// Files that differ between a checkpoint and the folder as it is now.
+export async function changedSince(dir: string, id: string) {
+  return changedBetween(dir, id, await snapshotTree(dir));
+}
+
+// Put files back as they were at the checkpoint (and remove files created since). With `only`, just those
+// paths: undoing a task must not wipe what the user or another thread changed elsewhere in the folder.
+export async function restore(dir: string, id: string, only?: Set<string>) {
+  const files = (await changedSince(dir, id)).filter((f) => !only || only.has(f.path));
   if (!files.length) return files;
   const tmp = await mkdtemp(join(tmpdir(), 'agst-'));
   const env = { GIT_INDEX_FILE: join(tmp, 'index') };

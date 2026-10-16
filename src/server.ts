@@ -10,7 +10,7 @@ import { basename, dirname, join, relative, resolve } from 'node:path';
 import { Agent, type AgentEvent } from './agent.ts';
 import { configFromEnv } from './model.ts';
 import { startTunnel } from './tunnel.ts';
-import { checkpoint, restore, isRepo, initRepo } from './git.ts';
+import { checkpoint, restore, isRepo, initRepo, changedBetween } from './git.ts';
 import { closeBrowser, SHOTS } from './browser.ts';
 import { stopBackground } from './tools.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
@@ -267,10 +267,25 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
   return c.json(out ?? { ok: true });
 };
 // Every task starts from a git checkpoint (when the folder is a repo), so it can be undone.
+// It also ends with one (however it ended: done, stopped, step limit), so Undo knows which files were this task's.
 async function runTask(l: Live, task: string) {
   const ref = await checkpoint(l.thread.folder, l.thread.id, task).catch(() => null);
   if (ref) l.emit({ type: 'snapshot', ref });
   await l.agent.run(task, settings.maxSteps);
+  if (!ref) return;
+  const after = await checkpoint(l.thread.folder, l.thread.id, `after: ${task}`).catch(() => null);
+  const files = after ? await changedBetween(l.thread.folder, ref, after).catch(() => []) : [];
+  if (after) l.emit({ type: 'task_end', ref, after, files: files.length });
+}
+// The files this task (and this thread's later tasks, which Undo also takes back) changed. Anything else in the
+// folder, like the user's own edits or another thread's work, is left alone. Null for threads from before task_end.
+async function filesOfTasksFrom(l: Live, ref: string): Promise<Set<string> | null> {
+  const ends = l.thread.events.filter((e): e is AgentEvent & { type: 'task_end' } => e.type === 'task_end');
+  const from = ends.findIndex((e) => e.ref === ref);
+  if (from < 0) return null;
+  const paths = new Set<string>();
+  for (const e of ends.slice(from)) for (const f of await changedBetween(l.thread.folder, e.ref, e.after)) paths.add(f.path);
+  return paths;
 }
 app.post(`${T}/task`, withThread((l, { task }) => {
   if (l.agent.running) return { error: 'agent is busy' };
@@ -282,8 +297,10 @@ app.post(`${T}/undo`, async (c) => {
   if (!l || !/^[0-9a-f]{40}$/.test(ref ?? '')) return c.json({ error: 'bad request' }, 400);
   if (l.agent.running) return c.json({ error: 'Stop the agent first' }, 409);
   try {
-    const files = await restore(l.thread.folder, ref);
+    const files = await restore(l.thread.folder, ref, (await filesOfTasksFrom(l, ref)) ?? undefined);
     l.emit({ type: 'restored', ref, files });
+    // Otherwise the model still "remembers" the undone code and writes it back on the next task.
+    if (files.length) l.agent.notes.push(`Note from agent-stage: the user pressed Undo. These files are back to how they were before your earlier task, so your changes to them are gone: ${files.map((f) => f.path).join(', ')}. Read files again before relying on what you remember of them.`);
     return c.json({ files });
   } catch (e: any) { return c.json({ error: e.message }, 500); }
 });
@@ -299,7 +316,7 @@ app.post(`${T}/git/init`, async (c) => {
 });
 app.post(`${T}/stop`, withThread((l) => {
   l.agent.stop();
-  for (const [, ok] of l.approvals) ok(false);
+  for (const [id, ok] of l.approvals) { l.emit({ type: 'approval_answer', id, ok: false }); ok(false); }
   l.approvals.clear();
   for (const [, ok] of l.checkpoints) ok({ choice: 'discuss', text: '(stopped by the learner)' });
   l.checkpoints.clear();
@@ -348,8 +365,11 @@ app.post(`${T}/mode`, withThread((l, { mode }) => {
   return { mode: l.thread.mode };
 }));
 app.post(`${T}/approve`, withThread((l, { id, ok }) => {
-  l.approvals.get(id)?.(Boolean(ok));
+  const answer = l.approvals.get(id);
+  if (!answer) return; // already answered (a double click, or a second tab)
   l.approvals.delete(id);
+  l.emit({ type: 'approval_answer', id, ok: Boolean(ok) });
+  answer(Boolean(ok));
 }));
 
 // settings + providers

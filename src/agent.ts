@@ -11,6 +11,7 @@ export type AgentEvent =
   | { type: 'tool_start'; id: string; name: string; args: any }
   | { type: 'tool_end'; id: string; name: string; ok: boolean; output: string }
   | { type: 'approval'; id: string; command: string }
+  | { type: 'approval_answer'; id: string; ok: boolean }
   | ({ type: 'checkpoint'; id: string } & Checkpoint)
   | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss'; text?: string }
   | { type: 'file_change'; path: string; before: string; after: string }
@@ -19,8 +20,9 @@ export type AgentEvent =
   | { type: 'answer'; id: string; text: string }
   | ({ type: 'usage' } & Usage)
   | { type: 'label'; stepId: string; label: string; why: string }
-  | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined'; command?: string; output?: string }
+  | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string }
   | { type: 'snapshot'; ref: string }
+  | { type: 'task_end'; ref: string; after: string; files: number }
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
@@ -68,6 +70,8 @@ export class Agent {
   }
   // Steer: the message joins the main conversation before the next model call.
   interject(text: string) { this.pending.push(text); }
+  // Things the model must know before its next task (e.g. the user undid its work). Not shown in the chat.
+  notes: string[] = [];
 
   // Conversation so far, safe to continue elsewhere (unfinished tool calls get a placeholder result).
   snapshot(): Message[] {
@@ -146,7 +150,7 @@ export class Agent {
 
   async run(task: string, maxSteps = 30) {
     await this.loadProjectInstructions();
-    this.messages.push({ role: 'user', content: task });
+    this.messages.push({ role: 'user', content: [...this.notes.splice(0), task].join('\n\n') });
     this.emit({ type: 'user', text: task });
     this.unlocked = false;
     const learning = this.opts.mode === 'learn';
@@ -162,7 +166,9 @@ export class Agent {
           this.messages.push({ role: 'user', content: text });
           this.emit({ type: 'user', text });
         }
+        if (this.abort.signal.aborted) throw new Error('stopped');
         const reply = await chat(this.cfg, this.fitContext(), tools, this.abort.signal, (u) => this.emit({ type: 'usage', ...u }));
+        if (this.abort.signal.aborted) throw new Error('stopped'); // a model that ignores the signal mustn't carry on
         this.messages.push(reply);
         if (reply.content && reply.tool_calls?.length) this.emit({ type: 'thinking', text: reply.content });
         if (!reply.tool_calls?.length) {
@@ -207,9 +213,9 @@ export class Agent {
           this.recent = [];
         }
       }
-      this.emit({ type: 'error', message: `hit step limit (${maxSteps})` });
+      this.emit({ type: 'error', message: `Stopped: reached the step limit (${maxSteps} steps)` });
     } catch (e: any) {
-      this.emit({ type: 'error', message: this.abort.signal.aborted ? 'stopped by user' : e.message });
+      this.emit({ type: 'error', message: this.abort.signal.aborted ? 'Stopped by you' : e.message });
     } finally {
       this.running = false;
     }

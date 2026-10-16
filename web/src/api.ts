@@ -1,7 +1,12 @@
 // Tiny fetch helpers + shared types for the settings/threads API.
 export const get = <T = any>(path: string): Promise<T> => fetch(path).then((r) => r.json());
 export const send = <T = any>(path: string, body?: unknown, method = 'POST'): Promise<T> =>
-  fetch(path, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => r.json());
+  fetch(path, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) }).then(async (r) => {
+    const data = await r.json().catch(() => ({}));
+    // An error body must never be mistaken for the data (it once replaced the settings and blanked the app).
+    if (!r.ok) throw new Error(data?.error ?? `HTTP ${r.status}`);
+    return data;
+  });
 
 export type Provider = {
   id: string; name: string; kind: 'mock' | 'openai' | 'anthropic' | 'claude-code';

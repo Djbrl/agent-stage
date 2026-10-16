@@ -7,6 +7,7 @@ export type AgentEvent = Base & (
   | { type: 'tool_start'; id: string; name: string; args: any }
   | { type: 'tool_end'; id: string; name: string; ok: boolean; output: string }
   | { type: 'approval'; id: string; command: string }
+  | { type: 'approval_answer'; id: string; ok: boolean }
   | { type: 'file_change'; path: string; before: string; after: string }
   | { type: 'checkpoint'; id: string; kind: 'design' | 'implementation'; title: string; summary: string; additions?: { detail: string; proposal: string; why: string }[]; files?: string[] }
   | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss'; text?: string }
@@ -15,8 +16,9 @@ export type AgentEvent = Base & (
   | { type: 'answer'; id: string; text: string }
   | { type: 'label'; stepId: string; label: string; why: string }
   | { type: 'usage'; promptTokens: number; completionTokens: number; ms: number; costUsd?: number }
-  | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined'; command?: string; output?: string }
+  | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string }
   | { type: 'snapshot'; ref: string }
+  | { type: 'task_end'; ref: string; after: string; files: number }
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
@@ -29,9 +31,9 @@ export type Step = {
   startedAt: number; endedAt?: number; ok?: boolean; output?: string; change?: Change; label?: string; why?: string;
 };
 export type Entry =
-  | { kind: 'user' | 'thought' | 'error'; text: string; at: number }
-  | { kind: 'done'; text: string; at: number; ref?: string } // ref: git checkpoint taken before this task
-  | { kind: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined'; command?: string; output?: string; at: number }
+  | { kind: 'user' | 'thought'; text: string; at: number }
+  | { kind: 'done' | 'error'; text: string; at: number; ref?: string } // ref: git checkpoint taken before this task
+  | { kind: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string; at: number }
   | { kind: 'restored'; files: { status: string; path: string }[]; at: number }
   | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
   | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss'; text?: string }; at: number }
@@ -50,10 +52,11 @@ export type State = {
   startedAt: number | null;
   snapshot: string | null; // checkpoint of the task in progress
   undone: string[]; // checkpoints already restored
+  changed: Record<string, number>; // checkpoint → files its task changed (no Undo for a task that changed nothing)
 };
 
 export const initial: State = {
-  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null, snapshot: null, undone: [],
+  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null, snapshot: null, undone: [], changed: {},
 };
 
 export function targetOf(name: string, args: any): string {
@@ -120,6 +123,8 @@ function reduce(s: State, a: Action): State {
     }
     case 'approval':
       return { ...s, marker: '$terminal', approval: { id: e.id, command: e.command } };
+    case 'approval_answer':
+      return s.approval?.id === e.id ? { ...s, approval: null } : s;
     case 'verify': {
       // The harness checking the agent's "done": one line per check, updated in place.
       const entry = { kind: 'verify' as const, id: e.id, state: e.state, command: e.command, output: e.output, at: e.at };
@@ -129,6 +134,8 @@ function reduce(s: State, a: Action): State {
     }
     case 'snapshot':
       return { ...s, snapshot: e.ref };
+    case 'task_end':
+      return { ...s, changed: { ...s.changed, [e.ref]: e.files } };
     case 'restored': {
       // The files are back as they were: the map shows them untouched again.
       const files = { ...s.files }, changes = { ...s.changes };
@@ -137,8 +144,8 @@ function reduce(s: State, a: Action): State {
     }
     case 'done':
       return { ...s, running: false, approval: null, planned: [], snapshot: null, timeline: [...s.timeline, { kind: 'done', text: e.text, at: e.at, ref: s.snapshot ?? undefined }] };
-    case 'error':
-      return { ...s, running: false, approval: null, timeline: [...s.timeline, { kind: 'error', text: e.message, at: e.at }] };
+    case 'error': // stopped or out of steps: its changes stay, so it gets an Undo too
+      return { ...s, running: false, approval: null, planned: [], snapshot: null, timeline: [...s.timeline, { kind: 'error', text: e.message, at: e.at, ref: s.snapshot ?? undefined }] };
     default:
       // usage and any event a newer server sends: nothing to draw. Never return undefined (that blanks the app).
       return s;
@@ -248,7 +255,10 @@ export function useAgent(threadId: string) {
     ask: (text: string) => post('ask', { text }),
     steer: (text: string) => post('steer', { text }),
     stop: () => post('stop'),
-    approve: (id: string, ok: boolean) => post('approve', { id, ok }),
+    approve: (id: string, ok: boolean) => { // hide the card now: through the demo's tunnel the event takes a second
+      dispatch({ kind: 'event', e: { type: 'approval_answer', id, ok, at: Date.now() } });
+      return post('approve', { id, ok });
+    },
     answerCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => post('checkpoint', { id, choice, text }),
     setMode: (mode: 'build' | 'learn') => post('mode', { mode }).then(() => setMeta({ ...meta, mode })),
   };

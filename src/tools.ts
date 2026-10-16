@@ -81,11 +81,14 @@ export async function runTool(ctx: ToolContext, name: string, args: any): Promis
       return hits.slice(0, 50).join('\n') || 'no matches';
     }
     case 'run_command': {
-      if (!(await ctx.approve(args.command))) return 'user denied this command';
+      // Thrown, not returned: a denied or failing command must show as failed, not with a green tick.
+      if (!(await ctx.approve(args.command))) throw new Error('the user denied this command');
       if (args.background) return startBackground(ctx.root, args.command);
-      return await new Promise((ok) =>
-        execFile('sh', ['-c', args.command], { cwd: ctx.root, timeout: 60_000 }, (err, stdout, stderr) =>
-          ok(`${err ? `exit ${err.code}\n` : ''}${stdout}${stderr}`.slice(0, 8000))),
+      return await new Promise((ok, fail) =>
+        execFile('sh', ['-c', args.command], { cwd: ctx.root, timeout: 60_000 }, (err, stdout, stderr) => {
+          const out = `${err ? `exit ${err.code ?? err.signal}\n` : ''}${stdout}${stderr}`.slice(0, 8000);
+          if (err) fail(new Error(out)); else ok(out);
+        }),
       );
     }
     default:

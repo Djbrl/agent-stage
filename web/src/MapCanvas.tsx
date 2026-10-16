@@ -97,11 +97,11 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
   const live = useRef({ state, selected, following, data, onSelect, insets, lit });
   live.current = { state, selected, following, data, onSelect, insets, lit };
 
-  // Re-read the map whenever the agent finishes a step.
+  // Re-read the map whenever the agent finishes a step, or an Undo puts files back.
   const doneSteps = state.steps.filter((s) => s.endedAt).length;
   useEffect(() => {
     fetch(mapUrl).then((r) => r.json()).then(setData).catch(() => {});
-  }, [doneSteps, state.running, mapUrl]);
+  }, [doneSteps, state.running, state.undone.length, mapUrl]);
 
   const layoutKey = data.files.map((f) => `${f.path}:${Math.ceil(radius(f.lines) * 1.15)}`).join('|');
   const lay = useMemo(() => layout(data.files), [layoutKey]);
@@ -304,7 +304,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         const changedAt = v.lastChange[path];
         let col = '';
         if (status === 'error') col = C.red;
-        else if (changedAt) {
+        else if (changedAt && status === 'written') { // an Undo sets it back to idle
           const age = Date.now() - changedAt;
           col = age < 300_000 ? mix(C.hot, C.warm, Math.pow(age / 300_000, 1.5)) : C.warm;
         } else if (status === 'read') col = '#6b8fc4';

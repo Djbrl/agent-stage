@@ -78,6 +78,8 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
   const [tab, setTab] = useState<Tab>('chat');
   const [panelW, setPanelW] = useState(() => storedNumber('panelW', 400));
   const [panelOpen, setPanelOpen] = useState(true);
+  const [phone, setPhone] = useState(() => window.innerWidth <= 700);
+  useEffect(() => { const r = () => setPhone(window.innerWidth <= 700); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r); }, []);
   useEffect(() => store('panelW', Math.round(panelW)), [panelW]);
   // Asking for a step (from the map, a work line or the steps button) shows it in the Steps tab.
   const openSteps = (o: boolean) => { if (o) { setTab('steps'); setPanelOpen(true); } else if (tab === 'steps') setTab('chat'); };
@@ -92,7 +94,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
         replaying={replay.active} centered={false}
         onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={pickStep} onUndo={undo} git={git} />
     );
-    const left = panelOpen ? panelW + 24 : 0;
+    const left = panelOpen && !phone ? panelW + 24 : 0; // on phones the panel sits under the map
     return (
       <HighlightContext.Provider value={{ paths: lit, set: (p) => setLit(p ?? []), known }}>
       <div className="studio">

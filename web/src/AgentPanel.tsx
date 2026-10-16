@@ -85,25 +85,24 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
                 <div className="qa-a">{e.answer ? <Markdown text={e.answer} /> : <span className="spin" />}</div>
               </div>
             );
-            if (e.kind === 'done') {
+            if (e.kind === 'done' || e.kind === 'error') {
+              // Undo for any task that changed files, however it ended (done, stopped, out of steps).
+              const canUndo = e.ref && onUndo && !side && state.changed[e.ref] !== 0;
               const undone = e.ref && state.undone.includes(e.ref);
-              const later = state.timeline.slice(i + 1).some((x) => x.kind === 'done' && x.ref && !state.undone.includes(x.ref));
-              return (
-                <div key={i} className="final">
-                  <Markdown text={e.text} />
-                  {e.ref && onUndo && !side && (
-                    <div className="undo-row">
-                      {undone ? <span className="muted">Undone</span> : (
-                        <button className="btn ghost sm" disabled={state.running}
-                          title={later ? 'Puts your files back as they were before this task (later tasks are undone too)' : 'Puts your files back as they were before this task'}
-                          onClick={() => confirm(later ? 'Undo this task and every task after it? Your files go back to how they were before it.' : 'Undo this task? Your files go back to how they were before it.') && onUndo(e.ref!)}>
-                          <Icon name="undo" size={12} /> Undo
-                        </button>
-                      )}
-                    </div>
+              const later = state.timeline.slice(i + 1).some((x) => (x.kind === 'done' || x.kind === 'error') && x.ref && !state.undone.includes(x.ref) && state.changed[x.ref] !== 0);
+              const undoRow = canUndo && (
+                <div className="undo-row">
+                  {undone ? <span className="muted">Undone</span> : (
+                    <button className="btn ghost sm" disabled={state.running}
+                      title={later ? 'Puts back the files this task and the later ones changed' : 'Puts back the files this task changed'}
+                      onClick={() => confirm(later ? 'Undo this task and every task after it? The files they changed go back to how they were before.' : 'Undo this task? The files it changed go back to how they were before.') && onUndo!(e.ref!)}>
+                      <Icon name="undo" size={12} /> Undo
+                    </button>
                   )}
                 </div>
               );
+              if (e.kind === 'error') return <div key={i} className="final bad"><div><Icon name="x" size={13} /> {e.text}</div>{undoRow}</div>;
+              return <div key={i} className="final"><Markdown text={e.text} />{undoRow}</div>;
             }
             if (e.kind === 'verify') return <VerifyLine key={i} e={e} />;
             if (e.kind === 'restored') return (
@@ -111,7 +110,6 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
                 {e.files.length ? `Restored ${e.files.length} file${e.files.length > 1 ? 's' : ''}: ${e.files.slice(0, 4).map((f) => f.path.split('/').pop()).join(', ')}${e.files.length > 4 ? '…' : ''}` : 'Nothing to restore: the files were already like that.'}
               </div>
             );
-            if (e.kind === 'error') return <div key={i} className="final bad"><Icon name="x" size={13} /> {e.text}</div>;
             // A burst of tool calls: one quiet line. Live while working, a summary after. Click → steps on the stage.
             const steps = e.steps.map((id) => byId[id]).filter((s) => s && s.name !== 'checkpoint'); // the card says it already
             if (!steps.length) return null;
@@ -209,7 +207,7 @@ function CheckpointCard({ entry, onAnswer }: { entry: Extract<State['timeline'][
 // The model chip: "engine · model". Grouped by engine; once a thread has history only its own engine's models
 // are switchable (each engine keeps its own memory of the conversation).
 function ModelPicker({ disabled, onOpenSettings, lockedTo }: { disabled: boolean; onOpenSettings: () => void; lockedTo?: Engine }) {
-  const { settings, save } = useApp();
+  const { settings, save, me } = useApp();
   const [open, setOpen] = useState(false);
   if (!settings) return null;
   const active = settings.providers.find((p) => p.id === settings.activeProvider);
@@ -229,7 +227,7 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo }: { disabled: boolean
               <div key={g} className={`picker-group ${locked ? 'locked' : ''}`}>
                 <div className="picker-head">{ENGINE_LABEL[g]}{locked && <span className="muted"> · start a new thread to use it</span>}</div>
                 {list.map((p) => (
-                  <button key={p.id} disabled={locked} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }); setOpen(false); }}>
+                  <button key={p.id} disabled={locked} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }).catch(() => {}); setOpen(false); }}>
                     <span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? 'demo' : p.model}</span>
                     {p.kind !== 'mock' && !p.apiKey && <span className="pill">no key</span>}
                   </button>
@@ -237,8 +235,10 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo }: { disabled: boolean
               </div>
             );
           })}
-          <div className="picker-group locked"><div className="picker-head">Codex <span className="muted">· coming soon</span></div></div>
-          <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Manage engines…</button>
+          {!me?.public && <>
+            <div className="picker-group locked"><div className="picker-head">Codex <span className="muted">· coming soon</span></div></div>
+            <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Manage engines…</button>
+          </>}
         </div>
       )}
     </div>
@@ -255,6 +255,7 @@ function VerifyLine({ e }: { e: Extract<Entry, { kind: 'verify' }> }) {
     fail: `Check failed: ${cmd}. Sent back to the agent`,
     nudge: 'Asked the agent to test its work before finishing',
     declined: 'Check skipped',
+    unavailable: `Couldn't check the work: ${cmd} isn't installed here`,
   }[e.state];
   return (
     <div className={`verify ${e.state}`}>

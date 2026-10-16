@@ -65,7 +65,7 @@ kbd { font: 10.5px var(--mono); color: var(--dim); border: 1px solid var(--line)
 .approval { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(440px, 90%); background: var(--raised);
   border: 1px solid var(--line); border-radius: 12px; padding: 14px; box-shadow: 0 16px 50px #000a, 0 0 0 1px #f5b84a30; animation: rise .25s ease-out; }
 .approval-head { display: flex; align-items: center; gap: 7px; font-weight: 500; color: var(--warn); }
-.approval code { display: block; margin: 10px 0 12px; padding: 9px 11px; background: var(--frame); border: 1px solid var(--line-soft); border-radius: 8px; font: 12.5px var(--mono); }
+.approval code { display: block; margin: 10px 0 12px; padding: 9px 11px; background: var(--frame); border: 1px solid var(--line-soft); border-radius: 8px; font: 12.5px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40vh; overflow: auto; }
 .approval-actions { display: flex; justify-content: flex-end; gap: 8px; }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 8px); } }
 
@@ -470,7 +470,7 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 
 /* narrow windows: rail sidebar, stage above the chat */
 @media (max-width: 1100px) {
-  .shell { grid-template-columns: 52px minmax(0, 1fr) !important; }
+  .shell:not(.studio-shell) { grid-template-columns: 52px minmax(0, 1fr) !important; }
   .shell > .resizer { display: none; }
   .sidebar { display: flex; }
   .thread.split { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr); gap: 8px; }
@@ -659,6 +659,13 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .studio-side { position: absolute; top: 12px; bottom: 12px; width: 380px; z-index: 9; display: flex; }
 .studio-side > * { flex: 1; }
 .studio-shell { grid-template-columns: minmax(0, 1fr); }
+/* phones: the map on top, the panel below it (no floating) */
+@media (max-width: 700px) {
+  .studio > .stage { bottom: auto; height: 42vh; }
+  .studio-panel { top: 42vh; left: 0; right: 0; bottom: 0; width: auto !important; border-radius: 14px 14px 0 0; }
+  .studio-panel > .resizer { display: none; }
+  .studio-side { left: 0 !important; right: 0; top: 42vh; bottom: 0; width: auto; }
+}
 .studio-tabs .live-dot, .studio-reopen .live-dot { position: static; margin: 0; }
 .stage.full .stage-where { visibility: hidden; }
 /* In the composer the status dot sits at the bottom: open its card upwards, inside the panel. */

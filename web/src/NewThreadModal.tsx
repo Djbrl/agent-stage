@@ -10,6 +10,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
   const { settings, me, refreshThreads } = useApp();
   const [dir, setDir] = useState<Listing | null>(null);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const [browsing, setBrowsing] = useState(false); // the in-page browser is the fallback; the Finder dialog comes first
   const [mode, setMode] = useState<'build' | 'learn'>('build');
   const [engines, setEngines] = useState<EngineStatus | null>(null);
@@ -25,10 +26,12 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
   useEffect(() => { browse(); }, []);
 
   const start = async (folder: string | null) => {
-    setBusy(true);
-    const t = await send<{ id: string }>('/api/threads', { folder, scratch: folder === null, mode, providerId: providerFor(engine) });
-    refreshThreads();
-    onCreated(t.id);
+    setBusy(true); setErr('');
+    try {
+      const t = await send<{ id: string }>('/api/threads', { folder, scratch: folder === null, mode, providerId: providerFor(engine) });
+      refreshThreads();
+      onCreated(t.id);
+    } catch (e: any) { setErr(e.message); setBusy(false); }
   };
 
   return (
@@ -68,7 +71,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
           </> : <>
           <div className="label">Project</div>
           <div className="open-pick">
-            <button className="btn" disabled={busy} onClick={() => send<{ path?: string }>('/api/pick-folder', {}).then((r) => r.path && start(r.path))}>
+            <button className="btn" disabled={busy} onClick={() => send<{ path?: string }>('/api/pick-folder', {}).then((r) => r.path && start(r.path), (e) => setErr(e.message))}>
               <Icon name="folder" size={13} /> Open folder…
             </button>
             <button className="btn ghost" disabled={busy} onClick={() => start(null)} title="Creates an empty folder in ~/agent-stage-projects">Start without a folder</button>
@@ -103,6 +106,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
         <div className="modal-foot">
           {!browsing && !me?.public && <button className="btn ghost sm" onClick={() => setBrowsing(true)}>Browse here instead</button>}
           <span style={{ flex: 1 }} />
+          {err && <span className="problem">{err}</span>}
           <button className="btn ghost" onClick={onClose}>Cancel</button>
           {browsing && <button className="btn primary" disabled={!dir || busy} onClick={() => dir && start(dir.path)}>Start in {dir?.name ?? '…'}</button>}
         </div>

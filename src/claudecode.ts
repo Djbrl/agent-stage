@@ -59,6 +59,7 @@ export class ClaudeCodeAgent {
   setOptions(o: Partial<AgentOptions>) { this.opts = { ...this.opts, ...o }; }
   snapshot(): Message[] { return []; }
   interject(text: string) { this.inbox?.push(text); this.emit({ type: 'user', text }); }
+  notes: string[] = []; // see Agent.notes
   stop() { void this.q?.interrupt().catch(() => {}); this.inbox?.close(); }
   async ask(text: string) { this.emit({ type: 'answer', id: crypto.randomUUID(), text: `(Use Ask to open a side thread.) ${text}` }); }
 
@@ -101,7 +102,7 @@ export class ClaudeCodeAgent {
     this.running = true;
     this.emit({ type: 'user', text: task });
     this.inbox = new Inbox();
-    this.inbox.push(task);
+    this.inbox.push([...this.notes.splice(0), task].join('\n\n'));
     const append = (learning
       ? `${learnPrompt(this.opts.learn)}\nThe checkpoint tool is named ${CHECKPOINT}.`
       : asking ? 'You are answering a side question. Read and search as needed but do not change anything.' : '') + languageLine(this.opts.learn.language);
@@ -204,12 +205,12 @@ export class ClaudeCodeAgent {
             const notYet = this.opts.mode === 'build' && run.wrote ? await doneCheck(this.ctx, this.emit as any, run, this.checkApproved) : null;
             if (notYet) { this.inbox.push(notYet); continue; }
             this.emit({ type: 'done', text: (m.result ?? lastText) + gaveUpNote(run) });
-          } else this.emit({ type: 'error', message: m.subtype === 'error_max_turns' ? `hit the step limit (${maxSteps})` : `Claude Code stopped: ${m.subtype}` });
+          } else this.emit({ type: 'error', message: m.subtype === 'error_max_turns' ? `Stopped: reached the step limit (${maxSteps} steps)` : `Claude Code stopped: ${m.subtype}` });
           this.inbox.close();
         }
       }
     } catch (e: any) {
-      this.emit({ type: 'error', message: /abort|interrupt/i.test(String(e?.message)) ? 'stopped by user' : `Claude Code: ${e?.message ?? e}` });
+      this.emit({ type: 'error', message: /abort|interrupt/i.test(String(e?.message)) ? 'Stopped by you' : `Claude Code: ${e?.message ?? e}` });
     } finally {
       for (const [id, name] of pending) this.emit({ type: 'tool_end', id, name, ok: false, output: 'interrupted' });
       this.running = false;
