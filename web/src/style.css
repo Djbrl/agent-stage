@@ -669,3 +669,5 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .welcome-demo h2 { font-size: 18px; margin: 4px 0 12px; letter-spacing: -.01em; }
 .welcome-demo ul { margin: 0; padding-left: 18px; color: var(--dim); font-size: 13.5px; line-height: 1.55; }
 .welcome-demo li { margin: 8px 0; } .welcome-demo b { color: var(--text); font-weight: 600; }
+.welcome-demo .limits { margin-top: 14px; border-top: 1px solid var(--line-soft); padding-top: 12px; display: grid; gap: 8px; font-size: 12.5px; }
+.welcome-demo .limits div { display: grid; grid-template-columns: 74px 1fr; gap: 10px; } .welcome-demo .limits span { color: var(--dim); }

@@ -18,6 +18,11 @@ export function PublicWelcome({ onDone }: { onDone: () => void }) {
             <li><b>Start here:</b> New thread → pick <i>todo-app</i> or <i>stats-py</i> (their README has ideas) → describe a task. Watch it on the map, approve its commands, undo anything.</li>
             <li>The sandbox is deleted 20 minutes after you leave.</li>
           </ul>
+          <div className="limits">
+            <div><b>You can</b><span>create, edit and delete files · run commands, Node, Python, pytest, git · start a local web server and open it in the agent's browser · use Build, Learn, Ask and Undo</span></div>
+            <div><b>You can't</b><span>reach the internet (no npm/pip installs, no cloning, no outside websites) · reach our laptop or other visitors · change models, keys or settings · use the Claude engine</span></div>
+            <div><b>Limits</b><span>1 CPU core · 1.5 GB RAM · 512 MB temporary space · disk shared with our laptop, so please keep it under 1 GB · 400k model tokens · 5 sandboxes at a time</span></div>
+          </div>
         </div>
         <div className="modal-foot"><span style={{ flex: 1 }} /><button className="btn primary" onClick={onDone}>Got it</button></div>
       </div>

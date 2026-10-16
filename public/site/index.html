@@ -20,6 +20,9 @@
   .dot.on { background: var(--ok); box-shadow: 0 0 0 4px #3ecf8e22; } .dot.warn { background: var(--warn); }
   .how { margin-top: 48px; padding: 24px 28px; border: 1px solid var(--line); border-radius: 14px; }
   .how h2 { font-size: 18px; margin: 0 0 12px; } .how ol { margin: 0; padding-left: 20px; color: var(--muted); } .how li { margin: 8px 0; } .how b { color: var(--text); font-weight: 600; }
+  .limits { display: grid; grid-template-columns: 96px 1fr; gap: 8px 16px; margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--line); font-size: 15px; }
+  .limits dt { font-weight: 600; } .limits dd { margin: 0; color: var(--muted); }
+  @media (max-width: 560px) { .limits { grid-template-columns: 1fr; } .limits dd { margin-bottom: 8px; } }
   figure { margin: 48px 0 0; } figure img { width: 100%; border-radius: 14px; border: 1px solid var(--line); display: block; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px; margin-top: 56px; }
   .grid h3 { margin: 0 0 6px; font-size: 16px; } .grid p { margin: 0; color: var(--muted); font-size: 15px; }
@@ -41,6 +44,11 @@
       <li><b>The real model is only on during tests.</b> When our GPU is running, an open model (Qwen3-Coder, on an NVIDIA L40S) does the work. When it's off, a scripted demo model plays a fixed example so you can still see how everything works. The status next to the button tells you which one you'll get.</li>
       <li><b>You're in charge.</b> Commands wait for your approval, and every task can be undone.</li>
     </ol>
+    <dl class="limits">
+      <dt>You can</dt><dd>Create, edit and delete files; run commands, Node, Python, pytest and git; start a local web server and open it in the agent's browser; use Build, Learn, Ask and Undo.</dd>
+      <dt>You can't</dt><dd>Reach the internet from the sandbox (no npm/pip installs, no cloning, no outside websites), reach our laptop or other visitors, change models or keys, or use the Claude engine.</dd>
+      <dt>Limits</dt><dd>1 CPU core, 1.5 GB RAM, 512 MB of temporary space, disk shared with our laptop (please stay under 1 GB), 400k model tokens per sandbox, 5 sandboxes at a time.</dd>
+    </dl>
   </section>
   <figure><img src="stage.png" alt="agent-stage: the chat on the left, the project map on the right, with the agent checking a web page in its browser"></figure>
   <div class="grid">
