@@ -94,9 +94,17 @@ function persist(l: Live) {
   saveSoon.set(l.thread.id, setTimeout(() => void saveThread(l.thread), 300));
 }
 
-async function open(id: string): Promise<Live | null> {
+// Several requests open a fresh thread at once (events, map, git, task): they must all get the same Live, or the
+// agent ends up talking to listeners nobody is attached to. So the loading itself is shared.
+const opening = new Map<string, Promise<Live | null>>();
+function open(id: string): Promise<Live | null> {
   const existing = live.get(id);
-  if (existing) return existing;
+  if (existing) return Promise.resolve(existing);
+  if (!opening.has(id)) opening.set(id, load(id).finally(() => opening.delete(id)));
+  return opening.get(id)!;
+}
+
+async function load(id: string): Promise<Live | null> {
   const thread = await loadThread(id);
   if (!thread) return null;
   const l: Live = { thread, agent: null!, emit: null!, listeners: new Set(), approvals: new Map(), checkpoints: new Map() };

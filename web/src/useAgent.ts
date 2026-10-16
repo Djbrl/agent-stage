@@ -63,9 +63,10 @@ export function targetOf(name: string, args: any): string {
   return args?.path ?? '$workspace';
 }
 
-type Action = { kind: 'event'; e: AgentEvent } | { kind: 'files'; files: string[]; running: boolean };
+type Action = { kind: 'event'; e: AgentEvent } | { kind: 'files'; files: string[]; running: boolean } | { kind: 'reset' };
 
 function reduce(s: State, a: Action): State {
+  if (a.kind === 'reset') return { ...initial, files: Object.fromEntries(Object.keys(s.files).map((f) => [f, 'idle'])) };
   if (a.kind === 'files') {
     const files = { ...s.files };
     for (const f of a.files) files[f] ??= 'idle';
@@ -184,7 +185,7 @@ export function useAgent(threadId: string) {
       if (e.type === 'tool_end' || e.type === 'done') refresh();
     };
     // Live stream first. If its greeting doesn't arrive (some tunnels hold streams back), poll instead.
-    let poll: ReturnType<typeof setInterval> | undefined, closed = false;
+    let poll: ReturnType<typeof setInterval> | undefined, closed = false, poll2: EventSource | undefined;
     const es = new EventSource(`${base}/events`);
     es.onmessage = (m) => take(JSON.parse(m.data));
     let hello = false;
@@ -195,12 +196,17 @@ export function useAgent(threadId: string) {
       let busy = false;
       poll = setInterval(async () => {
         if (busy) return; busy = true;
-        const r = await fetch(`${base}/log?from=${events.current.length}`).then((x) => x.json()).catch(() => null);
+        const r = await fetch(`${base}/log?from=${events.current.length}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
         busy = false;
+        if (r === null && !closed && !poll2) { // a server without /log (older build): go back to the stream
+          clearInterval(poll); events.current = []; dispatch({ kind: 'reset' });
+          poll2 = new EventSource(`${base}/events`); poll2.onmessage = (m) => take(JSON.parse(m.data));
+          return;
+        }
         if (!closed && r?.events) for (const e of r.events) take(e);
       }, 1000);
     }, 3000);
-    return () => { closed = true; es.close(); clearTimeout(fallback); clearInterval(poll); events.current = []; };
+    return () => { closed = true; es.close(); poll2?.close(); clearTimeout(fallback); clearInterval(poll); events.current = []; };
   }, [threadId]);
 
   const moments = useMemo(() => events.current.map((e, i) => (isMoment(e) ? i : -1)).filter((i) => i >= 0), [eventCount]);
