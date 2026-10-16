@@ -6,10 +6,13 @@ set -e
 cd "$(dirname "$0")/.."
 command -v docker >/dev/null || { echo "Docker Desktop is needed: https://www.docker.com/products/docker-desktop/"; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Start Docker Desktop first."; exit 1; }
+PORT=${PORT:-8080}
+if lsof -nP -iTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "The live demo (or something else) is already running on port $PORT. Stop it first (Ctrl-C in its terminal)."; exit 1
+fi
 echo "→ building the app and the sandbox image (first time takes a few minutes)…"
 npm run build --silent >/dev/null
 docker build -q -t agent-stage-sandbox -f public/Dockerfile . >/dev/null
-PORT=${PORT:-8080}
 node src/public/manager.ts &
 MANAGER=$!
 # The fixed address (a small Vercel page, public/site) is pointed at this run's link, and back to "offline" after.
@@ -22,6 +25,7 @@ if [ -z "$NO_TUNNEL" ]; then
   LOG=$(mktemp)
   cloudflared tunnel --no-autoupdate --url "http://localhost:$PORT" >"$LOG" 2>&1 &
   TUNNEL=$!
+  sleep 2; kill -0 $MANAGER 2>/dev/null || exit 1  # the manager failed to start: don't publish a dead link
   for i in $(seq 1 30); do URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$LOG" | head -1); [ -n "$URL" ] && break; sleep 1; done
   [ -n "$URL" ] && publish "\"$URL\"" && STABLE=https://agent-stage-eta.vercel.app
   echo ""
