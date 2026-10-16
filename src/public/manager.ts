@@ -19,7 +19,7 @@ const BUDGET = Number(process.env.TOKEN_BUDGET ?? 400_000); // model tokens per 
 const IMAGE = 'agent-stage-sandbox', NET = 'agst-sandbox', RELAY = 'agst-relay', RELAY_PORT = 8099;
 const SECRET = randomBytes(24).toString('hex');
 
-type Session = { id: string; token: string; lastSeen: number; tokens: number; ready: boolean };
+type Session = { id: string; token: string; lastSeen: number; tokens: number; ready: boolean; startedAt: number; who: { ip: string; country: string; agent: string } };
 const sessions = new Map<string, Session>(); // cookie id → session
 const byToken = new Map<string, Session>();
 
@@ -59,9 +59,9 @@ async function setup() {
   for (const name of (await docker(['ps', '-aq', '--filter', 'name=^sess-'])).split('\n').filter(Boolean)) await docker(['rm', '-f', name]);
 }
 
-async function startSession(): Promise<Session> {
+async function startSession(who: Session['who']): Promise<Session> {
   const m = (await modelUp()) ? await model() : null; // null → scripted demo model
-  const s: Session = { id: randomBytes(6).toString('hex'), token: randomBytes(24).toString('hex'), lastSeen: Date.now(), tokens: 0, ready: false };
+  const s: Session = { id: randomBytes(6).toString('hex'), token: randomBytes(24).toString('hex'), lastSeen: Date.now(), tokens: 0, ready: false, startedAt: Date.now(), who };
   await docker(['run', '-d', '--name', `sess-${s.id}`, '--network', NET,
     '--memory', '1536m', '--cpus', '1', '--pids-limit', '512', '--shm-size', '256m',
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--tmpfs', '/tmp:size=512m',
@@ -77,6 +77,7 @@ async function startSession(): Promise<Session> {
 }
 
 async function stopSession(s: Session) {
+  console.log(`- sandbox ${s.id} removed`);
   sessions.delete(s.id); byToken.delete(s.token);
   await docker(['rm', '-f', `sess-${s.id}`]).catch(() => {});
 }
@@ -139,6 +140,7 @@ const server = createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
       return res.end(JSON.stringify({ up: true, model: (await modelUp().catch(() => false)) ? 'live' : 'scripted', free: Math.max(0, MAX - sessions.size), invite: Boolean(INVITE) }));
     }
+    if (req.url?.startsWith('/__admin')) return await admin(req, res);
     const s = sessions.get(cookieOf(req) ?? '');
     if (req.method === 'POST' && req.url === '/__start') {
       const body = await new Promise<string>((ok) => { let b = ''; req.on('data', (d) => (b += d)); req.on('end', () => ok(b)); });
@@ -146,7 +148,8 @@ const server = createServer(async (req, res) => {
       if (INVITE && !same(code, INVITE)) return page(res, 'That code is not right.');
       if (s) { res.writeHead(303, { location: '/' }); return res.end(); }
       if (sessions.size >= MAX) return page(res, 'All demo sandboxes are busy right now. Try again in a few minutes.');
-      const n = await startSession();
+      const n = await startSession({ ip: String(req.headers['cf-connecting-ip'] ?? req.socket.remoteAddress ?? ''), country: String(req.headers['cf-ipcountry'] ?? ''), agent: String(req.headers['user-agent'] ?? '').slice(0, 160) });
+      console.log(`+ sandbox ${n.id} for ${n.who.ip} ${n.who.country} (${sessions.size}/${MAX})`);
       res.writeHead(303, { location: '/', 'set-cookie': `agst=${n.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400` });
       return res.end();
     }
@@ -165,6 +168,36 @@ server.listen(PORT, async () => {
   await setup().catch(async (e) => { console.error(e.message); await shutdown(1); });
   console.log(`demo manager on http://localhost:${PORT}  ·  max ${MAX} sandboxes  ·  ${INVITE ? 'invite code required' : 'no invite code'}`);
 });
+
+// ── admin: only from this computer (requests through the tunnel carry Cloudflare's headers) ──
+const isLocal = (req: IncomingMessage) => !req.headers['cf-connecting-ip'] && !req.headers['cf-ray'] && ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '');
+async function admin(req: IncomingMessage, res: ServerResponse) {
+  if (!isLocal(req)) { res.writeHead(404); return res.end(); }
+  const url = new URL(req.url ?? '/', 'http://x');
+  const s = sessions.get(url.searchParams.get('id') ?? '');
+  if (url.pathname === '/__admin/stop' && s) { await stopSession(s); res.writeHead(303, { location: '/__admin' }); return res.end(); }
+  // Look inside: this browser gets that sandbox's cookie (only works here on localhost, visitors' cookies are separate).
+  if (url.pathname === '/__admin/open' && s) { res.writeHead(303, { location: '/', 'set-cookie': `agst=${s.id}; Path=/; HttpOnly; SameSite=Lax` }); return res.end(); }
+  const rows = await Promise.all([...sessions.values()].map(async (x) => {
+    const threads = await fetch(`http://127.0.0.1:${RELAY_PORT}/api/threads`, { headers: { 'x-agst-secret': SECRET, 'x-agst-target': `sess-${x.id}` }, signal: AbortSignal.timeout(3000) })
+      .then((r) => r.json()).catch(() => []) as { title: string; running: boolean }[];
+    const ago = (t: number) => `${Math.round((Date.now() - t) / 60_000)} min`;
+    return `<tr><td class="mono">${x.id}</td><td>${esc(x.who.ip)} ${esc(x.who.country)}<div class="dim">${esc(x.who.agent.replace(/^Mozilla\/5.0 /, ''))}</div></td>
+      <td>${ago(x.startedAt)}</td><td>${ago(x.lastSeen)} ago</td><td>${Math.round(x.tokens / 1000)}k / ${Math.round(BUDGET / 1000)}k</td>
+      <td>${threads.map((t) => `${t.running ? '● ' : ''}${esc(t.title)}`).join('<br>') || '<span class="dim">no threads yet</span>'}</td>
+      <td><a href="/__admin/open?id=${x.id}">Look inside</a> · <a href="/__admin/stop?id=${x.id}" onclick="return confirm('Delete this sandbox?')">Stop</a></td></tr>`;
+  }));
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(`<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="5"><title>Demo sandboxes</title>
+<style>:root{color-scheme:dark}body{margin:32px;background:#0b0c0e;color:#e7e9ee;font:14px/1.5 system-ui}table{border-collapse:collapse;width:100%}
+td,th{padding:10px 12px;border-bottom:1px solid #22252b;text-align:left;vertical-align:top}th{color:#9aa1ad;font-weight:500}.dim{color:#6b7280;font-size:12px}
+.mono{font-family:ui-monospace,monospace}a{color:#9bb4ff}</style>
+<h1 style="font-size:20px">Demo sandboxes: ${sessions.size} / ${MAX}</h1>
+<p class="dim">Live model: ${(await modelUp().catch(() => false)) ? 'on' : 'off (scripted)'} · idle sandboxes are deleted after ${IDLE_MIN} min · ${INVITE ? 'invite code on' : 'no invite code'} · refreshes every 5 s.
+"Look inside" opens that visitor's sandbox in this browser; come back to <b>localhost:${PORT}/__admin</b> afterwards.</p>
+<table><tr><th>Sandbox</th><th>Visitor</th><th>Started</th><th>Last active</th><th>Model tokens</th><th>Threads</th><th></th></tr>${rows.join('') || '<tr><td colspan=7 class="dim">Nobody yet.</td></tr>'}</table>`);
+}
+const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
 async function page(res: ServerResponse, message = '') {
   const up = await modelUp().catch(() => false);

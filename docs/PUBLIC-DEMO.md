@@ -15,6 +15,13 @@ Their own **sandbox**: a container with agent-stage in public mode, two sample p
 a few ideas in its README), git, Node, Python and Chromium. The agent really edits files, runs commands and tests, and uses
 the browser, but only inside that container. It is deleted 20 minutes after their last activity.
 
+## Who is using it
+
+Open **http://localhost:8080/__admin** on this computer while the demo runs: every sandbox, the visitor's IP, country and
+browser, when it started, when it was last active, its model tokens and its threads. "Look inside" opens that sandbox
+in your browser; "Stop" deletes it. The page only answers on this computer (requests through the tunnel get a 404).
+The terminal also prints a line each time a sandbox is created or removed.
+
 ## The model
 
 The sandboxes use the model that is active in agent-stage's settings on this computer (for example your Brev GPU, so keep
