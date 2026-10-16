@@ -661,3 +661,7 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .studio-shell { grid-template-columns: minmax(0, 1fr); }
 .studio-tabs .live-dot, .studio-reopen .live-dot { position: static; margin: 0; }
 .stage.full .stage-where { visibility: hidden; }
+/* In the composer the status dot sits at the bottom: open its card upwards, inside the panel. */
+.composer { position: relative; } .composer .hdot { position: static; }
+.composer .hdot-pop { top: auto; bottom: calc(100% + 6px); left: 0; right: 0; width: auto; max-height: 70vh; overflow: auto; }
+.composer .hdot-pop::before { content: ''; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px; } /* hover bridge */
