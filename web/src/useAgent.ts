@@ -20,6 +20,7 @@ export type AgentEvent = Base & (
   | { type: 'snapshot'; ref: string }
   | { type: 'task_end'; ref: string; after: string; files: number }
   | { type: 'idle' }
+  | { type: 'context'; action: 'clear' | 'compact'; summary?: string }
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'kept'; ref: string; commit: string; message: string }
   | { type: 'done'; text: string }
@@ -37,6 +38,7 @@ export type Entry =
   | { kind: 'done' | 'error'; text: string; at: number; ref?: string } // ref: git checkpoint taken before this task
   | { kind: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string; at: number }
   | { kind: 'restored'; files: { status: string; path: string }[]; at: number }
+  | { kind: 'context'; action: 'clear' | 'compact'; summary?: string; at: number }
   | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
   | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss' | 'skip'; text?: string }; at: number }
   | { kind: 'actions'; steps: string[]; at: number };
@@ -144,6 +146,8 @@ function reduce(s: State, a: Action): State {
       return { ...s, tokens: { context: e.promptTokens, total: s.tokens.total + e.promptTokens + e.completionTokens, cost: s.tokens.cost + (e.costUsd ?? 0) } };
     case 'kept':
       return { ...s, kept: { ...s.kept, [e.ref]: { commit: e.commit, message: e.message } } };
+    case 'context':
+      return { ...s, tokens: { ...s.tokens, context: 0 }, timeline: [...s.timeline, { kind: 'context', action: e.action, summary: e.summary, at: e.at }] };
     case 'idle':
       return { ...s, running: false, approval: null };
     case 'task_end':
@@ -278,6 +282,7 @@ export function useAgent(threadId: string) {
       return post('approve', { id, ok });
     },
     answerCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => post('checkpoint', { id, choice, text }),
+    resetContext: (action: 'clear' | 'compact') => post('context', { action }).then((r) => r.json()).then((j) => (j.error as string | undefined) ?? null, () => 'Could not reach the server'),
     setMode: (mode: 'build' | 'learn') => post('mode', { mode }).then(() => setMeta({ ...meta, mode })),
   };
 }

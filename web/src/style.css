@@ -788,3 +788,15 @@ input[type=radio], input[type=checkbox] { accent-color: var(--accent); }
 .set-label { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .set-row .num { width: 80px; height: 30px; background: var(--frame); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font: inherit; }
 .theme-pick button { align-items: center; gap: 8px; font-weight: 500; }
+.token-meter { position: relative; }
+.tm-btn { border: 0; background: none; padding: 2px 4px; border-radius: 6px; font: inherit; color: inherit; cursor: pointer; }
+.tm-btn:hover { background: var(--hover); }
+.tm-menu { position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 20; width: 220px; padding: 4px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--raised); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 40px rgb(0 0 0 / calc(.6 * var(--shadow-k))); font: 12.5px var(--sans); }
+.tm-menu button { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 9px; border: 0; border-radius: 7px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.tm-menu button:hover:not(:disabled) { background: var(--hover); }
+.tm-menu button:disabled { opacity: .5; cursor: default; }
+.tm-menu b { font-weight: 500; } .tm-menu .muted { font-size: 11.5px; } .tm-note { padding: 4px 9px 6px; }
+.context-line { font-size: 12px; color: var(--faint); border-top: 1px dashed var(--line); padding-top: 8px; }
+.context-line summary { cursor: pointer; list-style: none; } .context-line summary::-webkit-details-marker { display: none; }
+.context-line .md { margin-top: 6px; color: var(--dim); }

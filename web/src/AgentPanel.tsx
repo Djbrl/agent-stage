@@ -28,7 +28,7 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git }: {
+export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, onContext, git }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
@@ -36,6 +36,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean; status?: ReactNode;
   threadProvider?: string; // the model this thread last ran on (shown when the selected model is another engine's)
   visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
+  onContext?: (action: 'clear' | 'compact') => Promise<string | null>;
   onUndo?: (ref: string) => void; onKeep?: (ref: string) => Promise<string | null>; git?: { repo: boolean; onInit: () => void } | null;
 }) {
   const [text, setText] = useState('');
@@ -131,6 +132,12 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
               return <div key={i} className="final"><Markdown text={e.text} />{undoRow}</div>;
             }
             if (e.kind === 'verify') return <VerifyLine key={i} e={e} />;
+            if (e.kind === 'context') return (
+              <details key={i} className="context-line">
+                <summary>{e.action === 'compact' ? 'Context compacted: the agent continues from a summary' : 'Context cleared: the agent starts fresh from here'}</summary>
+                {e.summary && <Markdown text={e.summary} />}
+              </details>
+            );
             if (e.kind === 'restored') return (
               <div key={i} className="restored muted">
                 {e.files.length ? `Restored ${e.files.length} file${e.files.length > 1 ? 's' : ''}: ${e.files.slice(0, 4).map((f) => f.path.split('/').pop()).join(', ')}${e.files.length > 4 ? '…' : ''}` : 'Nothing to restore: the files were already like that.'}
@@ -186,7 +193,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
             </div>
           )}
           {status}
-          {!side && <TokenMeter tokens={state.tokens} />}
+          {!side && <TokenMeter tokens={state.tokens} running={state.running} onContext={onContext} />}
           <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} />
           <span className="spacer" />
           {voiceSupported && (
@@ -250,12 +257,27 @@ function KeepButton({ disabled, onKeep }: { disabled: boolean; onKeep: () => Pro
 }
 
 // How big the conversation is now (what the model reads on each step) and what this thread has used so far.
-function TokenMeter({ tokens }: { tokens: State['tokens'] }) {
+// Click: compact (continue from a summary) or clear (start fresh) what the model remembers of this thread.
+function TokenMeter({ tokens, running, onContext }: { tokens: State['tokens']; running: boolean; onContext?: (a: 'clear' | 'compact') => Promise<string | null> }) {
+  const [open, setOpen] = useState(false), [busy, setBusy] = useState<string | null>(null), [err, setErr] = useState('');
+  const wrap = useRef<HTMLSpanElement>(null);
+  useDismiss(open, () => setOpen(false), wrap);
   if (!tokens.total) return null;
   const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+  const go = async (a: 'clear' | 'compact') => { setBusy(a); setErr(''); const e = await onContext!(a); setBusy(null); if (e) setErr(e); else setOpen(false); };
   return (
-    <span className="token-meter" title={`The model reads about ${tokens.context.toLocaleString()} tokens on each step now (the conversation so far). This thread has used ${tokens.total.toLocaleString()} tokens in total${tokens.cost ? `, about $${tokens.cost.toFixed(2)}` : ''}.`}>
-      {k(tokens.context)}<span className="muted"> / {k(tokens.total)}</span>
+    <span className="token-meter" ref={wrap}>
+      <button className="tm-btn" onClick={() => onContext && setOpen(!open)}
+        title={`The model reads about ${tokens.context.toLocaleString()} tokens per step; ${tokens.total.toLocaleString()} used in this thread${tokens.cost ? ` (about $${tokens.cost.toFixed(2)})` : ''}.`}>
+        {k(tokens.context)}<span className="muted"> / {k(tokens.total)}</span>
+      </button>
+      {open && (
+        <div className="tm-menu">
+          <button disabled={running || Boolean(busy)} onClick={() => go('compact')}><b>{busy === 'compact' ? 'Compacting…' : 'Compact'}</b><span className="muted">Continue from a short summary</span></button>
+          <button disabled={running || Boolean(busy)} onClick={() => go('clear')}><b>Clear</b><span className="muted">Start fresh; the chat stays</span></button>
+          {(running || err) && <span className="muted tm-note">{err || 'Stop the agent first.'}</span>}
+        </div>
+      )}
     </span>
   );
 }

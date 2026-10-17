@@ -70,6 +70,13 @@ export async function explainChange(cfg: ModelConfig, s: Settings, path: string,
     `File: ${path}\n--- before ---\n${before.slice(0, 4000)}\n--- after ---\n${after.slice(0, 4000)}`);
 }
 
+// Compact: the thread so far in a few lines, so the agent can carry on without the full transcript.
+export async function summarizeThread(cfg: ModelConfig, transcript: string) {
+  if (cfg.kind === 'mock' || cfg.apiKey === 'mock') return transcript.slice(-1500);
+  return ask(cfg, 'Summarize this coding session so an agent can continue it: the goal, decisions made, files changed and why, what was checked, and what is still open. Plain bullet points, at most 200 words.',
+    transcript.slice(-30_000));
+}
+
 // A commit message for a task the user decided to keep: what changed and why, from the task and its diff.
 export async function commitMessage(cfg: ModelConfig, task: string, diff: string) {
   const fallback = `agent-stage: ${task.split('\n')[0].slice(0, 60)}`;

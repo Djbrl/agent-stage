@@ -23,7 +23,7 @@ export const landOnChat = () => { firstOpen = false; }; // a thread you just cre
 export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayout }: {
   id: string; onOpenSettings: () => void; layout?: Layout; nav?: Nav; onLayout?: (l: Layout) => void;
 }) {
-  const { state, replay, meta, run, steer, stop, approve, answerCheckpoint, setMode } = useAgent(id);
+  const { state, replay, meta, run, steer, stop, approve, answerCheckpoint, setMode, resetContext } = useAgent(id);
   const { health, serverDown, recheck } = useHealth();
   const { refreshThreads } = useApp();
   const gpuCtl = useGpu();
@@ -101,7 +101,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
         problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
         banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null}
         replaying={replay.active} centered={false}
-        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={pickStep} onUndo={undo} onKeep={keep} git={git} />
+        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={pickStep} onUndo={undo} onKeep={keep} onContext={resetContext} git={git} />
     );
     const left = panelOpen && !phone ? panelW + 24 : 0; // on phones the panel sits under the map
     return (
@@ -153,7 +153,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
           banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null} replaying={replay.active} header={header} centered={!showStage}
-          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} onUndo={undo} onKeep={keep} git={git} />
+          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} onUndo={undo} onKeep={keep} onContext={resetContext} git={git} />
         {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={showStep} />}
       </div>
       {showStage && <Resizer onDrag={(dx) => setChatW((w) => Math.max(320, Math.min(760, w + dx)))} onReset={() => setChatW(400)} title="Drag to give the chat or the map more room" />}

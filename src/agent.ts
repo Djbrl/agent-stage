@@ -23,6 +23,7 @@ export type AgentEvent =
   | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string }
   | { type: 'snapshot'; ref: string }
   | { type: 'task_end'; ref: string; after: string; files: number }
+  | { type: 'context'; action: 'clear' | 'compact'; summary?: string } // the user cleared or compacted the model's memory of the thread
   | { type: 'idle' } // the agent has really finished (sent after done/error, once it no longer counts as running)
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'kept'; ref: string; commit: string; message: string }

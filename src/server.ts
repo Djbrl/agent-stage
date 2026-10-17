@@ -15,7 +15,7 @@ import { closeBrowser, SHOTS } from './browser.ts';
 import { stopBackground } from './tools.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap, isGenerated } from './mapdata.ts';
-import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMessage } from './insight.ts';
+import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMessage, summarizeThread } from './insight.ts';
 import { GpuManager } from './gpu.ts';
 import { ClaudeCodeAgent } from './claudecode.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread,
@@ -390,6 +390,21 @@ app.post(`${T}/ask-thread`, withThread(async (l, { question }) => {
   side.agent.notes.push(await briefOf(l));
   void side.agent.run(String(question), 12).finally(() => side.emit({ type: 'idle' }));
   return { id: t.id };
+}));
+// Clear or compact what the model remembers of this thread (the chat on screen stays). Compact keeps a summary.
+app.post(`${T}/context`, withThread(async (l, { action }) => {
+  if (l.agent.running) return { error: 'Stop the agent first' };
+  let summary: string | undefined;
+  if (action === 'compact') {
+    const ev = l.thread.events as any[];
+    const transcript = ev.map((e) => e.type === 'user' ? `User: ${e.text}` : e.type === 'done' ? `Agent: ${e.text}` : e.type === 'label' ? `  step: ${e.label}` : e.type === 'context' && e.summary ? `Earlier summary:\n${e.summary}` : '').filter(Boolean).join('\n');
+    summary = await summarizeThread(toConfig(provider(l.thread.providerId)), transcript).catch(() => undefined);
+    if (!summary) return { error: 'Could not write the summary. Try again, or clear instead.' };
+  }
+  if (l.agent instanceof ClaudeCodeAgent) { l.agent.sessionId = undefined; l.agent.fork = false; l.thread.sessionId = undefined; }
+  else l.agent.messages = l.agent.messages.slice(0, 1); // keep the system prompt
+  l.agent.notes = summary ? [`Summary of this thread so far (the full conversation was compacted):\n${summary}`] : [];
+  l.emit({ type: 'context', action: action === 'compact' ? 'compact' : 'clear', summary });
 }));
 app.post(`${T}/keep`, withThread((l) => { l.thread.temp = false; persist(l); }));
 app.post(`${T}/checkpoint`, withThread((l, { id, choice, text }) => {
