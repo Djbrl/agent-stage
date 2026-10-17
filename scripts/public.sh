@@ -1,7 +1,7 @@
 #!/bin/sh
 # Put the live demo online from this computer: builds the sandbox image, starts the manager and a Cloudflare
 # tunnel, and prints the public link. Ctrl-C takes everything offline again (sandboxes included).
-# Options (env): INVITE=code  MAX_SESSIONS=5  IDLE_MIN=20  TOKEN_BUDGET=400000  NO_TUNNEL=1
+# Options (env): INVITE=code (default: a fresh code each run; INVITE=off for none)  MAX_SESSIONS=5  IDLE_MIN=20  TOKEN_BUDGET=400000  NO_TUNNEL=1
 set -e
 cd "$(dirname "$0")/.."
 command -v docker >/dev/null || { echo "Docker Desktop is needed: https://www.docker.com/products/docker-desktop/"; exit 1; }
@@ -14,6 +14,10 @@ echo "→ building the app and the sandbox image (first time takes a few minutes
 npm run build --silent >/dev/null
 docker build -q -t agent-stage-sandbox -f public/Dockerfile . >/dev/null
 docker image prune -f --filter label=agent-stage=sandbox >/dev/null  # older builds left untagged by this one
+# An invite code by default, so a shared link alone doesn't spend the GPU or the token budget.
+[ -z "$INVITE" ] && INVITE="dakar-$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')"
+[ "$INVITE" = off ] && INVITE=
+export INVITE
 node src/public/manager.ts &
 MANAGER=$!
 # The fixed address (a small Vercel page, public/site) is pointed at this run's link, and back to "offline" after.
@@ -32,7 +36,7 @@ if [ -z "$NO_TUNNEL" ]; then
   echo ""
   [ -n "$STABLE" ] && echo "  Share this:  $STABLE"
   echo "  Live demo:  ${URL:-(tunnel failed, see $LOG)}"
-  [ -n "$INVITE" ] && echo "  Invite code: $INVITE"
+  if [ -n "$INVITE" ]; then echo "  Invite code: $INVITE   (give it with the link; INVITE=off to drop it)"; else echo "  No invite code: anyone with the link can start a sandbox."; fi
   echo "  Ctrl-C to take it offline."
   echo ""
 fi

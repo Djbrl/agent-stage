@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { DATA_DIR } from '../store.ts';
 
 const PORT = Number(process.env.PORT ?? 8080);
-const INVITE = process.env.INVITE ?? ''; // empty = anyone with the link
+const INVITE = process.env.INVITE ?? ''; // public.sh sets one by default; empty (INVITE=off) = anyone with the link
 const MAX = Number(process.env.MAX_SESSIONS ?? 5);
 const IDLE_MIN = Number(process.env.IDLE_MIN ?? 20);
 const BUDGET = Number(process.env.TOKEN_BUDGET ?? 400_000); // model tokens per sandbox
