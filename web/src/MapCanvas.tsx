@@ -24,11 +24,11 @@ type Pal = {
   folderFill: number; folderStroke: number; folderLabel: number; hub: number; hubLabel: number; fileFill: number; fileStroke: number; labelMid: number; labelLow: number;
 };
 const PAL: Record<'dark' | 'light', Pal> = {
-  dark: {
-    hot: '#ff6a2b', warm: '#ffa66e', red: '#ff5c8a', amber: '#ffd66e', accent: '#a9b4ff', ink: '#eef0ff', halo: 'rgba(40,40,90,0.5)',
-    importOut: 'rgba(159,208,255,0.8)', importIn: 'rgba(110,231,183,0.8)', read: '#5fd4e6', ripple: '#ffb36b', markerRing: '#1c1c46', markerIdle: '#c9c4ff',
-    shadow: 'rgba(5,5,20,0.55)', line: '160,170,255', text: '214,218,255', accentRgb: '169,180,255', readRgb: '95,212,230',
-    folderFill: 0.035, folderStroke: 0.2, folderLabel: 0.75, hub: 0.35, hubLabel: 0.75, fileFill: 0.16, fileStroke: 0.32, labelMid: 0.9, labelLow: 0.8,
+  dark: { // the original dark map
+    hot: '#ff5b1f', warm: '#ffa66e', red: '#f2555a', amber: '#f5b84a', accent: '#7b8cff', ink: '#e8e9ec', halo: 'rgba(15,16,17,0.88)',
+    importOut: 'rgba(95,168,255,0.75)', importIn: 'rgba(62,207,142,0.75)', read: '#6b8fc4', ripple: '#ff8c50', markerRing: '#0f1011', markerIdle: '#8a8f98',
+    shadow: 'rgba(0,0,0,0.5)', line: '255,255,255', text: '232,233,236', accentRgb: '123,140,255', readRgb: '95,168,255',
+    folderFill: 0.014, folderStroke: 0.075, folderLabel: 0.32, hub: 0.16, hubLabel: 0.3, fileFill: 0.07, fileStroke: 0.16, labelMid: 0.78, labelLow: 0.45,
   },
   light: {
     hot: '#ff5b1f', warm: '#ffa66e', red: '#e11d48', amber: '#a35f00', accent: '#2563eb', ink: '#121214', halo: 'rgba(249,249,247,0.92)',
@@ -401,7 +401,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         ctx.beginPath(); ctx.arc(m.x, m.y, (st.running || err || waiting ? 9 : 6) * px, 0, Math.PI * 2);
         ctx.fillStyle = err ? C.red : st.running ? C.accent : mix(C.accent, C.markerIdle, 0.55); ctx.fill();
         ctx.restore();
-        ctx.strokeStyle = C.markerRing; ctx.lineWidth = 3 * px; ctx.stroke();
+        ctx.strokeStyle = C.markerRing; ctx.lineWidth = 2 * px; ctx.stroke();
         const doing: Record<string, string> = { read_file: 'Reading…', write_file: 'Writing…', edit_file: 'Editing…', run_command: 'Running…', search: 'Searching…', list_files: 'Scanning…' };
         const verb = waiting ? 'Waiting for you' : err ? 'Failed' : !st.running ? 'Idle' : busy ? doing[last!.name] ?? 'Working…' : 'Thinking…';
         if (st.running || err || waiting) label(ctx, `Agent · ${verb}`, m.x + 12 * px, m.y - 13 * px, px, 12, err ? C.red : waiting ? C.amber : C.ink, 'left', 600);
@@ -549,6 +549,6 @@ function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number
   ctx.font = `${weight} ${size * px}px Inter, system-ui, sans-serif`;
   ctx.textAlign = align;
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = C.halo; ctx.lineWidth = 2.5 * px; ctx.strokeText(text, x, y);
+  ctx.strokeStyle = C.halo; ctx.lineWidth = 3.5 * px; ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
 }

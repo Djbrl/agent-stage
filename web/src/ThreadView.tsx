@@ -113,7 +113,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
             <div className="studio-head">
               <div className="studio-tabs">
                 <button className={tab === 'threads' ? 'on' : ''} onClick={() => setTab('threads')}>Threads</button>
-                <button className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>Chat{state.running && <span className="live-dot" />}</button>
+                <button className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>Chat{state.running && !replay.active && <span className="live-dot" />}</button>
                 <button className={tab === 'steps' ? 'on' : ''} onClick={() => setTab('steps')}>Steps{state.steps.length ? <span className="count">{state.steps.length}</span> : null}</button>
               </div>
               <button className="icon-btn" onClick={() => setPanelOpen(false)} title="Hide the panel: just the map"><Icon name="chevron" size={13} className="flip" /></button>

@@ -101,7 +101,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
           <button className="icon-btn" onClick={() => replay.step(-1)}><Icon name="chevron" size={12} className="flip" /></button>
           <button className="icon-btn" onClick={() => (replay.playing ? replay.pause() : replay.play())}>{replay.playing ? <Icon name="stop" size={10} /> : <Icon name="play" size={11} />}</button>
           <button className="icon-btn" onClick={() => replay.step(1)}><Icon name="chevron" size={12} /></button>
-          <span className="mono">Replay {replay.index + 1}/{replay.total}</span>
+          <span className="mono">Replay · step {replay.stepIndex}/{replay.stepTotal}</span>
           <button className="btn ghost sm live" onClick={replay.live}>● Live</button>
         </div>
       )}

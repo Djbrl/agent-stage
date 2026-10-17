@@ -1,14 +1,12 @@
-/* Themes: dark is the default (indigo, Rundown's "prism"); <html data-theme="light"> switches to light. */
+/* Themes: dark is the default (near-black); <html data-theme="light"> switches to light (after Rundown). */
 :root {
-  /* dark (default): indigo, after Rundown's "prism" theme */
-  --frame: #15153a; --surface: #1f1f4a; --raised: #282858; --hover: #30306a; --line: #36366e; --line-soft: #2a2a5a; --line-strong: #4a4a86;
-  --text: #eef0ff; --text-strong: #ffffff; --text-2: #c3c8ee; --dim: #a4a9d8; --faint: #8a8fc0; --on-text: #15153a;
-  --accent: #a9b4ff; --accent-soft: rgba(169,180,255,.16); --accent-ink: #c8cfff;
-  --read: #5fd4e6; --read-ink: #9be6f2; --write: #4fd69c; --write-ink: #8eeac0; --error: #ff7a70; --error-ink: #ffaaa3; --warn: #ffd66e; --warn-ink: #ffe3a0;
-  --ink-rgb: 200 205 255; --shadow-k: 1; --scrim: rgba(12,12,40,.5); --glass: rgba(31,31,74,.84);
-  --map-bg: #1d1d46; --map-dot: rgba(200,205,255,.06);
-  --map-gradient: radial-gradient(40% 35% at 30% 30%, rgba(140,140,220,.14), transparent 70%), radial-gradient(35% 30% at 72% 68%, rgba(140,140,220,.12), transparent 70%),
-    radial-gradient(75% 75% at 50% 45%, #4a4a86, #24244e 55%, #0e0e2a);
+  /* dark (default): the original near-black Linear-style frame */
+  --frame: #08090a; --surface: #0f1011; --raised: #16171a; --hover: #1c1d21; --line: #23252a; --line-soft: #1a1b1f; --line-strong: #3a3d45;
+  --text: #e8e9ec; --text-strong: #ffffff; --text-2: #b7bcc5; --dim: #8a8f98; --faint: #5c6069; --on-text: #0b0c0e;
+  --accent: #7b8cff; --accent-soft: #7b8cff22; --accent-ink: #a9b6ff;
+  --read: #5fa8ff; --read-ink: #8cc3ff; --write: #3ecf8e; --write-ink: #7ee2b0; --error: #f2555a; --error-ink: #f7a3a6; --warn: #f5b84a; --warn-ink: #f7cd7c;
+  --ink-rgb: 255 255 255; --shadow-k: 1; --scrim: rgba(0,0,0,.6); --glass: rgba(15,16,17,.82);
+  --map-bg: #0c0d0f; --map-dot: rgba(255,255,255,.04); --map-gradient: none;
   --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   font: 13px/1.5 var(--sans); color: var(--text); -webkit-font-smoothing: antialiased;
@@ -226,7 +224,7 @@ kbd { font: 10.5px var(--mono); color: var(--dim); border: 1px solid var(--line)
 .pill.on { color: var(--write-ink); background: color-mix(in srgb, var(--write) 10%, transparent); }
 
 /* modals */
-.modal-back { position: fixed; inset: 0; background: var(--scrim); backdrop-filter: blur(2px); display: grid; place-items: center; z-index: 50; animation: fade .15s; }
+.modal-back { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; z-index: 50; animation: fade .15s; }
 @keyframes fade { from { opacity: 0; } }
 .modal { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 64px); display: flex; flex-direction: column; background: var(--surface);
   border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 30px 80px rgb(0 0 0 / calc(0.8 * var(--shadow-k))); }
@@ -724,9 +722,9 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .theme-pick button.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .theme-pick .muted { font-size: 11.5px; line-height: 1.4; }
 .theme-swatch { width: 100%; height: 54px; border-radius: 8px; margin-bottom: 4px; border: 1px solid var(--line-soft); }
-.theme-swatch.dark { background: radial-gradient(75% 75% at 50% 45%, #4a4a86, #24244e 55%, #0e0e2a); }
+.theme-swatch.dark { background: #0c0d0f; }
 .theme-swatch.light { background: #f9f9f7; }
-.theme-swatch.system { background: linear-gradient(135deg, #f9f9f7 50%, #24244e 50%); }
+.theme-swatch.system { background: linear-gradient(135deg, #f9f9f7 50%, #0c0d0f 50%); }
 /* light theme: surfaces are white, so tabs and your bubbles need a fill to read */
 :root[data-theme="light"] .bubble-user { background: var(--hover); }
 :root[data-theme="light"] .studio-tabs { background: var(--hover); }
@@ -754,3 +752,13 @@ input[type=radio], input[type=checkbox] { accent-color: var(--accent); }
 }
 .callout.what-you-learned { background: color-mix(in srgb, var(--write) 8%, transparent); }
 .callout.what-you-learned .callout-head { color: var(--write-ink); }
+/* composer bar on narrow panels: the model name shortens, then the token meter and labels give way; nothing overlaps */
+.composer { container-type: inline-size; }
+.composer-bar { min-width: 0; }
+.composer-bar > * { flex-shrink: 0; }
+.composer-bar .picker { flex: 0 1 auto; min-width: 0; }
+.composer-bar .picker .chip { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.composer-bar .spacer { flex: 1 1 0; min-width: 0; }
+@container (max-width: 470px) { .composer-bar .token-meter .muted { display: none; } }
+@container (max-width: 400px) { .composer-bar .token-meter { display: none; } .composer-bar .ask-btn { padding: 0 8px; } }
+@container (max-width: 330px) { .composer-bar .seg button { padding: 0 7px; } .composer-bar .icon-btn.mic { display: none; } }

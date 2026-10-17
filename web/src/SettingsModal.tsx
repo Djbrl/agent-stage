@@ -207,7 +207,7 @@ function Learning() {
 
 function Appearance() {
   const [pref, setPref] = useTheme();
-  const opts: [ThemePref, string, string][] = [['dark', 'Dark', 'Indigo, easy on the eyes at night.'], ['light', 'Light', 'Paper-white, for bright rooms and projectors.'], ['system', 'System', 'Follows your computer.']];
+  const opts: [ThemePref, string, string][] = [['dark', 'Dark', 'Near-black, easy on the eyes at night.'], ['light', 'Light', 'Paper-white, for bright rooms and projectors.'], ['system', 'System', 'Follows your computer.']];
   return (
     <div>
       <div className="label">Theme</div>

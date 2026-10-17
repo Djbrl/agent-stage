@@ -171,7 +171,7 @@ function paceFor(e: AgentEvent | undefined) {
 }
 
 export type Replay = {
-  active: boolean; playing: boolean; index: number; total: number; at?: number;
+  active: boolean; playing: boolean; index: number; total: number; stepIndex: number; stepTotal: number; at?: number;
   play: () => void; pause: () => void; step: (d: number) => void; seek: (i: number) => void; live: () => void;
 };
 
@@ -230,6 +230,8 @@ export function useAgent(threadId: string) {
     const end = moments[Math.min(cursor, moments.length - 1)] ?? -1;
     let st = reduce(initial, { kind: 'files', files: files.current, running: false });
     for (let i = 0; i <= end; i++) st = reduce(st, { kind: 'event', e: events.current[i] });
+    // Step labels arrive a moment after their step; replay shows them from the start (only for steps already shown).
+    for (let i = end + 1; i < events.current.length; i++) if (events.current[i].type === 'label') st = reduce(st, { kind: 'event', e: events.current[i] });
     return { ...st, approval: null };
   }, [cursor, liveState, moments]);
 
@@ -242,8 +244,12 @@ export function useAgent(threadId: string) {
   }, [playing, cursor, moments]);
 
   const total = moments.length;
+  // What people count is steps (the Steps tab), not every moment the replay pauses on.
+  const isStep = (i: number) => events.current[moments[i]]?.type === 'tool_end';
+  const stepTotal = moments.filter((_, i) => isStep(i)).length;
+  const stepIndex = moments.slice(0, (cursor ?? total - 1) + 1).filter((_, i) => isStep(i)).length;
   const replay: Replay = {
-    active: cursor !== null, playing, index: cursor ?? total - 1, total,
+    active: cursor !== null, playing, index: cursor ?? total - 1, total, stepIndex, stepTotal,
     at: cursor !== null ? (events.current[moments[cursor]] as any)?.at : undefined,
     play: () => { if (cursor === null || cursor >= total - 1) setCursor(0); setPlaying(true); },
     pause: () => setPlaying(false),
