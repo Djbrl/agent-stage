@@ -73,25 +73,25 @@ Ops:
 - Prose dates are written DD MM YYYY. Write plainly, no jargon, in user-facing text.
 - Verify UI changes in a real browser (playwright-core with `channel: 'chrome'` works well) before saying something is done.
 
-## State now (16 10 2026)
-- **All work is pushed to `main`.** The GPU is off (Brev has no instances), the live demo is offline (`live.json` url is null), and no sandboxes are running.
+## State now (17 10 2026)
+- **Local commits on `main` not pushed yet** (the UX pass of 16–17 10, see `git log origin/main..main`). Ask Jib before pushing.
+- The GPU is off (it auto-stopped), the live demo is offline, no sandboxes are running.
+- **New since 16 10:** light theme + lighter indigo dark theme (Settings → Appearance, `web/src/theme.ts`, map palettes in `MapCanvas.tsx`); tabs Threads | Chat | Steps; Learn checkpoints with Skip and replies through the main input; voice prompting (browser speech, `web/src/voice.ts`); token meter; Undo scoped to the thread's own files (`task_end` events); `idle` event so the chat never sticks on "Thinking…"; Claude models fall back to `ANTHROPIC_API_KEY` from `.env`.
 - **Verified end to end:**
-  - mock model locally;
-  - Qwen3-Coder on the Brev GPU, locally and through the public link (fixed `median()`, pytest done-check passed);
-  - Undo;
-  - browser tools;
-  - sandbox isolation (no internet, no host access, relay secret).
-- **Not verified:** the Claude Code engine with a real key (only tested against a fake server), and NVIDIA-hosted Nemotron (no key in settings yet).
+  - mock model locally; Qwen3-Coder on the Brev GPU, locally and through the public link; Undo; browser tools; sandbox isolation;
+  - Claude (Anthropic API) in Build and Learn, including switching a thread from Build to Learn;
+  - **the Claude Code engine with a real key** (17 10: build, stop, approvals, done-check).
+- **Not verified:** NVIDIA-hosted Nemotron (no key in settings yet). Voice input only checked for presence (headless browsers have no microphone).
+- **Reviews:** `review/UX-REVIEW.md` (16 10 hands-on review) and `review/ASK-AND-DISCUSS.md` (design and token cost of Ask/Discuss). Not committed.
 
 ## Open work, roughly by value
 1. **Demo video (≤3 min) and submission by 19 10.** README sections need a final pass against the jury checklist.
 2. **Invite code on by default** for `npm run public` (`INVITE=…`), now that the GPU-backed demo is shareable.
-3. **Voice input, with Wolof.** Researched, not built. The plan:
-   - a mic button that puts the transcript in the composer for editing;
-   - English/French via the browser's Web Speech API;
+3. **Wolof voice input.** English/French voice prompting is built (browser speech recognition). Still to do for Wolof:
    - Wolof via Meta Omnilingual ASR or `CAYTU/whosper-large` on our GPU, then NLLB translation, showing both lines.
 4. A per-sandbox disk cap or watchdog (Docker Desktop has no per-container disk limit).
 5. Hide `__pycache__` / build folders on the map (`src/mapdata.ts`).
+5b. Smaller items from the 17 10 QA: replay counter counts events not steps and loses labels; Learn teaching quality (push back, hints before code, gloss jargon, recap); the Ask "small context" option in `review/ASK-AND-DISCUSS.md`; map labels missing for some files.
 6. Review-before-keep (Keep → AI commit message / Discard) and a branch per thread. These are the git items 3 and 4 not built yet.
 7. Codex engine (shows "coming soon").
 8. A stable demo URL without the Vercel redeploy trick needs a domain and a named Cloudflare tunnel.
