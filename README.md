@@ -5,10 +5,15 @@ you **watch it work**: an agent marker moves across a map of your project, files
 they are read and edited, and failures show up in red. You can **stop** it, **ask** it
 something mid-run, and **approve** every shell command.
 
-It runs on **any open-weight model** behind an OpenAI-compatible API: NVIDIA, Ollama, vLLM,
-LM Studio, OpenRouter.
+It runs on **open-weight models** (our own GPU with Qwen3-Coder, NVIDIA, Ollama, OpenRouter) through its own
+agent loop, or on **Claude**: the Anthropic API in the same loop, or Anthropic's Claude Code agent. And it has a
+**Learn mode** for people learning to code: you design, the agent teaches, and it can't touch a file until you approve.
 
 > Open Source × AI Hackathon 2026 (Galsen Dev): track *Productivity & developer tools*.
+
+![A finished run: the files the agent changed are lit on the map; the harness ran the tests, sent a failure back, and the agent fixed it](docs/screenshots/studio-light.png)
+
+<!-- Demo video (≤ 3 min): add the link here before submitting. -->
 
 ## The problem
 AI coding agents now write real code, but following what they do means reading long text logs
@@ -16,38 +21,49 @@ and reviewing a diff at the end. It is hard to see *where* the agent is, catch i
 way, or trust it with your machine. Most agents are also tied to one proprietary model.
 
 ## The solution
-agent-stage makes the agent's work **visible and controllable**:
-- a **live project map**: your project as circle-packed folders and files; the agent is a marker
-  that glides to each file it edits, fresh edits glow orange, failures turn red, and the camera
-  follows the work;
-- a **status bar**: model, GPU and tunnel health, tokens per second and GPU cost, so you know
-  it's ready *before* you send a prompt;
-- an **activity log and diff view**: every step with its timing, and exactly what changed;
-- **human controls**: Stop, Steer (redirect mid-run), Ask (side question, changes nothing) and
-  Approve (every shell command needs your OK);
-- **Learn mode**: you design, the agent teaches. It asks for your approach first, explains concepts, and the
-  harness *physically blocks* file writes until you approve an Implementation checkpoint (inspired by
-  [VibeWise](https://github.com/nykooi1/vibe-wise), MIT);
-- **every step explained**: plain-language labels and a "why" for each action, one-line file summaries, and
-  "Explain this change" on any diff, from the same model, so free on a self-hosted GPU, in English or French;
-- **replay**: rewind any thread and watch the agent walk the project again; a **readmap** shows what it read;
-- **Ask** opens a temporary read-only side thread, so questions never disturb the work;
-- **engines**: run each thread on agent-stage's own open harness, or on **Claude Code** (Anthropic's agent, via the
-  official Agent SDK and your API key). The map, Learn mode and approvals work the same on both;
-- **done means checked**: when the agent says it's finished, the harness runs the project's own check (tests,
-  else typecheck/build). A failure goes back to the agent as "not done yet" (up to 3 times); with no check, it is
-  asked to test its own work first;
-- **undo**: a git checkpoint before every task (your branch and staging untouched) and an Undo button per task;
-- **computer use**: the agent drives your installed Chrome as text (page text + numbered controls), so open
-  models can test the web apps they build; screenshots show up on the stage. Local pages are free, other sites
-  and "open on my computer" ask first. Long-running dev servers can run in the background;
-- **threads per folder**, a first-run tour, and **any model**: Claude, OpenAI, NVIDIA, OpenRouter, Ollama or
-  your own GPU with vLLM.
+agent-stage makes the agent's work **visible, controllable and teachable**.
+
+**See it work**
+- **A live project map.** Folders and files are circles. The agent is a marker that moves to each file it reads or
+  edits. Fresh edits glow, failures show, and the camera follows the work.
+- **Plain-language steps.** Every action gets a short label and a "why". Any diff has "Explain this change".
+  This works in English or French.
+- **Replay** any thread and watch the agent walk the project again.
+
+**Stay in control**
+- **Approve** every shell command.
+- **Stop** the agent at any time, or **steer** it mid-run.
+- **Ask** a side question without interrupting. Ask reads a short brief of the thread, so it stays cheap.
+- **Undo** puts back only the files a task changed. **Keep** commits them with a message the model writes.
+- **Done means checked.** When the agent says it's finished, the harness runs the project's tests. A failure goes
+  back to the agent ("not done yet"). A missing test tool is reported, not blamed on the agent.
+
+**Learn while it builds**
+- **You design, the agent teaches.**
+  - It asks how *you* would do it, pushes back on a flawed choice, and gives hints before full code.
+  - It explains each new term in plain words and ends with "What you learned".
+  - The harness blocks file writes until you approve the step. You can also skip a step. Learn mode is inspired by
+    [VibeWise](https://github.com/nykooi1/vibe-wise) (MIT).
+
+**Practical**
+- **Any model.** Our own GPU (one-click Brev + vLLM, auto-stop), NVIDIA, Ollama, OpenRouter, the Claude API, or the
+  Claude Code engine. The map, Learn mode and approvals work the same on all of them.
+- **Costs in view.** Tokens per thread, spend estimates, GPU time, and compact or clear a thread's context on demand.
+- **Computer use.** The agent drives your Chrome as text (page text plus numbered controls), so open models can test
+  the web apps they build.
+- **Comfort.** Light and dark themes, voice prompting, works on a phone.
+- **Live online demo.** Each visitor gets a private, sealed Docker sandbox ([docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)).
+
+![Mid-run, dark theme: the agent marker on the file it is editing](docs/screenshots/studio-dark.png)
 
 ## Status
-Working prototype: agent loop hardened for open models, Hono server, live visual UI (project
-map, agent marker and trail, activity log, diff view, stop / steer / ask / approve). A **mock model** runs when no key is set, so the UI can be
-tried in 10 seconds.
+Working and tested end to end:
+- the scripted demo model;
+- Qwen3-Coder on our GPU, locally and through the online demo;
+- the Claude API and the Claude Code engine with a real key;
+- Undo and Keep, the done-check, the browser tools, and the sandbox isolation.
+
+Without a key the app runs a scripted demo model, so you can try it in 10 seconds.
 
 ## Quick start
 Requires Node ≥ 22.18.
@@ -71,23 +87,30 @@ Terminal-only harness: `npm run agent -- workspace "your task"`.
 ## Architecture
 ```
 browser (React, web/)  ──HTTP + Server-Sent Events──▶  Hono server (src/server.ts)
-                                                          └─ Agent loop (src/agent.ts)
-                                                               ├─ model client (src/model.ts) ──▶ any OpenAI-compatible API
-                                                               └─ tools (src/tools.ts) ──▶ files + shell, locked to the workspace
+                                                          ├─ our agent loop (src/agent.ts)
+                                                          │    ├─ model clients ──▶ OpenAI-compatible APIs (src/model.ts), Claude (src/anthropic.ts)
+                                                          │    └─ tools (src/tools.ts, src/browser.ts) ──▶ files, shell, Chrome; locked to the project
+                                                          ├─ Claude Code engine (src/claudecode.ts, Agent SDK)
+                                                          └─ done-check (src/verify.ts) · git checkpoints (src/git.ts)
 ```
 
 ## Dependencies
-`hono`, `@hono/node-server`, `playwright-core` (uses your installed Chrome) (server) · `react`, `react-dom`, `d3-hierarchy`, `vite`, `@vitejs/plugin-react` (UI).
+Server: `hono`, `@hono/node-server`, `playwright-core` (drives your installed Chrome), `@anthropic-ai/sdk`,
+`@anthropic-ai/claude-agent-sdk`, `zod`. UI: `react`, `react-dom`, `d3-hierarchy`, `vite`, `@vitejs/plugin-react`.
+Node 24 runs the TypeScript directly; there is no build step for the server.
 
 Live demo from your own computer, one private sandbox per visitor: `npm run public` ([docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)).
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · how it was made: [docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md)
 
 ## How AI is used
-The model is the agent. It decides which tool to call (`list_files`, `read_file`, `write_file`,
-`edit_file`, `search`, `run_command`), the harness runs the tool inside a sandboxed workspace
-folder, and the model gets the result back. That loop repeats until the task is done. The same
-model answers **side questions** mid-run from its current context.
+The model is the agent. It decides which tool to call (`list_files`, `read_file`, `write_file`, `edit_file`, `search`,
+`run_command`, the browser tools), the harness runs it inside the project folder, and the model gets the result back,
+until the task is done. The harness keeps the model honest: it checks "done" by running the tests, enforces the Learn
+write lock, and refuses a checkpoint until the learner's question got a visible answer.
+
+The same model also writes the plain-language step labels, file summaries, "Explain this change", commit messages
+for Keep, and the summary when you compact a thread. On your own GPU all of that is free.
 
 AI tools used to build it (Claude Code, Mobbin MCP) are listed in
 [docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md).
@@ -97,6 +120,7 @@ AI tools used to build it (Claude Code, Mobbin MCP) are listed in
 |---|---|---|
 | `nvidia/nemotron-3-super-120b-a12b` | NVIDIA API | default agent model |
 | `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8` | self-hosted with vLLM on one L40S GPU ([script](scripts/serve-vllm.sh)) | open-weight agent model we develop and demo with |
+| `claude-opus-5-5`, `claude-sonnet-5-5` | Anthropic API, in our loop or through the Claude Code engine | strongest results; cost shown in Usage |
 | any OpenAI-compatible model | Ollama, vLLM, LM Studio, OpenRouter | add it in Settings → Models |
 
 ## Contributing
