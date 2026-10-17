@@ -321,7 +321,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       }
 
       // files
-      const labels: Array<{ text: string; x: number; y: number; pri: number; strong: boolean }> = [];
+      const labels: Array<{ text: string; x: number; y: number; pri: number; strong: boolean; alt?: number }> = []; // alt: the dot's left edge, to try the label on that side
       for (const [path, c] of Object.entries(v.pos)) {
         const status = st.files[path];
         const changedAt = v.lastChange[path];
@@ -352,8 +352,9 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
           ring(ctx, c, c.r + (3 + easeOut(t) * 26) * px, C.ripple, (1 - t) * 0.75, 2 * px);
         }
         const active = v.marker?.target === path;
-        const pri = path === sel || path === v.hover || live.current.lit.includes(path) ? 4 : active ? 3 : changedAt ? 2 : k > 1.5 && c.r * k > 7 ? 1 : 0;
-        if (pri > 0) labels.push({ text: path.split('/').pop()!, x: c.x + c.r + 5 * px, y: c.y + 4 * px, pri, strong: pri >= 3 });
+        // Every visible file gets a label when there's room (collisions decide), not only zoomed in.
+        const pri = path === sel || path === v.hover || live.current.lit.includes(path) ? 4 : active ? 3 : changedAt ? 2 : c.r * k > 3.5 ? 1 : 0;
+        if (pri > 0) labels.push({ text: path.split('/').pop()!, x: c.x + c.r + 5 * px, y: c.y + 4 * px, pri, strong: pri >= 3, alt: c.x - c.r - 5 * px });
       }
 
       // planned-but-not-yet-created files: ghost dots on the right edge of the project, labelled
@@ -370,12 +371,19 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       const dots: Array<[number, number, number, number]> = Object.values(v.pos).map((c) => { const sx = c.x * k + x, sy = c.y * k + y, r = c.r * k; return [sx - r, sy - r, sx + r, sy + r]; });
       for (const l of labels.sort((a, b) => b.pri - a.pri)) {
         ctx.font = `${l.strong ? 600 : 500} ${12 * px}px Inter, system-ui, sans-serif`;
-        const w = ctx.measureText(l.text).width * k, sx = l.x * k + x, sy = l.y * k + y;
-        const box: [number, number, number, number] = [sx - 2, sy - 12, sx + w + 2, sy + 4];
-        const hits = (b: [number, number, number, number]) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1];
-        if (taken.some(hits) || (l.pri < 2 && dots.some(hits))) continue;
-        taken.push(box);
-        label(ctx, l.text, l.x, l.y, px, 11.5, l.strong ? C.ink : l.pri >= 2 ? rgba(C.text, C.labelMid) : rgba(C.text, C.labelLow), 'left', l.strong ? 600 : 500);
+        const w = ctx.measureText(l.text).width * k, sy = l.y * k + y;
+        // Right of the dot first, then left of it.
+        const spots = [l.x, ...(l.alt !== undefined ? [l.alt - w / k] : [])];
+        let placed: number | null = null;
+        for (const lx of spots) {
+          const sx = lx * k + x;
+          const box: [number, number, number, number] = [sx - 2, sy - 12, sx + w + 2, sy + 4];
+          const hits = (b: [number, number, number, number]) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1];
+          if (taken.some(hits) || (l.pri < 2 && dots.some(hits))) continue;
+          taken.push(box); placed = lx; break;
+        }
+        if (placed === null) continue;
+        label(ctx, l.text, placed, l.y, px, 11.5, l.strong ? C.ink : l.pri >= 2 ? rgba(C.text, C.labelMid) : rgba(C.text, C.labelLow), 'left', l.strong ? 600 : 500);
       }
 
       // agent marker + one ring (error > waiting > thinking)
