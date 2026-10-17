@@ -28,7 +28,7 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, git }: {
+export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
@@ -36,7 +36,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean; status?: ReactNode;
   threadProvider?: string; // the model this thread last ran on (shown when the selected model is another engine's)
   visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
-  onUndo?: (ref: string) => void; git?: { repo: boolean; onInit: () => void } | null;
+  onUndo?: (ref: string) => void; onKeep?: (ref: string) => Promise<string | null>; git?: { repo: boolean; onInit: () => void } | null;
 }) {
   const [text, setText] = useState('');
   const [asking, setAsking] = useState(false); // "Ask" with an empty box: the next Enter asks instead of running
@@ -110,15 +110,18 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
               const canUndo = e.ref && onUndo && !side && state.changed[e.ref] !== 0;
               const undone = e.ref && state.undone.includes(e.ref);
               const later = state.timeline.slice(i + 1).some((x) => (x.kind === 'done' || x.kind === 'error') && x.ref && !state.undone.includes(x.ref) && state.changed[x.ref] !== 0);
+              const kept = e.ref ? state.kept[e.ref] : undefined;
               const undoRow = canUndo && (
                 <div className="undo-row">
-                  {undone ? <span className="muted">Undone</span> : (
+                  {kept ? <span className="muted kept" title={kept.message}>Kept as <span className="mono">{kept.commit}</span> · {kept.message.split('\n')[0]}</span>
+                  : undone ? <span className="muted">Undone</span> : (<>
+                    {onKeep && !later && <KeepButton disabled={state.running} onKeep={() => onKeep(e.ref!)} />}
                     <button className="btn ghost sm" disabled={state.running}
                       title={later ? 'Puts back the files this task and the later ones changed' : 'Puts back the files this task changed'}
                       onClick={() => confirm(later ? 'Undo this task and every task after it? The files they changed go back to how they were before.' : 'Undo this task? The files it changed go back to how they were before.') && onUndo!(e.ref!)}>
                       <Icon name="undo" size={12} /> Undo
                     </button>
-                  )}
+                  </>)}
                 </div>
               );
               if (e.kind === 'error') return <div key={i} className="final bad"><div><Icon name="x" size={13} /> {e.text}</div>{undoRow}</div>;
@@ -225,6 +228,21 @@ function CheckpointCard({ entry, onAnswer }: { entry: Extract<State['timeline'][
         </>
       )}
     </div>
+  );
+}
+
+// Keep: commit this task's files with a message the model writes. Shows progress and any error inline.
+function KeepButton({ disabled, onKeep }: { disabled: boolean; onKeep: () => Promise<string | null> }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  return (
+    <>
+      <button className="btn ghost sm" disabled={disabled || busy} title="Commit the files this task changed, with a message written from the change"
+        onClick={async () => { setBusy(true); setErr(''); const e = await onKeep(); setBusy(false); if (e) setErr(e); }}>
+        {busy ? <span className="spin" /> : <Icon name="check" size={12} />} {busy ? 'Writing the commit…' : 'Keep'}
+      </button>
+      {err && <span className="problem-inline">{err}</span>}
+    </>
   );
 }
 

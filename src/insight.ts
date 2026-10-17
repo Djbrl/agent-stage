@@ -70,6 +70,16 @@ export async function explainChange(cfg: ModelConfig, s: Settings, path: string,
     `File: ${path}\n--- before ---\n${before.slice(0, 4000)}\n--- after ---\n${after.slice(0, 4000)}`);
 }
 
+// A commit message for a task the user decided to keep: what changed and why, from the task and its diff.
+export async function commitMessage(cfg: ModelConfig, task: string, diff: string) {
+  const fallback = `agent-stage: ${task.split('\n')[0].slice(0, 60)}`;
+  if (cfg.kind === 'mock' || cfg.apiKey === 'mock') return fallback;
+  const text = await ask(cfg,
+    'Write a git commit message for this change. First line: what it does, imperative mood, at most 65 characters, no period. Then a blank line and 1-3 short lines on why, only if useful. Plain text, no quotes, no markdown fences.',
+    `Task the user gave: ${task.slice(0, 600)}\n\nDiff:\n${diff.slice(0, 12_000)}`).catch(() => '');
+  return text.replace(/^```\w*\n?|```$/g, '').trim() || fallback;
+}
+
 function mockLabel(step: { name: string; args: any; ok: boolean }, s: Settings) {
   const fr = s.learn.language === 'fr';
   const f = step.args?.path ?? '';

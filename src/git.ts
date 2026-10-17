@@ -54,6 +54,23 @@ export async function changedSince(dir: string, id: string) {
   return changedBetween(dir, id, await snapshotTree(dir));
 }
 
+// The diff of some files between a checkpoint and the folder now (new files included), for a commit message.
+export async function diffSince(dir: string, id: string, paths: string[]) {
+  return git(dir, ['diff', '--relative', id, await snapshotTree(dir), '--', ...paths]);
+}
+
+// Keep: commit just these files on the user's current branch. Their own staged work on other files stays staged.
+export async function commitFiles(dir: string, paths: string[], message: string) {
+  if (!(await git(dir, ['status', '--porcelain', '--', ...paths]))) throw new Error('Nothing to keep: these changes are already committed.');
+  await git(dir, ['add', '-A', '--', ...paths]);
+  const args = ['commit', '-q', '-m', message, '--', ...paths];
+  await git(dir, args).catch((e) => {
+    if (!/tell me who you are|user\.(name|email)/i.test(e.message)) throw e;
+    return git(dir, ['-c', 'user.name=agent-stage', '-c', 'user.email=agent-stage@localhost', ...args]); // no git identity set up
+  });
+  return git(dir, ['rev-parse', '--short', 'HEAD']);
+}
+
 // Put files back as they were at the checkpoint (and remove files created since). With `only`, just those
 // paths: undoing a task must not wipe what the user or another thread changed elsewhere in the folder.
 export async function restore(dir: string, id: string, only?: Set<string>) {

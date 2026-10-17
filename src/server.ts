@@ -10,12 +10,12 @@ import { basename, dirname, join, relative, resolve } from 'node:path';
 import { Agent, type AgentEvent } from './agent.ts';
 import { configFromEnv } from './model.ts';
 import { startTunnel } from './tunnel.ts';
-import { checkpoint, restore, isRepo, initRepo, changedBetween } from './git.ts';
+import { checkpoint, restore, isRepo, initRepo, changedBetween, diffSince, commitFiles } from './git.ts';
 import { closeBrowser, SHOTS } from './browser.ts';
 import { stopBackground } from './tools.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap, isGenerated } from './mapdata.ts';
-import { enqueue, insightsOn, labelStep, summarizeFile, explainChange } from './insight.ts';
+import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMessage } from './insight.ts';
 import { GpuManager } from './gpu.ts';
 import { ClaudeCodeAgent } from './claudecode.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread,
@@ -303,6 +303,25 @@ app.post(`${T}/undo`, async (c) => {
     // Otherwise the model still "remembers" the undone code and writes it back on the next task.
     if (files.length) l.agent.notes.push(`Note from agent-stage: the user pressed Undo. These files are back to how they were before your earlier task, so your changes to them are gone: ${files.map((f) => f.path).join(', ')}. Read files again before relying on what you remember of them.`);
     return c.json({ files });
+  } catch (e: any) { return c.json({ error: e.message }, 500); }
+});
+// Keep: commit the files this task changed, with a message the model writes from the task and the diff.
+app.post(`${T}/keep-task`, async (c) => {
+  const l = await open(c.req.param('id'));
+  const { ref } = await c.req.json().catch(() => ({}));
+  if (!l || !/^[0-9a-f]{40}$/.test(ref ?? '')) return c.json({ error: 'bad request' }, 400);
+  if (l.agent.running) return c.json({ error: 'Stop the agent first' }, 409);
+  const end = (l.thread.events as any[]).find((e) => e.type === 'task_end' && e.ref === ref);
+  if (!end) return c.json({ error: 'This task has no record of its changes' }, 404);
+  try {
+    const paths = (await changedBetween(l.thread.folder, ref, end.after)).map((f) => f.path);
+    if (!paths.length) return c.json({ error: 'This task changed no files' }, 400);
+    const startIdx = (l.thread.events as any[]).findIndex((e) => e.type === 'snapshot' && e.ref === ref);
+    const task = (l.thread.events as any[]).slice(startIdx).find((e) => e.type === 'user')?.text ?? '';
+    const message = await commitMessage(toConfig(provider(l.thread.providerId)), task, await diffSince(l.thread.folder, ref, paths));
+    const commit = await commitFiles(l.thread.folder, paths, message);
+    l.emit({ type: 'kept', ref, commit, message });
+    return c.json({ commit, message });
   } catch (e: any) { return c.json({ error: e.message }, 500); }
 });
 app.get(`${T}/git`, async (c) => {

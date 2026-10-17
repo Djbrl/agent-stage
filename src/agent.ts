@@ -25,6 +25,7 @@ export type AgentEvent =
   | { type: 'task_end'; ref: string; after: string; files: number }
   | { type: 'idle' } // the agent has really finished (sent after done/error, once it no longer counts as running)
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
+  | { type: 'kept'; ref: string; commit: string; message: string }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
 

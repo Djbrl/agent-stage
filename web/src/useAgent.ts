@@ -21,6 +21,7 @@ export type AgentEvent = Base & (
   | { type: 'task_end'; ref: string; after: string; files: number }
   | { type: 'idle' }
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
+  | { type: 'kept'; ref: string; commit: string; message: string }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
 );
@@ -54,11 +55,12 @@ export type State = {
   snapshot: string | null; // checkpoint of the task in progress
   undone: string[]; // checkpoints already restored
   changed: Record<string, number>; // checkpoint → files its task changed (no Undo for a task that changed nothing)
-  tokens: { context: number; total: number; cost: number }; // context = size of the last request; total = all tokens this thread
+  tokens: { context: number; total: number; cost: number };
+  kept: Record<string, { commit: string; message: string }>; // checkpoint → the commit it was kept as // context = size of the last request; total = all tokens this thread
 };
 
 export const initial: State = {
-  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null, snapshot: null, undone: [], changed: {}, tokens: { context: 0, total: 0, cost: 0 },
+  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null, snapshot: null, undone: [], changed: {}, tokens: { context: 0, total: 0, cost: 0 }, kept: {},
 };
 
 export function targetOf(name: string, args: any): string {
@@ -140,6 +142,8 @@ function reduce(s: State, a: Action): State {
       return { ...s, snapshot: e.ref };
     case 'usage':
       return { ...s, tokens: { context: e.promptTokens, total: s.tokens.total + e.promptTokens + e.completionTokens, cost: s.tokens.cost + (e.costUsd ?? 0) } };
+    case 'kept':
+      return { ...s, kept: { ...s.kept, [e.ref]: { commit: e.commit, message: e.message } } };
     case 'idle':
       return { ...s, running: false, approval: null };
     case 'task_end':
