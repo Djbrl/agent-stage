@@ -105,8 +105,10 @@ export class Agent {
     }
   }
 
+  private owesAnswer = false; // the learner asked something at a checkpoint and no visible reply has been written yet
   private async runCheckpoint(id: string, args: any): Promise<string> {
     if (!this.opts.checkpoint) return 'No learner UI attached; continue.';
+    if (this.owesAnswer) throw new Error(`The learner asked a question and hasn't seen an answer: they only see the text you write, not your thinking. Reply to their question in plain words first, then offer the checkpoint again in a later step.`);
     const cp = { id, kind: args.kind === 'implementation' ? 'implementation' : 'design', title: String(args.title ?? ''), summary: String(args.summary ?? ''),
       additions: Array.isArray(args.additions) ? args.additions : undefined, files: Array.isArray(args.files) ? args.files : undefined } as Checkpoint & { id: string };
     this.emit({ type: 'checkpoint', ...cp });
@@ -116,6 +118,7 @@ export class Agent {
       if (cp.kind === 'implementation') { this.unlocked = true; return 'Learner confirmed: implement exactly this step now. Then give the Implementation report.'; }
       return 'Learner confirmed this design. Record it and continue planning; you still need an implementation checkpoint before writing code.';
     }
+    if (answer.choice === 'discuss') this.owesAnswer = true;
     if (answer.choice === 'skip') return `Learner declined this step: don't implement it and don't write any files for it. Briefly acknowledge, then ask what they'd like to do instead (or end your turn).`;
     return `Learner wants to discuss before deciding${answer.text ? `: "${answer.text}"` : ''}. Answer them in your reply text, in plain words (they only see what you write, not your thinking). Then end your turn, or offer the checkpoint again after the answer.`;
   }
@@ -172,6 +175,7 @@ export class Agent {
         const reply = await chat(this.cfg, this.fitContext(), tools, this.abort.signal, (u) => this.emit({ type: 'usage', ...u }));
         if (this.abort.signal.aborted) throw new Error('stopped'); // a model that ignores the signal mustn't carry on
         this.messages.push(reply);
+        if (reply.content?.trim()) this.owesAnswer = false;
         if (reply.content && reply.tool_calls?.length) this.emit({ type: 'thinking', text: reply.content });
         if (!reply.tool_calls?.length) {
           // "Done" is a claim: check it before accepting it.

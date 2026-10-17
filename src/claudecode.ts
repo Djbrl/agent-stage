@@ -82,9 +82,11 @@ export class ClaudeCodeAgent {
     }
   }
 
+  private owesAnswer = false; // see Agent.owesAnswer
   private async checkpoint(args: any): Promise<string> {
     const id = crypto.randomUUID();
     if (!this.opts.checkpoint) return 'No learner UI attached; continue.';
+    if (this.owesAnswer) return `The learner asked a question and hasn't seen an answer: they only see the text you write, not your thinking. Reply to their question in plain words first, then offer the checkpoint again in a later step.`;
     const cp = { id, kind: args.kind === 'implementation' ? 'implementation' : 'design', title: String(args.title ?? ''), summary: String(args.summary ?? ''),
       additions: args.additions, files: args.files } as Checkpoint & { id: string };
     this.emit({ type: 'checkpoint', ...cp });
@@ -94,6 +96,7 @@ export class ClaudeCodeAgent {
       if (cp.kind === 'implementation') { this.unlocked = true; return 'Learner confirmed: implement exactly this step now, then give the Implementation report.'; }
       return 'Learner confirmed this design. You still need an implementation checkpoint before writing code.';
     }
+    if (a.choice === 'discuss') this.owesAnswer = true;
     if (a.choice === 'skip') return `Learner declined this step: don't implement it and don't write any files for it. Briefly acknowledge, then ask what they'd like to do instead (or end your turn).`;
     return `Learner wants to discuss before deciding${a.text ? `: "${a.text}"` : ''}. Answer them in your reply text, in plain words (they only see what you write, not your thinking). Then end your turn, or offer the checkpoint again after the answer.`;
   }
@@ -180,7 +183,7 @@ export class ClaudeCodeAgent {
           const blocks = m.message?.content ?? [];
           const text = blocks.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n').trim();
           const uses = blocks.filter((b: any) => b.type === 'tool_use');
-          if (text) { heldText = heldText ? `${heldText}\n\n${text}` : text; lastText = text; }
+          if (text) { heldText = heldText ? `${heldText}\n\n${text}` : text; lastText = text; this.owesAnswer = false; }
           if (uses.length && heldText) { this.emit({ type: 'thinking', text: heldText }); heldText = ''; }
           for (const u of uses) {
             const t = this.translate(u.name, u.input ?? {});
