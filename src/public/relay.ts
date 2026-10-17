@@ -1,6 +1,6 @@
 // The only door between the sandboxes and the outside world. It runs in its own small container that sits on
 // two networks: the sealed one the sandboxes live on (which has no internet), and the normal one.
-//   :4000  sandbox → manager: model calls only (/v1/...), forwarded to the manager on the host.
+//   :4000  sandbox → manager: model calls only (/v1/... and Claude's /anthropic/v1/...), forwarded to the manager on the host.
 //   :4001  manager → sandbox: browser traffic for one visitor, only with the secret the manager holds.
 import { createServer, request, type IncomingMessage, type ServerResponse } from 'node:http';
 
@@ -20,7 +20,7 @@ function pipe(req: IncomingMessage, res: ServerResponse, target: URL, headers: R
 
 // Sandbox side: nothing but the model API.
 createServer((req, res) => {
-  if (!req.url?.startsWith('/v1/')) { res.writeHead(403); return res.end('only the model API is reachable from the sandbox'); }
+  if (!req.url?.startsWith('/v1/') && !req.url?.startsWith('/anthropic/v1/')) { res.writeHead(403); return res.end('only the model API is reachable from the sandbox'); }
   pipe(req, res, new URL(req.url, MANAGER), { ...req.headers, host: new URL(MANAGER).host });
 }).listen(4000);
 

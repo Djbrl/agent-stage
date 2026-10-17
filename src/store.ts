@@ -73,7 +73,8 @@ export function apiCost(p: Provider | undefined, prompt: number, completion: num
 }
 
 // Claude models without a key in Settings use ANTHROPIC_API_KEY from .env (never in the online demo).
-export const keyOf = (p: Provider) => p.apiKey || ((p.kind === 'anthropic' || p.kind === 'claude-code') && process.env.PUBLIC !== '1' ? process.env.ANTHROPIC_API_KEY ?? '' : '');
+// In the online demo the sandbox gets a per-sandbox token instead (DEMO_CLAUDE), and the manager adds the real key.
+export const keyOf = (p: Provider) => p.apiKey || ((p.kind === 'anthropic' || p.kind === 'claude-code') && (process.env.PUBLIC !== '1' || process.env.DEMO_CLAUDE === '1') ? process.env.ANTHROPIC_API_KEY ?? '' : '');
 export const toConfig = (p: Provider): ModelConfig => ({ baseUrl: p.baseUrl, apiKey: p.kind === 'mock' ? 'mock' : keyOf(p), model: p.model,
   kind: p.kind === 'claude-code' ? 'anthropic' : p.kind });
 

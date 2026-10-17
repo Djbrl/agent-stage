@@ -18,7 +18,7 @@ docker image prune -f --filter label=agent-stage=sandbox >/dev/null  # older bui
 [ -z "$INVITE" ] && INVITE="dakar-$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')"
 [ "$INVITE" = off ] && INVITE=
 export INVITE
-node src/public/manager.ts &
+node --env-file-if-exists=.env src/public/manager.ts &
 MANAGER=$!
 # The fixed address (a small Vercel page, public/site) is pointed at this run's link, and back to "offline" after.
 SITE=public/site

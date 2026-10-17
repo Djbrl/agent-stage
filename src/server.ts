@@ -176,15 +176,26 @@ async function listFiles(root: string, dir = root, out: string[] = []): Promise<
   return out;
 }
 
+// What a demo visitor may pick: the live GPU (or the scripted model) and, when the manager offers it, Claude Sonnet.
+const demoModels = () => settings.providers.filter((p) => p.id === 'env' || p.id === 'mock' || p.id === 'claude' || p.id === 'cc-demo').map((p) => p.id);
 const mask = (k: string) => (!k ? '' : k.length <= 8 ? '••••' : `••••${k.slice(-4)}`);
 const publicSettings = () => ({ ...settings, recentFolders: PUBLIC ? [] : settings.recentFolders,
-  providers: settings.providers.filter((p) => !PUBLIC || p.id === settings.activeProvider).map((p) => ({ ...p, apiKey: mask(keyOf(p)), ...(PUBLIC ? { baseUrl: '' } : {}) })) });
+  providers: settings.providers.filter((p) => !PUBLIC || demoModels().includes(p.id)).map((p) => ({ ...p, apiKey: mask(keyOf(p)), ...(PUBLIC ? { baseUrl: '' } : {}) })) });
 
 const app = new Hono();
 if (PUBLIC) {
   settings.insights = 'on';
   for (const p of settings.providers) if (p.id === 'env') p.name = process.env.MODEL_LABEL ?? p.model.split('/').pop()!;
-  const blocked: Array<[string, RegExp]> = [['PUT', /^\/api\/settings/], ['POST', /^\/api\/providers/], ['GET', /^\/api\/fs/], ['POST', /^\/api\/pick-folder/], ['POST', /^\/api\/gpu\//]];
+  // Claude in the demo: Sonnet only, in our loop and through the Claude Code engine, via the manager (which holds the key).
+  if (process.env.DEMO_CLAUDE === '1') {
+    settings.providers = settings.providers.filter((p) => p.id !== 'claude' && p.id !== 'cc-demo');
+    settings.providers.push(
+      { id: 'claude', name: 'Claude Sonnet 5.5', kind: 'anthropic', baseUrl: '', apiKey: '', model: 'claude-sonnet-5-5' },
+      { id: 'cc-demo', name: 'Claude Code · Sonnet 5.5', kind: 'claude-code', baseUrl: '', apiKey: '', model: 'claude-sonnet-5-5' },
+    );
+    if (!settings.providers.some((p) => p.id === 'env')) settings.activeProvider = 'claude'; // no live GPU: Claude by default
+  }
+  const blocked: Array<[string, RegExp]> = [['POST', /^\/api\/providers/], ['GET', /^\/api\/fs/], ['POST', /^\/api\/pick-folder/], ['POST', /^\/api\/gpu\//]];
   app.use('/api/*', async (c, next) => {
     if (blocked.some(([m, r]) => c.req.method === m && r.test(c.req.path))) return c.json({ error: 'Not available in the online demo' }, 403);
     await next();
@@ -206,7 +217,7 @@ app.post('/api/threads', async (c) => {
     await mkdir(folder, { recursive: true });
     await initRepo(folder).catch(() => {}); // new projects get version history from the start
   }
-  if (!PUBLIC && providerId && settings.providers.some((p) => p.id === providerId) && providerId !== settings.activeProvider) {
+  if ((!PUBLIC || demoModels().includes(providerId)) && providerId && settings.providers.some((p) => p.id === providerId) && providerId !== settings.activeProvider) {
     settings.activeProvider = providerId; await saveSettings(settings); retunnel();
   }
   const dir = resolve(folder || sandbox);
@@ -430,7 +441,11 @@ app.post(`${T}/approve`, withThread((l, { id, ok }) => {
 app.get('/api/settings', (c) => c.json(publicSettings()));
 app.get('/api/presets', (c) => c.json(PRESETS));
 app.put('/api/settings', async (c) => {
-  const next = await c.req.json();
+  let next = await c.req.json();
+  if (PUBLIC) { // visitors can only switch between the demo's models
+    if (!demoModels().includes(next.activeProvider)) return c.json({ error: 'Not available in the online demo' }, 403);
+    next = { activeProvider: next.activeProvider };
+  }
   const prevActive = settings.activeProvider;
   const providers: Provider[] = (next.providers ?? settings.providers).map((p: Provider) => {
     const old = settings.providers.find((o) => o.id === p.id);
@@ -534,7 +549,7 @@ app.get('/api/engines', (c) => {
   const cc = settings.providers.filter((p) => p.kind === 'claude-code');
   return c.json({
     native: { ready: true },
-    'claude-code': PUBLIC ? { ready: false, reason: 'Not in the online demo' } : { ready: cc.some((p) => keyOf(p)), reason: cc.length ? (cc.some((p) => keyOf(p)) ? '' : 'Add an Anthropic API key') : 'Add a Claude Code model in Settings' },
+    'claude-code': PUBLIC && process.env.DEMO_CLAUDE !== '1' ? { ready: false, reason: 'Not in the online demo' } : { ready: cc.some((p) => keyOf(p)), reason: cc.length ? (cc.some((p) => keyOf(p)) ? '' : 'Add an Anthropic API key') : 'Add a Claude Code model in Settings' },
     codex: { ready: false, reason: 'Coming soon' },
   });
 });

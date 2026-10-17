@@ -16,11 +16,12 @@ const INVITE = process.env.INVITE ?? ''; // public.sh sets one by default; empty
 const MAX = Number(process.env.MAX_SESSIONS ?? 5);
 const IDLE_MIN = Number(process.env.IDLE_MIN ?? 20);
 const BUDGET = Number(process.env.TOKEN_BUDGET ?? 400_000); // model tokens per sandbox
+const DEMO_USD = Number(process.env.DEMO_USD ?? 1.5); // Claude spend allowed per sandbox
 const DISK_MB = Number(process.env.DISK_MB ?? 1024); // what a sandbox may write to disk (Docker Desktop can't cap it per container)
 const IMAGE = 'agent-stage-sandbox', NET = 'agst-sandbox', RELAY = 'agst-relay', RELAY_PORT = 8099;
 const SECRET = randomBytes(24).toString('hex');
 
-type Session = { id: string; token: string; lastSeen: number; tokens: number; ready: boolean; startedAt: number; diskMb?: number; who: { ip: string; country: string; agent: string } };
+type Session = { id: string; token: string; lastSeen: number; tokens: number; usd: number; ready: boolean; startedAt: number; diskMb?: number; who: { ip: string; country: string; agent: string } };
 const sessions = new Map<string, Session>(); // cookie id → session
 const byToken = new Map<string, Session>();
 
@@ -36,6 +37,13 @@ async function configured(): Promise<Model | null> {
   const s = JSON.parse(await readFile(join(DATA_DIR, 'settings.json'), 'utf8').catch(() => '{}'));
   const p = s.providers?.find((x: any) => x.id === s.activeProvider);
   return p?.kind === 'openai' && p.apiKey ? { baseUrl: p.baseUrl, apiKey: p.apiKey, model: p.model, name: p.model.split('/').pop() } : null;
+}
+// Claude for the demo: the key from agent-stage's settings here (or ANTHROPIC_API_KEY). It never enters a sandbox;
+// each sandbox gets a token and its calls come back through here, where the real key is added. DEMO_CLAUDE=off disables it.
+async function anthropicKey(): Promise<string> {
+  if (process.env.DEMO_CLAUDE === 'off') return '';
+  const s = JSON.parse(await readFile(join(DATA_DIR, 'settings.json'), 'utf8').catch(() => '{}'));
+  return s.providers?.find((x: any) => (x.kind === 'anthropic' || x.kind === 'claude-code') && x.apiKey)?.apiKey ?? process.env.ANTHROPIC_API_KEY ?? '';
 }
 const model = configured;
 let live = { at: 0, up: false };
@@ -62,10 +70,13 @@ async function setup() {
 
 async function startSession(who: Session['who']): Promise<Session> {
   const m = (await modelUp()) ? await model() : null; // null → scripted demo model
-  const s: Session = { id: randomBytes(6).toString('hex'), token: randomBytes(24).toString('hex'), lastSeen: Date.now(), tokens: 0, ready: false, startedAt: Date.now(), who };
+  const claude = Boolean(await anthropicKey());
+  const s: Session = { id: randomBytes(6).toString('hex'), token: randomBytes(24).toString('hex'), lastSeen: Date.now(), tokens: 0, usd: 0, ready: false, startedAt: Date.now(), who };
   await docker(['run', '-d', '--name', `sess-${s.id}`, '--network', NET,
     '--memory', '1536m', '--cpus', '1', '--pids-limit', '512', '--shm-size', '256m',
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--tmpfs', '/tmp:size=512m',
+    ...(claude ? ['-e', 'DEMO_CLAUDE=1', '-e', `ANTHROPIC_API_KEY=${s.token}`, '-e', `ANTHROPIC_BASE_URL=http://${RELAY}:4000/anthropic`,
+      '-e', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1', '-e', 'DISABLE_TELEMETRY=1', '-e', 'DISABLE_AUTOUPDATER=1', '-e', 'DISABLE_ERROR_REPORTING=1'] : []),
     '-e', `MODEL_BASE_URL=http://${RELAY}:4000/v1`, '-e', `MODEL_API_KEY=${m ? s.token : 'mock'}`, '-e', `MODEL_NAME=${m?.model ?? 'mock'}`, '-e', `MODEL_LABEL=${m ? `${m.name} · live GPU` : 'Demo (scripted)'}`,
     IMAGE]);
   sessions.set(s.id, s); byToken.set(s.token, s);
@@ -110,6 +121,39 @@ async function modelCall(req: IncomingMessage, res: ServerResponse) {
   res.end(text);
 }
 
+// ── Claude calls from the sandboxes: Sonnet only, the real key added here, a dollar cap per sandbox ──────────
+const SONNET = 'claude-sonnet-5-5';
+const SONNET_PRICE = { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 }; // $ per million tokens, Oct 2026
+async function anthropicCall(req: IncomingMessage, res: ServerResponse) {
+  const token = String(req.headers['x-api-key'] ?? req.headers.authorization ?? '').replace(/^Bearer /, '');
+  const s = byToken.get(token);
+  if (!s) { res.writeHead(401); return res.end('unknown sandbox'); }
+  const deny = (msg: string) => { res.writeHead(429, { 'content-type': 'application/json' }); res.end(JSON.stringify({ type: 'error', error: { type: 'rate_limit_error', message: msg } })); };
+  if (s.usd >= DEMO_USD) return deny(`This demo sandbox used its $${DEMO_USD.toFixed(2)} of Claude. Thanks for trying it!`);
+  const key = await anthropicKey();
+  if (!key) { res.writeHead(503); return res.end('Claude is not available right now'); }
+  s.lastSeen = Date.now();
+  const body = await new Promise<Buffer>((ok) => { const c: Buffer[] = []; req.on('data', (d) => c.push(d)); req.on('end', () => ok(Buffer.concat(c))); });
+  let payload: any;
+  try { payload = body.length ? JSON.parse(body.toString()) : undefined; } catch { res.writeHead(400); return res.end('bad request'); }
+  if (payload?.model) payload = { ...payload, model: SONNET }; // whatever the sandbox asks for, it gets Sonnet
+  const headers: Record<string, string> = { 'content-type': 'application/json', 'x-api-key': key };
+  for (const h of ['anthropic-version', 'anthropic-beta', 'accept']) if (req.headers[h]) headers[h] = String(req.headers[h]);
+  const up = await fetch(`https://api.anthropic.com${(req.url ?? '').replace(/^\/anthropic/, '')}`, {
+    method: req.method, headers, body: payload ? JSON.stringify(payload) : undefined,
+  }).catch((e) => e as Error);
+  if (up instanceof Error) { res.writeHead(502); return res.end(`Claude unreachable: ${up.message}`); }
+  res.writeHead(up.status, { 'content-type': up.headers.get('content-type') ?? 'application/json' });
+  // Stream it through (Claude Code streams), and price the usage it reports.
+  let seen = '';
+  const max = (field: string) => Math.max(0, ...[...seen.matchAll(new RegExp(`"${field}":(\\d+)`, 'g'))].map((m) => Number(m[1])));
+  if (up.body) for await (const chunk of up.body as any) { res.write(chunk); seen += Buffer.from(chunk).toString(); }
+  res.end();
+  const p = SONNET_PRICE;
+  const usd = (max('input_tokens') * p.input + max('output_tokens') * p.output + max('cache_read_input_tokens') * p.cacheRead + max('cache_creation_input_tokens') * p.cacheWrite) / 1e6;
+  s.usd += usd; s.tokens += max('input_tokens') + max('output_tokens') + max('cache_read_input_tokens') + max('cache_creation_input_tokens');
+}
+
 // ── the visitor's browser ───────────────────────────────────────────────────
 const cookieOf = (req: IncomingMessage) => /(?:^|; )agst=([a-f0-9]+)/.exec(String(req.headers.cookie ?? ''))?.[1];
 const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -139,10 +183,11 @@ function proxy(req: IncomingMessage, res: ServerResponse, s: Session) {
 const server = createServer(async (req, res) => {
   try {
     if (req.url?.startsWith('/v1/')) return await modelCall(req, res);
+    if (req.url?.startsWith('/anthropic/v1/')) return await anthropicCall(req, res);
     // For the landing page on Vercel: is the demo up, and is the live model on?
     if (req.url === '/__status') {
       res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
-      return res.end(JSON.stringify({ up: true, model: (await modelUp().catch(() => false)) ? 'live' : 'scripted', free: Math.max(0, MAX - sessions.size), invite: Boolean(INVITE) }));
+      return res.end(JSON.stringify({ up: true, model: (await modelUp().catch(() => false)) ? 'live' : 'scripted', claude: Boolean(await anthropicKey()), free: Math.max(0, MAX - sessions.size), invite: Boolean(INVITE) }));
     }
     if (req.url?.startsWith('/__admin')) return await admin(req, res);
     const s = sessions.get(cookieOf(req) ?? '');
@@ -187,7 +232,7 @@ async function admin(req: IncomingMessage, res: ServerResponse) {
       .then((r) => r.json()).catch(() => []) as { title: string; running: boolean }[];
     const ago = (t: number) => `${Math.round((Date.now() - t) / 60_000)} min`;
     return `<tr><td class="mono">${x.id}</td><td>${esc(x.who.ip)} ${esc(x.who.country)}<div class="dim">${esc(x.who.agent.replace(/^Mozilla\/5.0 /, ''))}</div></td>
-      <td>${ago(x.startedAt)}</td><td>${ago(x.lastSeen)} ago</td><td>${Math.round(x.tokens / 1000)}k / ${Math.round(BUDGET / 1000)}k<div class="dim">disk ${x.diskMb === undefined ? '…' : Math.round(x.diskMb)} / ${DISK_MB} MB</div></td>
+      <td>${ago(x.startedAt)}</td><td>${ago(x.lastSeen)} ago</td><td>${Math.round(x.tokens / 1000)}k / ${Math.round(BUDGET / 1000)}k<div class="dim">Claude $${x.usd.toFixed(2)} / $${DEMO_USD.toFixed(2)} · disk ${x.diskMb === undefined ? '…' : Math.round(x.diskMb)} / ${DISK_MB} MB</div></td>
       <td>${threads.map((t) => `${t.running ? '● ' : ''}${esc(t.title)}`).join('<br>') || '<span class="dim">no threads yet</span>'}</td>
       <td><a href="/__admin/open?id=${x.id}">Look inside</a> · <a href="/__admin/stop?id=${x.id}" onclick="return confirm('Delete this sandbox?')">Stop</a></td></tr>`;
   }));
