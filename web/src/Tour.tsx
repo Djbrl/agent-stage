@@ -27,7 +27,8 @@ const STOPS: Stop[] = [
 export function Tour({ onDone }: { onDone: () => void }) {
   const { settings } = useApp();
   const fr = settings?.learn.language === 'fr';
-  const stops = STOPS.filter((s) => document.querySelector(s.sel));
+  // Only what's on screen now (the chat may sit in a hidden tab).
+  const stops = STOPS.filter((s) => { const r = document.querySelector(s.sel)?.getBoundingClientRect(); return Boolean(r && r.width && r.height); });
   const [i, setI] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const stop = stops[i];

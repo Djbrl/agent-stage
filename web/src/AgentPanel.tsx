@@ -3,6 +3,7 @@
 // needs you (checkpoints).
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useVoice, voiceSupported } from './voice';
+import { useDismiss } from './dismiss';
 import type { State, Step, Entry } from './useAgent';
 import { Icon } from './icons';
 import { stepText } from './StepsSheet';
@@ -12,15 +13,17 @@ import { useHighlight } from './highlight';
 import { engineOf, ENGINE_LABEL, type Engine } from './api';
 
 function summarize(steps: Step[]) {
-  const c = (n: string[]) => steps.filter((s) => n.includes(s.name)).length;
+  const c = (n: string[]) => steps.filter((s) => n.includes(s.name) && s.ok !== false).length;
   const parts: string[] = [];
   const read = c(['read_file', 'list_files', 'search']), ran = c(['run_command']);
-  const wrote = new Set(steps.filter((s) => s.name === 'write_file' || s.name === 'edit_file').map((s) => s.target)).size; // files, not edits
+  const wrote = new Set(steps.filter((s) => (s.name === 'write_file' || s.name === 'edit_file') && s.ok !== false).map((s) => s.target)).size; // files, not edits
+  const failed = steps.filter((s) => s.ok === false).length;
   const web = steps.filter((s) => s.name.startsWith('browser_')).length;
   if (wrote) parts.push(`changed ${wrote} file${wrote > 1 ? 's' : ''}`);
   if (web) parts.push(`used the browser`);
   if (ran) parts.push(`ran ${ran} command${ran > 1 ? 's' : ''}`);
   if (read && !parts.length) parts.push(`looked at ${read} thing${read > 1 ? 's' : ''}`);
+  if (failed) parts.push(`${failed} step${failed > 1 ? 's' : ''} failed`);
   const s = parts.join(', ');
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -241,13 +244,15 @@ function TokenMeter({ tokens }: { tokens: State['tokens'] }) {
 function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { disabled: boolean; onOpenSettings: () => void; lockedTo?: Engine; threadProvider?: string }) {
   const { settings, save, me } = useApp();
   const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useDismiss(open, () => setOpen(false), wrap);
   if (!settings) return null;
   const selected = settings.providers.find((p) => p.id === settings.activeProvider);
   // A thread locked to the other engine keeps running on its own model, so that's the one to show.
   const active = lockedTo && selected && engineOf(selected) !== lockedTo ? settings.providers.find((p) => p.id === threadProvider) ?? selected : selected;
   const groups: Engine[] = ['native', 'claude-code'];
   return (
-    <div className="picker">
+    <div className="picker" ref={wrap}>
       <button className="chip" disabled={disabled} onClick={() => setOpen(!open)} title={disabled ? 'Switch models when the agent is idle' : 'Switch model'}>
         {active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : 'Pick a model'} <Icon name="chevron" size={10} className="rot" />
       </button>

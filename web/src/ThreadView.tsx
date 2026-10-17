@@ -18,6 +18,7 @@ import { Sidebar, type Nav } from './Sidebar';
 export type Layout = 'studio' | 'classic';
 type Tab = 'chat' | 'steps' | 'threads';
 let firstOpen = true; // the app opens on the threads list; picking a thread then lands on its chat
+export const landOnChat = () => { firstOpen = false; }; // a thread you just created opens on its chat
 
 export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayout }: {
   id: string; onOpenSettings: () => void; layout?: Layout; nav?: Nav; onLayout?: (l: Layout) => void;

@@ -102,10 +102,10 @@ function fn(name: string, description: string, properties: object, required: str
 }
 
 // Long-running commands (dev servers): kept alive while agent-stage runs, stopped when it exits.
-const background = new Set<ChildProcess>();
+const background = new Map<ChildProcess, string>(); // process → the folder it runs in
 function startBackground(cwd: string, command: string): Promise<string> {
   const proc = spawn('sh', ['-c', command], { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
-  background.add(proc);
+  background.set(proc, cwd);
   let out = '';
   proc.stdout?.on('data', (d) => { out += d; }); proc.stderr?.on('data', (d) => { out += d; });
   return new Promise((ok) => {
@@ -114,4 +114,7 @@ function startBackground(cwd: string, command: string): Promise<string> {
     proc.on('exit', (code) => { background.delete(proc); done(`exited with code ${code}:`); });
   });
 }
-export function stopBackground() { for (const p of background) try { process.kill(-p.pid!, 'SIGTERM'); } catch {} }
+// All of them, or only those started in one folder (when its thread is deleted).
+export function stopBackground(root?: string) {
+  for (const [p, cwd] of background) if (!root || cwd === root || cwd.startsWith(root + '/')) try { process.kill(-p.pid!, 'SIGTERM'); } catch {}
+}

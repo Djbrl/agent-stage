@@ -202,7 +202,7 @@ app.post('/api/threads', async (c) => {
   // No folder yet: give the thread its own empty project under ~/agent-stage-projects.
   let folder = picked;
   if (scratch) {
-    folder = join(PUBLIC ? sandbox : join(homedir(), 'agent-stage-projects'), `project-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`);
+    folder = join(PUBLIC ? sandbox : join(homedir(), 'agent-stage-projects'), `project-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}-${crypto.randomUUID().slice(0, 4)}`);
     await mkdir(folder, { recursive: true });
     await initRepo(folder).catch(() => {}); // new projects get version history from the start
   }
@@ -218,6 +218,7 @@ app.post('/api/threads', async (c) => {
 app.delete(T, async (c) => {
   const id = c.req.param('id'), l = live.get(id);
   l?.agent.stop(); live.delete(id);
+  if (l) stopBackground(l.thread.folder); // the dev servers its agent started
   await deleteThread(id);
   return c.json({ ok: true });
 });

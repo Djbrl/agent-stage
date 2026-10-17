@@ -1,5 +1,6 @@
 // One dot instead of a status bar: green = ready, amber = starting, red = broken, grey = off on purpose. Details on hover/click.
 import { useState } from 'react';
+import { useDismiss } from './dismiss';
 import { StatusBar } from './StatusBar';
 import type { HealthView } from './useHealth';
 import { GpuPanel, gpuBusy, type GpuView } from './useGpu';
@@ -7,6 +8,7 @@ import { GpuPanel, gpuBusy, type GpuView } from './useGpu';
 export function HealthDot({ health, serverDown, onRecheck, gpu, bare }: { health: HealthView | null; serverDown: boolean; onRecheck: () => void;
   gpu?: { gpu: GpuView | null; start: () => void; stop: () => void }; bare?: boolean }) {
   const [open, setOpen] = useState(false);
+  useDismiss(open, () => setOpen(false));
   const m = health?.model.state;
   const g = gpu?.gpu?.managed ? gpu.gpu : null;
   const gpuOff = Boolean(g && g.phase === 'off');

@@ -4,12 +4,14 @@ import { get, send, fmtTokens, engineOf, ENGINE_LABEL, type Provider, type Engin
 import { useApp } from './useSettings';
 import { Icon } from './icons';
 import { useTheme, type ThemePref } from './theme';
+import { useDismiss } from './dismiss';
 
 type Tab = 'models' | 'learning' | 'appearance' | 'usage' | 'safety' | 'about';
 const KIND_LABEL = { mock: 'Scripted demo', openai: 'OpenAI-compatible', anthropic: 'Anthropic API (our agent loop)', 'claude-code': 'Claude Code engine' };
 
 export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onClose: () => void; onTour?: () => void; initialTab?: Tab }) {
   const [tab, setTab] = useState<Tab>(initialTab);
+  useDismiss(true, onClose);
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div className="modal wide" onMouseDown={(e) => e.stopPropagation()}>

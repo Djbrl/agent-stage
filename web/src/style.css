@@ -736,3 +736,19 @@ input[type=radio], input[type=checkbox] { accent-color: var(--accent); }
 .composer-bar .picker { min-width: 0; flex-shrink: 1; }
 .composer-bar .picker .chip { min-width: 72px; max-width: 160px; }
 .composer-bar .token-meter { flex-shrink: 0; }
+/* skip reads as neutral, not success */
+.cp-answer.skip { color: var(--dim); }
+/* the thread title takes the header's free space */
+.panel-head .spacer { flex: 0 0 auto; }
+.panel-head .thread-title { flex: 1 1 auto; }
+/* folder rows: long paths truncate, icons keep their size */
+.folder-row { min-width: 0; max-width: 100%; }
+.folder-row > span:not(.muted) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-row svg { flex-shrink: 0; }
+@media (max-width: 700px) {
+  .settings { grid-template-columns: 1fr; }
+  .settings-nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line-soft); }
+  .settings-nav button { white-space: nowrap; }
+  .modal, .modal.wide { width: calc(100vw - 16px) !important; max-width: none; }
+  .theme-pick { grid-template-columns: 1fr; }
+}

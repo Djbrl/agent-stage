@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react';
 import { get, send, shortPath, engineOf, ENGINE_LABEL, type Engine, type EngineStatus } from './api';
 import { useApp } from './useSettings';
 import { Icon } from './icons';
+import { useDismiss } from './dismiss';
 
 type Listing = { path: string; parent: string | null; name: string; folders: string[]; error?: string };
 
 export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const { settings, me, refreshThreads } = useApp();
+  useDismiss(true, onClose);
   const [dir, setDir] = useState<Listing | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');

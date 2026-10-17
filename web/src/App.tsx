@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './useSettings';
 import { Sidebar } from './Sidebar';
-import { ThreadView, type Layout } from './ThreadView';
+import { ThreadView, landOnChat, type Layout } from './ThreadView';
 import { NewThreadModal } from './NewThreadModal';
 import { SettingsModal } from './SettingsModal';
 import { Icon } from './icons';
@@ -64,7 +64,7 @@ function Shell() {
   const nav = { active, onSelect: select, onNew: () => setModal('new'), onSettings: () => setModal('settings') };
   const modals = (
     <>
-      {modal === 'new' && <NewThreadModal onClose={() => setModal(null)} onCreated={(id) => { select(id); setModal(null); }} />}
+      {modal === 'new' && <NewThreadModal onClose={() => setModal(null)} onCreated={(id) => { landOnChat(); select(id); setModal(null); }} />}
       {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} onTour={() => { setModal(null); setTouring(true); }} />}
       {touring && active && !modal && !welcome && <Tour onDone={endTour} />}
       {welcome}

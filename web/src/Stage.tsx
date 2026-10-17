@@ -6,6 +6,7 @@ import { StepsSheet, stepText, shotOf, pageOf } from './StepsSheet';
 import type { Replay, State } from './useAgent';
 import { Icon } from './icons';
 import { store } from './Resizer';
+import { useDismiss } from './dismiss';
 
 export function Stage({ state, replay, threadId, workspace, selected, onSelect, sheetOpen, setSheetOpen, approve, onCollapse, lit, full, left = 0 }: {
   state: State; replay: Replay; threadId: string; workspace: string;
@@ -17,6 +18,8 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
   const [following, setFollowing] = useState(true);
   const [readmap, setReadmap] = useState(() => { try { return localStorage.getItem('readmap') === 'on'; } catch { return false; } });
   const [legend, setLegend] = useState(false);
+  const legendRef = useRef<HTMLDivElement>(null), legendBtn = useRef<HTMLButtonElement>(null);
+  useDismiss(legend, () => setLegend(false), legendRef, legendBtn);
   const api = useRef<MapApi | null>(null);
   // The sheet never takes more than half the stage, so the map always stays visible.
   const box = useRef<HTMLElement>(null);
@@ -67,7 +70,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
           {!following && <button className="tool" onClick={() => api.current?.follow()} title="Let the camera follow the agent again (F)"><Icon name="target" size={13} /> Follow</button>}
           <button className={`tool ${readmap ? 'on' : ''}`} onClick={() => setReadmap(!readmap)} title="What the agent reads (M)"><Icon name="read" size={13} /></button>
           <button className="tool" onClick={() => api.current?.fit()} title="Whole project (0)"><Icon name="fit" size={13} /></button>
-          <button className="tool" onClick={() => setLegend(!legend)} title="What the colours mean"><span className="q">?</span></button>
+          <button ref={legendBtn} className="tool" onClick={() => setLegend(!legend)} title="What the colours mean"><span className="q">?</span></button>
           <button className={`tool steps ${sheetOpen ? 'on' : ''}`} onClick={() => setSheetOpen(!sheetOpen)} title="Steps and changes (S)">
             <Icon name="list" size={13} /> {state.steps.length || ''}{state.steps.some((s) => s.ok === false) && <span className="sdot bad" />}
           </button>
@@ -76,7 +79,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
       </div>
 
       {legend && (() => { const pal = mapPalette(); return (
-        <div className="legend-pop" onClick={() => setLegend(false)}>
+        <div ref={legendRef} className="legend-pop" onClick={() => setLegend(false)}>
           <div><i style={{ background: pal.hot }} />just edited</div><div><i style={{ background: pal.warm }} />edited earlier</div>
           <div><i style={{ background: pal.read }} />read</div><div><i style={{ background: pal.red }} />failed</div>
           <div><i style={{ background: `rgba(${pal.line},${pal.fileFill * 2})`, boxShadow: `inset 0 0 0 1px rgba(${pal.line},${pal.fileStroke})` }} />untouched</div><div><i style={{ background: pal.accent }} />the agent</div>
