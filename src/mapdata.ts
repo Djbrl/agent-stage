@@ -13,11 +13,14 @@ const SPEC = [
   /(?:require|import)\(\s*['"]([^'"]+)['"]\s*\)/g,
   /^\s*from\s+(\.[\w.]*)\s+import/gm, // python relative
 ];
+// Generated or installed, not written by anyone: hidden from the map (and from the file list the agent sees).
+const GENERATED = new Set(['node_modules', 'dist', 'build', 'out', 'coverage', '__pycache__', 'venv', 'target']);
+export const isGenerated = (name: string) => name.startsWith('.') || GENERATED.has(name) || /\.(pyc|pyo|map)$/.test(name);
 const TRY = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.py', '/index.ts', '/index.tsx', '/index.js'];
 
 async function walk(root: string, dir = root, out: string[] = []): Promise<string[]> {
   for (const e of await readdir(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name.startsWith('.') || e.name === 'dist') continue;
+    if (isGenerated(e.name)) continue;
     const full = join(dir, e.name);
     if (e.isDirectory()) await walk(root, full, out);
     else out.push(relative(root, full));

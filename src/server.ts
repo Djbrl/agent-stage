@@ -14,7 +14,7 @@ import { checkpoint, restore, isRepo, initRepo, changedBetween } from './git.ts'
 import { closeBrowser, SHOTS } from './browser.ts';
 import { stopBackground } from './tools.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
-import { buildMap } from './mapdata.ts';
+import { buildMap, isGenerated } from './mapdata.ts';
 import { enqueue, insightsOn, labelStep, summarizeFile, explainChange } from './insight.ts';
 import { GpuManager } from './gpu.ts';
 import { ClaudeCodeAgent } from './claudecode.ts';
@@ -168,7 +168,7 @@ async function newThread(folder: string, mode: 'build' | 'learn' | 'ask' = 'buil
 async function listFiles(root: string, dir = root, out: string[] = []): Promise<string[]> {
   for (const e of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
     if (out.length > 2000) break;
-    if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+    if (isGenerated(e.name)) continue;
     const full = join(dir, e.name);
     if (e.isDirectory()) await listFiles(root, full, out);
     else out.push(relative(root, full));
