@@ -800,3 +800,4 @@ input[type=radio], input[type=checkbox] { accent-color: var(--accent); }
 .context-line { font-size: 12px; color: var(--faint); border-top: 1px dashed var(--line); padding-top: 8px; }
 .context-line summary { cursor: pointer; list-style: none; } .context-line summary::-webkit-details-marker { display: none; }
 .context-line .md { margin-top: 6px; color: var(--dim); }
+.work-time { margin-left: auto; font: 11px var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }

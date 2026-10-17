@@ -47,6 +47,22 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   const voice = useVoice((t) => setText((x) => (x.trim() ? `${x.trimEnd()} ${t}` : t)), settings?.learn?.language === 'fr' ? 'fr-FR' : 'en-US');
   useEffect(() => { if (visible) end.current?.scrollIntoView({ block: 'end' }); }, [state.timeline.length, state.steps.length, visible]);
   const byId = Object.fromEntries(state.steps.map((s) => [s.id, s]));
+  // Stay pinned to the newest text while it types in, unless the reader has scrolled up.
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    let pinned = true;
+    const onScroll = () => { pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 80; };
+    const ro = new ResizeObserver(() => { if (pinned) el.scrollTop = el.scrollHeight; });
+    el.addEventListener('scroll', onScroll);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => { el.removeEventListener('scroll', onScroll); ro.disconnect(); };
+  }, []);
+  const mounted = useRef(Date.now()); // messages older than this were already there: no typing animation for them
+  const now = useNow(state.running);
+  const lastEnd = state.steps.at(-1)?.endedAt;
+  const typed = (e: { text: string; at: number }) => <Typed text={e.text} animate={e.at > mounted.current - 1500} />;
   const hl = useHighlight();
 
   // Enter = run (idle) or steer (running). "Ask" opens a side thread that never touches files.
@@ -83,7 +99,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
         )}
       </div>
 
-      <div className="timeline">
+      <div className="timeline" ref={scroller}>
         <div className="timeline-inner">
           {state.timeline.length === 0 && (
             <div className="intro">
@@ -98,7 +114,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           )}
           {state.timeline.map((e, i) => {
             if (e.kind === 'user') return <div key={i} className="bubble-user">{e.text}</div>;
-            if (e.kind === 'thought') return <div key={i} className="thought"><Markdown text={e.text} /></div>;
+            if (e.kind === 'thought') return <div key={i} className="thought">{typed(e)}</div>;
             if (e.kind === 'checkpoint') return <CheckpointCard key={i} entry={e} onAnswer={onCheckpoint} />;
             if (e.kind === 'qa') return (
               <div key={i} className="qa">
@@ -129,7 +145,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
                 const stopped = /^Stopped/.test(e.text);
                 return <div key={i} className={`final bad ${stopped ? 'stopped' : ''}`}><div><Icon name={stopped ? 'stop' : 'x'} size={stopped ? 10 : 12} /> {e.text}</div>{undoRow}</div>;
               }
-              return <div key={i} className="final"><Markdown text={e.text} />{undoRow}</div>;
+              return <div key={i} className="final">{typed(e)}{undoRow}</div>;
             }
             if (e.kind === 'verify') return <VerifyLine key={i} e={e} />;
             if (e.kind === 'context') return (
@@ -154,12 +170,13 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
                 onMouseEnter={() => hl.set(steps.map((s) => s.target).filter((t) => !t.startsWith('$')))} onMouseLeave={() => hl.set(null)}>
                 <span className="work-icon">{live ? <span className="spin" /> : bad ? <Icon name="x" size={11} /> : <Icon name="check" size={11} />}</span>
                 <span className="work-text">{live && lastStep ? (state.approval && lastStep.name === 'run_command' ? `Waiting for your OK to run ${lastStep.args?.command ?? 'a command'}` : stepText(lastStep)) : summarize(steps)}</span>
+                {live && lastStep && !state.approval && <span className="work-time">{secs(now - lastStep.startedAt)}</span>}
                 <span className="work-count">{steps.length} step{steps.length > 1 ? 's' : ''}</span>
               </button>
             );
           })}
           {state.running && !replaying && !state.approval && !state.timeline.some((t) => t.kind === 'checkpoint' && !t.answer) && state.steps.at(-1)?.ok !== undefined && (
-            <div className="work live ghost"><span className="work-icon"><span className="spin" /></span><span className="work-text">Thinking…</span></div>
+            <div className="work live ghost"><span className="work-icon"><span className="spin" /></span><span className="work-text">Thinking</span><span className="work-time">{secs(now - (lastEnd ?? state.startedAt ?? now))}</span></div>
           )}
           <div ref={end} />
         </div>
@@ -254,6 +271,29 @@ function KeepButton({ disabled, onKeep }: { disabled: boolean; onKeep: () => Pro
       {err && <span className="problem-inline">{err}</span>}
     </>
   );
+}
+
+// A clock that ticks once a second while the agent works (for elapsed times).
+function useNow(on: boolean) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { if (!on) return; setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [on]);
+  return now;
+}
+const secs = (ms: number) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`; };
+
+// New agent text types itself in (about a second, however long it is); older text and reduced-motion users get it at once.
+function Typed({ text, animate }: { text: string; animate: boolean }) {
+  const still = !animate || (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const [n, setN] = useState(still ? text.length : 0);
+  useEffect(() => {
+    if (still) { setN(text.length); return; }
+    let raf = 0;
+    const step = Math.max(3, Math.ceil(text.length / 60));
+    const tick = () => setN((x) => { const y = Math.min(text.length, x + step); if (y < text.length) raf = requestAnimationFrame(tick); return y; });
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [text]);
+  return <Markdown text={n >= text.length ? text : text.slice(0, n)} />;
 }
 
 // How big the conversation is now (what the model reads on each step) and what this thread has used so far.
