@@ -4,7 +4,7 @@ import type { ModelConfig } from './model.ts';
 import type { TunnelState } from './tunnel.ts';
 
 export type Health = {
-  model: { state: 'ok' | 'mock' | 'unreachable' | 'auth' | 'missing' | 'error'; latencyMs?: number; detail?: string };
+  model: { state: 'checking' | 'ok' | 'mock' | 'unreachable' | 'auth' | 'missing' | 'error'; latencyMs?: number; detail?: string };
   gpu?: { state: 'running' | 'stopped' | 'starting' | 'missing' | 'unknown'; name: string; detail?: string };
   tunnel?: TunnelState;
   checkedAt: number;

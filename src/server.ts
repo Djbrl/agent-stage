@@ -56,7 +56,7 @@ const gpu = new GpuManager({
   onReady: () => retunnel(),
   anyRunning: () => [...live.values()].some((l) => l.agent.running),
 });
-let health: Health = { model: { state: 'unreachable' }, checkedAt: 0 };
+let health: Health = { model: { state: 'checking' }, checkedAt: 0 }; // until the first check answers (a few seconds after start)
 let lastHealthAt = Date.now();
 async function refreshHealth() {
   const p = provider();

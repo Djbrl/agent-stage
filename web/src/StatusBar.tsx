@@ -22,7 +22,7 @@ export function StatusBar({ health, serverDown, onRecheck, gpuOff }: { health: H
 
   const modelTone: Tone = model.state === 'ok' ? 'ok' : model.state === 'mock' ? 'off' : 'bad';
   const modelValue = model.state === 'ok' ? `${short} · ${model.latencyMs}ms`
-    : model.state === 'mock' ? 'mock (no key)' : { unreachable: 'unreachable', auth: 'bad key', missing: 'wrong model', error: 'error' }[model.state];
+    : model.state === 'mock' ? 'mock (no key)' : { checking: 'checking…', unreachable: 'unreachable', auth: 'bad key', missing: 'wrong model', error: 'error' }[model.state];
 
   // GPU switched off on purpose: nothing is broken and nothing is billing, so say that, in grey.
   if (gpuOff && model.state !== 'ok') return (

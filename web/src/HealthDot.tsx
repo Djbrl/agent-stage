@@ -10,7 +10,7 @@ export function HealthDot({ health, serverDown, onRecheck, gpu, bare }: { health
   const m = health?.model.state;
   const g = gpu?.gpu?.managed ? gpu.gpu : null;
   const gpuOff = Boolean(g && g.phase === 'off');
-  const tone = gpuOff && m !== 'ok' ? 'off' : g && gpuBusy(g) ? 'warn' : serverDown ? 'bad' : !health ? 'off' : m === 'ok' ? 'ok' : m === 'mock' ? 'off'
+  const tone = gpuOff && m !== 'ok' ? 'off' : g && gpuBusy(g) ? 'warn' : serverDown ? 'bad' : !health ? 'off' : m === 'ok' ? 'ok' : m === 'mock' || m === 'checking' ? 'off'
     : health.tunnel && !health.tunnel.up ? 'warn' : health.gpu?.state === 'starting' ? 'warn' : 'bad';
   const name = health ? (health.model.mock ? 'Demo' : health.model.name.split('/').pop()!.replace(/-Instruct.*$/i, '')) : '…';
   return (
