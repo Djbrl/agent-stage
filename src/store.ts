@@ -61,6 +61,17 @@ export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunne
 export const saveSettings = (s: Settings) => writeFile(join(DATA_DIR, 'settings.json'), JSON.stringify(s, null, 2), { mode: 0o600 });
 
 // Claude Code providers use an Anthropic key: health checks and teaching labels talk to the same API directly.
+// Anthropic list prices, $ per million tokens (input, output), October 2026. Used for spend estimates: cache hits cost
+// less, so this errs high. The Claude Code engine reports its own exact cost, which is used instead when present.
+const PRICES: Array<[RegExp, number, number]> = [
+  [/fable|mythos/, 10, 50], [/opus-5-5/, 4, 20], [/opus/, 5, 25], [/sonnet-4/, 3, 15], [/sonnet/, 2, 10], [/haiku-5/, 0.1, 0.5], [/haiku/, 1, 5],
+];
+export function apiCost(p: Provider | undefined, prompt: number, completion: number) {
+  if (!p || (p.kind !== 'anthropic' && p.kind !== 'claude-code')) return 0;
+  const m = PRICES.find(([r]) => r.test(p.model));
+  return m ? (prompt * m[1] + completion * m[2]) / 1e6 : 0;
+}
+
 // Claude models without a key in Settings use ANTHROPIC_API_KEY from .env (never in the online demo).
 export const keyOf = (p: Provider) => p.apiKey || ((p.kind === 'anthropic' || p.kind === 'claude-code') && process.env.PUBLIC !== '1' ? process.env.ANTHROPIC_API_KEY ?? '' : '');
 export const toConfig = (p: Provider): ModelConfig => ({ baseUrl: p.baseUrl, apiKey: p.kind === 'mock' ? 'mock' : keyOf(p), model: p.model,

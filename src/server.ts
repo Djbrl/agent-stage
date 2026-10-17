@@ -19,7 +19,7 @@ import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMes
 import { GpuManager } from './gpu.ts';
 import { ClaudeCodeAgent } from './claudecode.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread,
-  PRESETS, engineOf, keyOf, type Provider, type Settings, type Thread } from './store.ts';
+  PRESETS, engineOf, keyOf, apiCost, type Provider, type Settings, type Thread } from './store.ts';
 
 const sandbox = resolve(process.env.WORKSPACE ?? 'workspace');
 // Public mode: this server runs inside a disposable container for one visitor (see src/public/). The visitor
@@ -441,18 +441,20 @@ app.post('/api/providers/test', async (c) => {
 // usage across all threads, per provider
 app.get('/api/stats', async (c) => {
   const threads = await listThreads();
-  const byProvider: Record<string, { tokens: number; calls: number; threads: number; gpuHours: number; gpuCost: number }> = {};
+  const byProvider: Record<string, { tokens: number; calls: number; threads: number; gpuHours: number; gpuCost: number; apiCost: number }> = {};
+  // A thread's spend: what the provider reported (Claude Code does), else an estimate from list prices.
+  const spendOf = (t: Thread) => t.usage.costUsd ?? apiCost(settings.providers.find((p) => p.id === t.providerId), t.usage.promptTokens, t.usage.completionTokens);
   for (const t of threads) {
-    const b = (byProvider[t.providerId] ??= { tokens: 0, calls: 0, threads: 0, gpuHours: 0, gpuCost: 0 });
-    b.tokens += t.usage.promptTokens + t.usage.completionTokens; b.calls += t.usage.calls; b.threads++;
+    const b = (byProvider[t.providerId] ??= { tokens: 0, calls: 0, threads: 0, gpuHours: 0, gpuCost: 0, apiCost: 0 });
+    b.tokens += t.usage.promptTokens + t.usage.completionTokens; b.calls += t.usage.calls; b.threads++; b.apiCost += spendOf(t);
   }
   for (const [id, ms] of Object.entries(gpuMs)) {
-    const b = (byProvider[id] ??= { tokens: 0, calls: 0, threads: 0, gpuHours: 0, gpuCost: 0 });
+    const b = (byProvider[id] ??= { tokens: 0, calls: 0, threads: 0, gpuHours: 0, gpuCost: 0, apiCost: 0 });
     b.gpuHours = ms / 3_600_000; b.gpuCost = b.gpuHours * (provider(id).gpuHourly ?? 0);
   }
   return c.json({
     byProvider,
-    threads: threads.map((t) => ({ id: t.id, title: t.title, providerId: t.providerId, tokens: t.usage.promptTokens + t.usage.completionTokens, calls: t.usage.calls, updatedAt: t.updatedAt })),
+    threads: threads.map((t) => ({ id: t.id, title: t.title, providerId: t.providerId, tokens: t.usage.promptTokens + t.usage.completionTokens, calls: t.usage.calls, spend: spendOf(t), updatedAt: t.updatedAt })),
   });
 });
 

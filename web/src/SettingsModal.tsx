@@ -143,28 +143,30 @@ function Usage() {
   const name = (id: string) => settings.providers.find((p) => p.id === id)?.name ?? id;
   const rows = Object.entries(stats.byProvider) as [string, any][];
   const totalTokens = rows.reduce((a, [, b]) => a + b.tokens, 0);
-  const totalCost = rows.reduce((a, [, b]) => a + b.gpuCost, 0);
+  const spendOf = (b: any) => (b.apiCost ?? 0) + b.gpuCost;
+  const totalSpend = rows.reduce((a, [, b]) => a + spendOf(b), 0);
+  const $ = (n: number) => (n > 0 && n < 0.01 ? '<$0.01' : `$${n.toFixed(2)}`);
   return (
     <div>
       <div className="stat-cards">
+        <div className="stat"><div className="muted">Spend (estimate)</div><div className="big">{$(totalSpend)}</div></div>
         <div className="stat"><div className="muted">Tokens</div><div className="big">{fmtTokens(totalTokens)}</div></div>
         <div className="stat"><div className="muted">Threads</div><div className="big">{stats.threads.length}</div></div>
-        <div className="stat"><div className="muted">GPU spend (this run of the server)</div><div className="big">${totalCost.toFixed(2)}</div></div>
       </div>
-      <div className="label">By model</div>
       <table className="table">
-        <thead><tr><th>Model</th><th>Tokens</th><th>Calls</th><th>Threads</th><th>GPU hours</th><th>GPU $</th></tr></thead>
+        <thead><tr><th>Model</th><th>Tokens</th><th>Threads</th><th>Spend</th></tr></thead>
         <tbody>{rows.map(([id, b]) => (
-          <tr key={id}><td>{name(id)}</td><td className="mono">{fmtTokens(b.tokens)}</td><td className="mono">{b.calls}</td><td className="mono">{b.threads}</td><td className="mono">{b.gpuHours.toFixed(2)}</td><td className="mono">${b.gpuCost.toFixed(2)}</td></tr>
+          <tr key={id}><td>{name(id)}</td><td className="mono">{fmtTokens(b.tokens)}</td><td className="mono">{b.threads}</td>
+            <td className="mono" title={b.gpuCost ? `GPU ${$(b.gpuCost)} (${b.gpuHours.toFixed(2)} h, since the server started)` : undefined}>{$(spendOf(b))}</td></tr>
         ))}</tbody>
       </table>
-      <div className="label">Biggest threads</div>
       <table className="table">
+        <thead><tr><th>Biggest threads</th><th>Tokens</th><th>Spend</th></tr></thead>
         <tbody>{[...stats.threads].sort((a: any, b: any) => b.tokens - a.tokens).slice(0, 8).map((t: any) => (
-          <tr key={t.id}><td>{t.title}</td><td className="muted">{name(t.providerId)}</td><td className="mono">{fmtTokens(t.tokens)}</td></tr>
+          <tr key={t.id}><td>{t.title}<div className="muted">{name(t.providerId)}</div></td><td className="mono">{fmtTokens(t.tokens)}</td><td className="mono">{$(t.spend ?? 0)}</td></tr>
         ))}</tbody>
       </table>
-      <p className="hint">API models bill per token on your provider's account. Self-hosted models bill per GPU hour, whether you use them or not, so stop the GPU when you're done.</p>
+      <p className="hint">Claude is priced from list prices (cache hits cost less, so this errs high); Claude Code reports its exact cost. Your GPU is billed per hour.</p>
     </div>
   );
 }
