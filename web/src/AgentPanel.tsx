@@ -124,7 +124,10 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
                   </>)}
                 </div>
               );
-              if (e.kind === 'error') return <div key={i} className="final bad"><div><Icon name="x" size={13} /> {e.text}</div>{undoRow}</div>;
+              if (e.kind === 'error') { // a stop you asked for isn't a failure: neutral icon
+                const stopped = /^Stopped/.test(e.text);
+                return <div key={i} className={`final bad ${stopped ? 'stopped' : ''}`}><div><Icon name={stopped ? 'stop' : 'x'} size={stopped ? 10 : 12} /> {e.text}</div>{undoRow}</div>;
+              }
               return <div key={i} className="final"><Markdown text={e.text} />{undoRow}</div>;
             }
             if (e.kind === 'verify') return <VerifyLine key={i} e={e} />;
