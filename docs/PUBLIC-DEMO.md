@@ -51,4 +51,4 @@ visitor ── https ── Cloudflare tunnel ── manager (this computer, :80
   pages served inside the sandbox; "open on my computer" is off.
 - At most `MAX_SESSIONS` sandboxes (5) at once.
 
-Known limits: no internet in sandboxes means no `npm install` of new packages; the samples need none.
+Internet: with an invite code (or `INTERNET=1`), sandboxes reach public websites on ports 80 and 443 through a proxy in the relay (`HTTP(S)_PROXY`), so `npm install`, `pip install` and `git clone https://…` work. The proxy resolves every name itself and refuses private, loopback and link-local addresses, so a sandbox still can't reach this computer, the home network or other containers. `INTERNET=0` seals them again.

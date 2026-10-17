@@ -555,7 +555,7 @@ app.get('/api/engines', (c) => {
 });
 
 app.get('/api/me', async (c) => c.json({
-  name: PUBLIC ? 'visitor' : userInfo().username, home: homedir(), sandbox, public: PUBLIC,
+  name: PUBLIC ? 'visitor' : userInfo().username, home: homedir(), sandbox, public: PUBLIC, internet: PUBLIC && process.env.DEMO_INTERNET === '1',
   // Online demo: the projects in the container to start from.
   samples: PUBLIC ? (await readdir(sandbox, { withFileTypes: true }).catch(() => [])).filter((e) => e.isDirectory() && !e.name.startsWith('.')).map((e) => join(sandbox, e.name)) : undefined,
 }));

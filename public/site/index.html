@@ -40,13 +40,13 @@
     <h2>How this live demo works</h2>
     <ol>
       <li><b>It runs on our own laptop.</b> The app is served from a MacBook Pro (M1) in Dakar, through a secure tunnel. If the laptop is asleep, the demo is offline.</li>
-      <li><b>You get a private sandbox.</b> Pressing "Try it live" starts a fresh Docker container just for you, with two small sample projects. The agent really creates files, runs tests and opens pages in a browser, but only inside your sandbox. It has no internet access and is deleted 20 minutes after you leave.</li>
+      <li><b>You get a private sandbox.</b> Pressing "Try it live" starts a fresh Docker container just for you, with two small sample projects. The agent really creates files, runs tests and opens pages in a browser, but only inside your sandbox. <span id="net1">It has no internet access</span> and is deleted 20 minutes after you leave.</li>
       <li><b>Real models.</b> Claude Sonnet 5.5 does the work, in our own agent loop or through the Claude Code engine. During tests our open model (Qwen3-Coder, on an NVIDIA L40S) is on too. If neither is available, a scripted demo model plays a fixed example. The status next to the button tells you what you'll get.</li>
       <li><b>You're in charge.</b> Commands wait for your approval, and every task can be undone.</li>
     </ol>
     <dl class="limits">
       <dt>You can</dt><dd>Create, edit and delete files; run commands, Node, Python, pytest and git; start a local web server and open it in the agent's browser; use Build, Learn, Ask and Undo.</dd>
-      <dt>You can't</dt><dd>Reach the internet from the sandbox (no npm/pip installs, no cloning, no outside websites), reach our laptop or other visitors, or change keys or settings.</dd>
+      <dt>You can't</dt><dd><span id="net2">Reach the internet from the sandbox (no npm/pip installs, no cloning, no outside websites), reach</span> our laptop or other visitors, or change keys or settings.</dd>
       <dt>Limits</dt><dd>1 CPU core, 1.5 GB RAM, 512 MB of temporary space, 1 GB of disk (a sandbox that writes more is deleted), 400k model tokens and $1.50 of Claude per sandbox, 5 sandboxes at a time.</dd>
     </dl>
   </section>
@@ -67,6 +67,10 @@
     if (!s) return set('', 'The live demo is offline right now.');
     const btn = document.getElementById('try');
     btn.href = url; btn.removeAttribute('aria-disabled');
+    if (s.internet) {
+      document.getElementById('net1').textContent = 'It can reach public websites (npm, pip, git clone), nothing else';
+      document.getElementById('net2').textContent = 'Reach';
+    }
     if (!s.free) return set('warn', 'Online, but every sandbox is busy. Try again in a few minutes.');
     if (s.claude) return set('on', s.model === 'live' ? 'Online, with Claude and our GPU model' : 'Online, with Claude Sonnet 5.5');
     set(s.model === 'live' ? 'on' : 'warn', s.model === 'live' ? 'Online, with the live model on our GPU' : 'Online, with a scripted demo model (our GPU is off)');

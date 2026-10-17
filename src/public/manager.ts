@@ -1,5 +1,5 @@
 // The online demo, run from this computer (`npm run public`). Every visitor gets a private, disposable sandbox:
-// a Docker container running agent-stage in public mode on a sealed network with no internet. The manager:
+// a Docker container running agent-stage in public mode on a sealed network. Its only door is the relay: model calls, and (INTERNET, on with an invite code) public websites. The manager:
 //   · serves the "start your sandbox" page (with an optional invite code), one sandbox per visitor (cookie);
 //   · proxies the visitor's browser to their sandbox (through the relay, the sealed network's only door);
 //   · answers the sandboxes' model calls itself, with the real key, and a token budget per sandbox;
@@ -17,6 +17,8 @@ const MAX = Number(process.env.MAX_SESSIONS ?? 5);
 const IDLE_MIN = Number(process.env.IDLE_MIN ?? 20);
 const BUDGET = Number(process.env.TOKEN_BUDGET ?? 400_000); // model tokens per sandbox
 const DEMO_USD = Number(process.env.DEMO_USD ?? 1.5); // Claude spend allowed per sandbox
+// Internet in the sandboxes, through the relay's proxy (public websites on 80/443 only). On by default with an invite code.
+const INTERNET = process.env.INTERNET ? process.env.INTERNET === '1' : Boolean(INVITE);
 const DISK_MB = Number(process.env.DISK_MB ?? 1024); // what a sandbox may write to disk (Docker Desktop can't cap it per container)
 const IMAGE = 'agent-stage-sandbox', NET = 'agst-sandbox', RELAY = 'agst-relay', RELAY_PORT = 8099;
 const SECRET = randomBytes(24).toString('hex');
@@ -62,7 +64,7 @@ async function setup() {
   await docker(['network', 'inspect', NET]).catch(() => docker(['network', 'create', '--internal', NET]));
   await docker(['rm', '-f', RELAY]).catch(() => {});
   await docker(['run', '-d', '--name', RELAY, '-p', `127.0.0.1:${RELAY_PORT}:4001`,
-    '--add-host', 'host.docker.internal:host-gateway', '-e', `RELAY_SECRET=${SECRET}`, '-e', `MANAGER_URL=http://host.docker.internal:${PORT}`,
+    '--add-host', 'host.docker.internal:host-gateway', '-e', `RELAY_SECRET=${SECRET}`, '-e', `MANAGER_URL=http://host.docker.internal:${PORT}`, '-e', `INTERNET=${INTERNET ? 1 : 0}`,
     '--memory', '256m', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--entrypoint', 'node', IMAGE, 'src/public/relay.ts']);
   await docker(['network', 'connect', NET, RELAY]); // the relay alone sits on both networks
   for (const name of (await docker(['ps', '-aq', '--filter', 'name=^sess-'])).split('\n').filter(Boolean)) await docker(['rm', '-f', name]);
@@ -77,6 +79,8 @@ async function startSession(who: Session['who']): Promise<Session> {
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--tmpfs', '/tmp:size=512m',
     ...(claude ? ['-e', 'DEMO_CLAUDE=1', '-e', `ANTHROPIC_API_KEY=${s.token}`, '-e', `ANTHROPIC_BASE_URL=http://${RELAY}:4000/anthropic`,
       '-e', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1', '-e', 'DISABLE_TELEMETRY=1', '-e', 'DISABLE_AUTOUPDATER=1', '-e', 'DISABLE_ERROR_REPORTING=1'] : []),
+    ...(INTERNET ? ['-e', 'DEMO_INTERNET=1', ...['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'].flatMap((k) => ['-e', `${k}=http://${RELAY}:4002`]),
+      ...['NO_PROXY', 'no_proxy'].flatMap((k) => ['-e', `${k}=${RELAY},localhost,127.0.0.1`]), '-e', 'NODE_USE_ENV_PROXY=1'] : []),
     '-e', `MODEL_BASE_URL=http://${RELAY}:4000/v1`, '-e', `MODEL_API_KEY=${m ? s.token : 'mock'}`, '-e', `MODEL_NAME=${m?.model ?? 'mock'}`, '-e', `MODEL_LABEL=${m ? `${m.name} · live GPU` : 'Demo (scripted)'}`,
     IMAGE]);
   sessions.set(s.id, s); byToken.set(s.token, s);
@@ -187,7 +191,7 @@ const server = createServer(async (req, res) => {
     // For the landing page on Vercel: is the demo up, and is the live model on?
     if (req.url === '/__status') {
       res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
-      return res.end(JSON.stringify({ up: true, model: (await modelUp().catch(() => false)) ? 'live' : 'scripted', claude: Boolean(await anthropicKey()), free: Math.max(0, MAX - sessions.size), invite: Boolean(INVITE) }));
+      return res.end(JSON.stringify({ up: true, model: (await modelUp().catch(() => false)) ? 'live' : 'scripted', claude: Boolean(await anthropicKey()), free: Math.max(0, MAX - sessions.size), invite: Boolean(INVITE), internet: INTERNET }));
     }
     if (req.url?.startsWith('/__admin')) return await admin(req, res);
     const s = sessions.get(cookieOf(req) ?? '');

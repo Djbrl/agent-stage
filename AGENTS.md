@@ -55,7 +55,7 @@ How it fits together:
 3. One Docker container per visitor (`public/Dockerfile`, image `agent-stage-sandbox`), with the app in `PUBLIC=1` mode and the sample projects in `public/samples`.
 
 How it's sealed:
-- **Network:** sandboxes sit on an `--internal` Docker network with no internet. Their only door is the relay container, which forwards model calls only. The manager adds the real key and enforces a 400k-token budget per sandbox.
+- **Network:** sandboxes sit on an `--internal` Docker network. Their only door is the relay container: model calls, plus (on by default with an invite code, `INTERNET=0` to turn off) a proxy to public websites on 80/443 that refuses private addresses. The manager adds the real key and enforces a 400k-token budget per sandbox.
 - **Containers:** 1 CPU, 1.5 GB RAM, all capabilities dropped, non-root.
 - **App:** public mode hides settings, keys, the GPU controls and the folder pickers.
 - **Session limits:** at most 5 sandboxes; one is deleted after 20 idle minutes; all are deleted on Ctrl-C or a crash.

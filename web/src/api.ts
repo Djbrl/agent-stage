@@ -16,7 +16,7 @@ export type Provider = {
 export type Settings = { providers: Provider[]; activeProvider: string; approval: 'always' | 'safe'; maxSteps: number; recentFolders: string[];
   insights?: 'auto' | 'on' | 'off'; learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' } };
 export type ThreadSummary = { id: string; title: string; folder: string; updatedAt: number; running: boolean; tokens: number; engine?: Engine };
-export type Me = { name: string; home: string; sandbox: string; public?: boolean; samples?: string[] };
+export type Me = { name: string; home: string; sandbox: string; public?: boolean; internet?: boolean; samples?: string[] };
 
 export const fmtTokens = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n));
 export function ago(t: number) {
