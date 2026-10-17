@@ -24,12 +24,13 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, git }: {
+export function AgentPanel({ visible = true, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, git }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
   side?: { onKeep: () => void; onClose: () => void; kept: boolean };
   replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean; status?: ReactNode;
+  visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
   onUndo?: (ref: string) => void; git?: { repo: boolean; onInit: () => void } | null;
 }) {
   const [text, setText] = useState('');
@@ -38,7 +39,7 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
   const end = useRef<HTMLDivElement>(null);
   const { settings } = useApp();
   const voice = useVoice((t) => setText((x) => (x.trim() ? `${x.trimEnd()} ${t}` : t)), settings?.learn?.language === 'fr' ? 'fr-FR' : 'en-US');
-  useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [state.timeline.length, state.steps.length]);
+  useEffect(() => { if (visible) end.current?.scrollIntoView({ block: 'end' }); }, [state.timeline.length, state.steps.length, visible]);
   const byId = Object.fromEntries(state.steps.map((s) => [s.id, s]));
   const hl = useHighlight();
 
