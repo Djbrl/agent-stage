@@ -678,3 +678,7 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .welcome-demo li { margin: 8px 0; } .welcome-demo b { color: var(--text); font-weight: 600; }
 .welcome-demo .limits { margin-top: 14px; border-top: 1px solid var(--line-soft); padding-top: 12px; display: grid; gap: 8px; font-size: 12.5px; }
 .welcome-demo .limits div { display: grid; grid-template-columns: 74px 1fr; gap: 10px; } .welcome-demo .limits span { color: var(--dim); }
+/* the model menu spans the composer, so the panel edge never cuts it off */
+.composer { position: relative; }
+.composer .picker { position: static; }
+.composer .picker-menu { left: 6px; right: 6px; min-width: 0; max-height: min(60vh, 520px); overflow-y: auto; }

@@ -19,7 +19,7 @@ import { enqueue, insightsOn, labelStep, summarizeFile, explainChange } from './
 import { GpuManager } from './gpu.ts';
 import { ClaudeCodeAgent } from './claudecode.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread,
-  PRESETS, engineOf, type Provider, type Settings, type Thread } from './store.ts';
+  PRESETS, engineOf, keyOf, type Provider, type Settings, type Thread } from './store.ts';
 
 const sandbox = resolve(process.env.WORKSPACE ?? 'workspace');
 // Public mode: this server runs inside a disposable container for one visitor (see src/public/). The visitor
@@ -178,7 +178,7 @@ async function listFiles(root: string, dir = root, out: string[] = []): Promise<
 
 const mask = (k: string) => (!k ? '' : k.length <= 8 ? '••••' : `••••${k.slice(-4)}`);
 const publicSettings = () => ({ ...settings, recentFolders: PUBLIC ? [] : settings.recentFolders,
-  providers: settings.providers.filter((p) => !PUBLIC || p.id === settings.activeProvider).map((p) => ({ ...p, apiKey: mask(p.apiKey), ...(PUBLIC ? { baseUrl: '' } : {}) })) });
+  providers: settings.providers.filter((p) => !PUBLIC || p.id === settings.activeProvider).map((p) => ({ ...p, apiKey: mask(keyOf(p)), ...(PUBLIC ? { baseUrl: '' } : {}) })) });
 
 const app = new Hono();
 if (PUBLIC) {
@@ -396,7 +396,7 @@ app.post('/api/providers/test', async (c) => {
   const p: Provider = await c.req.json();
   const stored = settings.providers.find((o) => o.id === p.id);
   const key = p.apiKey?.startsWith('••••') ? stored?.apiKey ?? '' : p.apiKey;
-  return c.json(await checkModel(toConfig({ ...p, apiKey: key })));
+  return c.json(await checkModel(toConfig({ ...p, apiKey: key ?? '' })));
 });
 
 // usage across all threads, per provider
@@ -478,7 +478,7 @@ app.get('/api/engines', (c) => {
   const cc = settings.providers.filter((p) => p.kind === 'claude-code');
   return c.json({
     native: { ready: true },
-    'claude-code': PUBLIC ? { ready: false, reason: 'Not in the online demo' } : { ready: cc.some((p) => p.apiKey), reason: cc.length ? (cc.some((p) => p.apiKey) ? '' : 'Add an Anthropic API key') : 'Add a Claude Code model in Settings' },
+    'claude-code': PUBLIC ? { ready: false, reason: 'Not in the online demo' } : { ready: cc.some((p) => keyOf(p)), reason: cc.length ? (cc.some((p) => keyOf(p)) ? '' : 'Add an Anthropic API key') : 'Add a Claude Code model in Settings' },
     codex: { ready: false, reason: 'Coming soon' },
   });
 });

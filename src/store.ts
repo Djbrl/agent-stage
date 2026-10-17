@@ -61,7 +61,9 @@ export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunne
 export const saveSettings = (s: Settings) => writeFile(join(DATA_DIR, 'settings.json'), JSON.stringify(s, null, 2), { mode: 0o600 });
 
 // Claude Code providers use an Anthropic key: health checks and teaching labels talk to the same API directly.
-export const toConfig = (p: Provider): ModelConfig => ({ baseUrl: p.baseUrl, apiKey: p.kind === 'mock' ? 'mock' : p.apiKey, model: p.model,
+// Claude models without a key in Settings use ANTHROPIC_API_KEY from .env (never in the online demo).
+export const keyOf = (p: Provider) => p.apiKey || ((p.kind === 'anthropic' || p.kind === 'claude-code') && process.env.PUBLIC !== '1' ? process.env.ANTHROPIC_API_KEY ?? '' : '');
+export const toConfig = (p: Provider): ModelConfig => ({ baseUrl: p.baseUrl, apiKey: p.kind === 'mock' ? 'mock' : keyOf(p), model: p.model,
   kind: p.kind === 'claude-code' ? 'anthropic' : p.kind });
 
 // Presets offered in Settings → Models → Add.
