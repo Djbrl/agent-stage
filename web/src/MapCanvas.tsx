@@ -272,7 +272,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
         if (f.depth <= 2) { ctx.fillStyle = rgba(C.line, C.folderFill); ctx.fill(); }
         ctx.strokeStyle = rgba(C.line, C.folderStroke); ctx.lineWidth = px; ctx.stroke();
-        if (f.r * k > 46) label(ctx, f.name.toUpperCase(), f.x, f.y - f.r + 15 * px, px, 9.5, rgba(C.text, C.folderLabel), 'center', 600);
+        if (f.r * k > 46) label(ctx, f.name, f.x, f.y - f.r + 15 * px, px, 10.5, rgba(C.text, C.folderLabel), 'center', 600);
       }
 
       // islands

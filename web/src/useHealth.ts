@@ -34,8 +34,8 @@ export function diagnose(h: HealthView | null, serverDown: boolean): string | nu
   if (h.gpu && h.gpu.state === 'starting') return 'GPU is booting. The model will come up a few minutes after.';
   if (h.tunnel && !h.tunnel.up) return `Tunnel to ${h.tunnel.host} is down, reconnecting… ${h.tunnel.lastError ?? ''}`;
   if (m === 'auth') return /no API key/.test(h.model.detail ?? '')
-    ? 'This model has no API key yet. Add it in Settings → Engines & models (Claude models also read ANTHROPIC_API_KEY from .env after a restart).'
-    : 'The model server rejected the API key. Check it in Settings → Engines & models.';
+    ? 'This model has no API key yet. Add it in Settings → Models (Claude models also read ANTHROPIC_API_KEY from .env after a restart).'
+    : 'The model server rejected the API key. Check it in Settings → Models.';
   if (m === 'missing') return `The server is up but ${h.model.detail}, not ${h.model.name}. Fix MODEL_NAME in .env.`;
   if (m === 'unreachable') return h.gpu?.state === 'running'
     ? 'GPU is on but the model isn\'t answering: it may still be loading, or vLLM isn\'t running (serve-vllm.sh).'

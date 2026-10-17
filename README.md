@@ -57,7 +57,7 @@ npm install
 npm start            # → http://localhost:3000 (mock model, no key needed)
 ```
 
-To use a real model, open Settings → Engines & models in the app and add its key there. For Claude you can
+To use a real model, open Settings → Models in the app and add its key there. For Claude you can
 instead put `ANTHROPIC_API_KEY` in a `.env` file (copy `.env.example`) and restart. Settings also has the
 one-click GPU (Brev + vLLM).
 The agent works inside `./workspace`; point it at another folder with `WORKSPACE=/path npm start`.
@@ -97,7 +97,7 @@ AI tools used to build it (Claude Code, Mobbin MCP) are listed in
 |---|---|---|
 | `nvidia/nemotron-3-super-120b-a12b` | NVIDIA API | default agent model |
 | `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8` | self-hosted with vLLM on one L40S GPU ([script](scripts/serve-vllm.sh)) | open-weight agent model we develop and demo with |
-| any OpenAI-compatible model | Ollama, vLLM, LM Studio, OpenRouter | add it in Settings → Engines & models |
+| any OpenAI-compatible model | Ollama, vLLM, LM Studio, OpenRouter | add it in Settings → Models |
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md).

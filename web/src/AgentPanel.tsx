@@ -285,7 +285,7 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
             const locked = lockedTo && lockedTo !== g;
             return (
               <div key={g} className={`picker-group ${locked ? 'locked' : ''}`}>
-                <div className="picker-head">{ENGINE_LABEL[g]}{locked && <span className="muted"> · start a new thread to use it</span>}</div>
+                <div className="picker-head">{ENGINE_LABEL[g]}{locked && <span className="muted"> · in a new thread</span>}</div>
                 {list.map((p) => (
                   <button key={p.id} disabled={locked} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }).catch(() => {}); setOpen(false); }}>
                     <span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? 'demo' : p.model}</span>
@@ -296,8 +296,7 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
             );
           })}
           {!me?.public && <>
-            <div className="picker-group locked"><div className="picker-head">Codex <span className="muted">· coming soon</span></div></div>
-            <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Manage engines…</button>
+            <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Models…</button>
           </>}
         </div>
       )}

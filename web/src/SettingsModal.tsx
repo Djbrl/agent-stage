@@ -7,7 +7,6 @@ import { useTheme, type ThemePref } from './theme';
 import { useDismiss } from './dismiss';
 
 type Tab = 'models' | 'learning' | 'appearance' | 'usage' | 'safety' | 'about';
-const KIND_LABEL = { mock: 'Scripted demo', openai: 'OpenAI-compatible', anthropic: 'Anthropic API (our agent loop)', 'claude-code': 'Claude Code engine' };
 
 export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onClose: () => void; onTour?: () => void; initialTab?: Tab }) {
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -19,7 +18,7 @@ export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onCl
         <div className="settings">
           <div className="settings-nav">
             {(['models', 'learning', 'appearance', 'usage', 'safety', 'about'] as Tab[]).map((t) => (
-              <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ models: 'Engines & models', learning: 'Learning', appearance: 'Appearance', usage: 'Usage & spend', safety: 'Safety', about: 'About' }[t]}</button>
+              <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ models: 'Models', learning: 'Learning', appearance: 'Appearance', usage: 'Usage', safety: 'Safety', about: 'About' }[t]}</button>
             ))}
           </div>
           <div className="settings-body">
@@ -68,16 +67,14 @@ function Models() {
     <div className="models">
       <div className="model-list">
         {(['native', 'claude-code'] as Engine[]).map((g) => <div key={g}>
-          <div className="engine-head">{ENGINE_LABEL[g]}<span className="muted">{g === 'native' ? ' · our open harness' : ' · Anthropic’s agent'}</span></div>
+          <div className="engine-head">{ENGINE_LABEL[g]}</div>
         {settings.providers.filter((p) => engineOf(p) === g).map((p) => (
           <button key={p.id} className={`model-row ${p.id === sel ? 'on' : ''}`} onClick={() => setSel(p.id)}>
             <Icon name={p.kind === 'mock' ? 'spark' : p.tunnelHost ? 'cpu' : 'list'} size={13} />
-            <span className="grow"><span>{p.name}</span><span className="muted mono">{p.kind === 'mock' ? 'no model' : p.model || 'no model set'}</span></span>
-            {p.id === settings.activeProvider && <span className="pill on">active</span>}
-            {p.kind !== 'mock' && !p.apiKey && <span className="pill">no key</span>}
+            <span className="grow"><span>{p.name}</span>{p.kind !== 'mock' && <span className="muted mono">{!p.apiKey ? 'needs a key' : p.model || 'no model set'}</span>}</span>
+            {p.id === settings.activeProvider && <span className="pill on">in use</span>}
           </button>
         ))}</div>)}
-        <div className="engine-head">Codex<span className="muted"> · coming soon</span></div>
         <select className="add-model" value="" onChange={(e) => { const p = presets[Number(e.target.value)]; if (p) add(p); }}>
           <option value="">+ Add a model…</option>
           {presets.map((p, i) => <option key={i} value={i}>{p.name}</option>)}
@@ -86,37 +83,36 @@ function Models() {
 
       {draft && (
         <div className="model-form">
-          <div className="form-title">{draft.name}<span className="muted"> · {KIND_LABEL[draft.kind]}</span></div>
+          <div className="form-title">{draft.name}</div>
           {draft.kind === 'mock' ? (
-            <p className="muted">A scripted run for demos and UI work. No model, no network, no cost.</p>
+            <p className="muted">A scripted run for demos. No model, no cost.</p>
           ) : (
             <>
               <Field label="Name"><input value={draft.name} onChange={(e) => set({ name: e.target.value })} /></Field>
-              <Field label="API type">
+              <Field label="Type">
                 <select value={draft.kind} onChange={(e) => set({ kind: e.target.value as Provider['kind'] })}>
-                  <option value="openai">OpenAI-compatible (OpenAI, NVIDIA, vLLM, Ollama, OpenRouter…)</option>
-                  <option value="anthropic">Anthropic API, in our agent loop</option>
-                  <option value="claude-code">Claude Code engine (Anthropic's agent loop)</option>
+                  <option value="openai">OpenAI-compatible</option>
+                  <option value="anthropic">Anthropic API</option>
+                  <option value="claude-code">Claude Code</option>
                 </select>
               </Field>
               {draft.kind === 'openai' && <Field label="Base URL"><input className="mono" value={draft.baseUrl} onChange={(e) => set({ baseUrl: e.target.value })} /></Field>}
               <Field label="Model"><input className="mono" value={draft.model} placeholder="model id" onChange={(e) => set({ model: e.target.value })} /></Field>
-              {draft.kind === 'claude-code' && <p className="note">Runs Anthropic's Claude Code agent through the official Agent SDK with your <b>Anthropic API key</b> (billed per token). agent-stage never asks for or uses a claude.ai login. The map, Learn mode and approvals work the same.</p>}
-              <Field label={draft.kind === 'claude-code' || draft.kind === 'anthropic' ? 'Anthropic API key' : 'API key'} hint="Stored only on this computer, in ~/.agent-stage/settings.json.">
+              <Field label="API key" hint="Saved on this computer only.">
                 <input className="mono" type="password" value={draft.apiKey} placeholder="paste key" onChange={(e) => set({ apiKey: e.target.value })} />
               </Field>
               {draft.kind === 'openai' && (
                 <details className="advanced" open={Boolean(draft.tunnelHost || draft.gpuHourly)}>
-                  <summary>Self-hosted GPU (one-click start/stop)</summary>
-                  <Field label="SSH tunnel host" hint="The server keeps ssh -L open to this host."><input className="mono" value={draft.tunnelHost ?? ''} placeholder="agent-gpu" onChange={(e) => set({ tunnelHost: e.target.value || undefined })} /></Field>
-                  <Field label="Brev instance name" hint="Set this to get Start / Stop GPU buttons: the app creates and destroys the machine for you."><input className="mono" value={draft.brevInstance ?? ''} placeholder="agent-gpu" onChange={(e) => set({ brevInstance: e.target.value || undefined })} /></Field>
-                  <Field label="Machine types to try" hint="Brev types, cheapest first. If one is sold out the next is tried. Empty = sensible L40S defaults.">
+                  <summary>Your own GPU</summary>
+                  <Field label="SSH host"><input className="mono" value={draft.tunnelHost ?? ''} placeholder="agent-gpu" onChange={(e) => set({ tunnelHost: e.target.value || undefined })} /></Field>
+                  <Field label="Brev instance" hint="Adds Start / Stop GPU."><input className="mono" value={draft.brevInstance ?? ''} placeholder="agent-gpu" onChange={(e) => set({ brevInstance: e.target.value || undefined })} /></Field>
+                  <Field label="Machine types">
                     <input className="mono" value={draft.gpuTypes ?? ''} placeholder="massedcompute_L40S,hyperstack_L40,…" onChange={(e) => set({ gpuTypes: e.target.value || undefined })} />
                   </Field>
-                  <Field label="Auto-stop after (idle minutes)" hint="The machine is destroyed after this long without activity. 0 = never.">
+                  <Field label="Auto-stop (idle minutes)">
                     <input type="number" min={0} value={draft.autoStopMin ?? 20} onChange={(e) => set({ autoStopMin: Number(e.target.value) })} />
                   </Field>
-                  <Field label="GPU price ($/hour)" hint="For the cost meter. You pay GPU time, not tokens."><input type="number" step="0.01" value={draft.gpuHourly ?? ''} onChange={(e) => set({ gpuHourly: e.target.value ? Number(e.target.value) : undefined })} /></Field>
+                  <Field label="Price ($/hour)"><input type="number" step="0.01" value={draft.gpuHourly ?? ''} onChange={(e) => set({ gpuHourly: e.target.value ? Number(e.target.value) : undefined })} /></Field>
                 </details>
               )}
             </>
@@ -129,8 +125,8 @@ function Models() {
           <div className="form-actions">
             {draft.kind !== 'mock' && <button className="btn ghost" onClick={remove}>Remove</button>}
             <span className="spacer" />
-            {draft.kind !== 'mock' && <button className="btn ghost" onClick={runTest}>Test connection</button>}
-            {draft.kind !== 'mock' && <button className="btn ghost" onClick={() => commit()}>Save</button>}
+            {draft.kind !== 'mock' && <button className="btn ghost" onClick={runTest}>Test</button>}
+            {draft.kind !== 'mock' && settings.activeProvider !== draft.id && <button className="btn ghost" onClick={() => commit()}>Save</button>}
             <button className="btn primary" onClick={() => commit(true)}>{settings.activeProvider === draft.id ? 'Save' : 'Use this model'}</button>
           </div>
         </div>
@@ -173,52 +169,39 @@ function Usage() {
   );
 }
 
+// One row per setting: a short name and a segmented choice. No descriptions unless a choice costs something.
+function Seg<T extends string>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
+  return <div className="seg">{options.map(([v, label]) => <button key={v} className={value === v ? 'on' : ''} onClick={() => onChange(v)}>{label}</button>)}</div>;
+}
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return <div className="set-row"><span className="set-label">{label}{hint && <span className="field-hint">{hint}</span>}</span>{children}</div>;
+}
+
 function Learning() {
   const { settings, save } = useApp();
   if (!settings) return null;
   const l = settings.learn;
-  const opt = <K extends keyof typeof l>(key: K, values: [typeof l[K], string, string][]) => values.map(([v, title, sub]) => (
-    <label key={String(v)} className={`choice ${l[key] === v ? 'on' : ''}`}>
-      <input type="radio" checked={l[key] === v} onChange={() => save({ learn: { ...l, [key]: v } })} />
-      <span><b>{title}</b><span className="muted">{sub}</span></span>
-    </label>
-  ));
+  const setL = (patch: Partial<typeof l>) => save({ learn: { ...l, ...patch } });
   return (
-    <div>
-      <p className="muted">Learn mode, inspired by VibeWise: you own the design, the agent teaches and implements what you agree on.</p>
-      <div className="label">Your level</div>
-      {opt('level', [['beginner', 'Beginner', 'More grounding: terms are defined the first time they appear.'], ['intermediate', 'Intermediate', 'Focus on how the parts interact.'], ['advanced', 'Advanced', 'Probe assumptions, failure modes and trust boundaries.']])}
-      <div className="label">Checkpoints</div>
-      {opt('frequency', [['light', 'Light', 'Only major decisions.'], ['normal', 'Normal', 'Meaningful decisions.'], ['frequent', 'Frequent', 'Smaller steps too.']])}
-      <div className="label">Language</div>
-      {opt('language', [['en', 'English', 'Explanations in English.'], ['fr', 'Français', 'Les explications en français (le code reste en anglais).']])}
-      <div className="label">AI step labels & file summaries</div>
-      {(['auto', 'on', 'off'] as const).map((v) => (
-        <label key={v} className={`choice ${(settings.insights ?? 'auto') === v ? 'on' : ''}`}>
-          <input type="radio" checked={(settings.insights ?? 'auto') === v} onChange={() => save({ insights: v })} />
-          <span><b>{{ auto: 'Auto', on: 'Always', off: 'Off' }[v]}</b><span className="muted">{{
-            auto: 'On for free models (your own GPU, Ollama, the demo), off for per-token APIs.',
-            on: 'Also on paid APIs: every step costs a small extra call.', off: 'Plain rule-based labels only.' }[v]}</span></span>
-        </label>
-      ))}
+    <div className="set-rows">
+      <Row label="Level"><Seg value={l.level} onChange={(v) => setL({ level: v })} options={[['beginner', 'Beginner'], ['intermediate', 'Intermediate'], ['advanced', 'Advanced']]} /></Row>
+      <Row label="Checkpoints"><Seg value={l.frequency} onChange={(v) => setL({ frequency: v })} options={[['light', 'Few'], ['normal', 'Normal'], ['frequent', 'Many']]} /></Row>
+      <Row label="Language"><Seg value={l.language} onChange={(v) => setL({ language: v })} options={[['en', 'English'], ['fr', 'Français']]} /></Row>
+      <Row label="Step labels" hint={(settings.insights ?? 'auto') === 'on' ? 'One small extra call per step on paid APIs.' : undefined}>
+        <Seg value={settings.insights ?? 'auto'} onChange={(v) => save({ insights: v })} options={[['auto', 'Auto'], ['on', 'Always'], ['off', 'Off']]} />
+      </Row>
     </div>
   );
 }
 
 function Appearance() {
   const [pref, setPref] = useTheme();
-  const opts: [ThemePref, string, string][] = [['dark', 'Dark', 'Near-black, easy on the eyes at night.'], ['light', 'Light', 'Paper-white, for bright rooms and projectors.'], ['system', 'System', 'Follows your computer.']];
+  const opts: [ThemePref, string][] = [['dark', 'Dark'], ['light', 'Light'], ['system', 'System']];
   return (
-    <div>
-      <div className="label">Theme</div>
-      <div className="theme-pick">
-        {opts.map(([v, name, hint]) => (
-          <button key={v} className={pref === v ? 'on' : ''} onClick={() => setPref(v)}>
-            <span className={`theme-swatch ${v}`} /><b>{name}</b><span className="muted">{hint}</span>
-          </button>
-        ))}
-      </div>
-      <p className="hint">Saved in this browser.</p>
+    <div className="theme-pick">
+      {opts.map(([v, name]) => (
+        <button key={v} className={pref === v ? 'on' : ''} onClick={() => setPref(v)}><span className={`theme-swatch ${v}`} />{name}</button>
+      ))}
     </div>
   );
 }
@@ -227,32 +210,23 @@ function Safety() {
   const { settings, save } = useApp();
   if (!settings) return null;
   return (
-    <div>
-      <div className="label">Shell commands</div>
-      {(['always', 'safe'] as const).map((v) => (
-        <label key={v} className={`choice ${settings.approval === v ? 'on' : ''}`}>
-          <input type="radio" checked={settings.approval === v} onChange={() => save({ approval: v })} />
-          <span><b>{v === 'always' ? 'Always ask' : 'Auto-approve read-only commands'}</b>
-            <span className="muted">{v === 'always' ? 'Every command waits for you.' : 'ls, cat, grep, git status/diff/log… run without asking. Anything else, or anything with pipes or redirects, still asks.'}</span></span>
-        </label>
-      ))}
-      <div className="label">Step limit</div>
-      <Field label="Max tool calls per task" hint="A runaway agent stops here.">
-        <input type="number" min={5} max={200} value={settings.maxSteps} onChange={(e) => save({ maxSteps: Number(e.target.value) || 30 })} />
-      </Field>
-      <p className="hint">File tools can never leave the thread's folder.</p>
+    <div className="set-rows">
+      <Row label="Shell commands" hint={settings.approval === 'safe' ? 'ls, cat, grep, git status… run without asking.' : undefined}>
+        <Seg value={settings.approval} onChange={(v) => save({ approval: v })} options={[['always', 'Always ask'], ['safe', 'Skip read-only']]} />
+      </Row>
+      <Row label="Step limit">
+        <input className="num" type="number" min={5} max={200} value={settings.maxSteps} onChange={(e) => save({ maxSteps: Number(e.target.value) || 30 })} />
+      </Row>
     </div>
   );
 }
 
 function About({ onTour }: { onTour?: () => void }) {
-  const { me } = useApp();
   return (
     <div className="about">
-      <p><b>agent-stage</b>: a visual, open-source coding agent. Watch it work, stop it, steer it, and run it on the model you choose, including your own GPU.</p>
-      <p className="muted">Data folder: <span className="mono">~/.agent-stage</span> · Sandbox: <span className="mono">{me?.sandbox}</span></p>
-      <p className="muted">MIT licensed. Learn mode is adapted from VibeWise by nykooi1 (MIT).</p>
-      {onTour && <button className="btn ghost" onClick={onTour}>Take the tour again (?)</button>}
+      <p><b>agent-stage</b>: watch a coding agent work, on a map.</p>
+      <p className="muted">Data in <span className="mono">~/.agent-stage</span>. MIT licence; Learn mode adapted from VibeWise (MIT).</p>
+      {onTour && <button className="btn ghost" onClick={onTour}>Replay the tour</button>}
     </div>
   );
 }
