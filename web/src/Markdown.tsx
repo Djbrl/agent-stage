@@ -19,7 +19,7 @@ function inline(text: string, key = 0): ReactNode[] {
   return out;
 }
 
-const CALLOUT = /^✦\s*(Build checkpoint|Design checkpoint|Implementation checkpoint|Implementation report|System check|Concept|Why this matters)\s*:?\s*(.*)$/i;
+const CALLOUT = /^✦\s*(Build checkpoint|Design checkpoint|Implementation checkpoint|Implementation report|System check|Concept|Why this matters|What you learned)\s*:?\s*(.*)$/i;
 
 // Learn-mode callouts ("✦ Concept: closures" + the paragraphs until the next callout) get their own card.
 export function Markdown({ text }: { text: string }) {

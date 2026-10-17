@@ -752,3 +752,5 @@ input[type=radio], input[type=checkbox] { accent-color: var(--accent); }
   .modal, .modal.wide { width: calc(100vw - 16px) !important; max-width: none; }
   .theme-pick { grid-template-columns: 1fr; }
 }
+.callout.what-you-learned { background: color-mix(in srgb, var(--write) 8%, transparent); }
+.callout.what-you-learned .callout-head { color: var(--write-ink); }
