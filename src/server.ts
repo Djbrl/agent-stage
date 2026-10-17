@@ -342,15 +342,33 @@ app.post(`${T}/explain`, withThread(async (l, { path, before, after }) => {
   catch (e: any) { return { error: e.message }; }
 }));
 // Ask opens a temporary, read-only side thread that starts from the work thread's context.
+// Ask gets a short brief of the main thread, not a copy of all of it: a side question then costs a few thousand
+// tokens instead of the whole conversation (which can be 50k+ late in a task). The side agent reads files itself.
+async function briefOf(l: Live) {
+  const ev = l.thread.events as any[];
+  const tasks = ev.filter((e) => e.type === 'user').slice(-3).map((e) => `- ${String(e.text).slice(0, 300)}`);
+  const labels = new Map(ev.filter((e) => e.type === 'label').map((e) => [e.stepId, e.label]));
+  const starts = new Map(ev.filter((e) => e.type === 'tool_start').map((e) => [e.id, e]));
+  const steps = ev.filter((e) => e.type === 'tool_end').slice(-15).map((e) => {
+    const s = starts.get(e.id), what = labels.get(e.id) ?? `${e.name} ${s?.args?.path ?? s?.args?.command ?? ''}`.trim();
+    return `- ${what}${e.ok ? '' : ' (failed)'}`;
+  });
+  const said = [...ev].reverse().find((e) => e.type === 'done' || e.type === 'thinking')?.text ?? '';
+  const files = (await listFiles(l.thread.folder)).slice(0, 80);
+  return [`Context from the main thread: a short brief, not the whole conversation. Read files when you need details.`,
+    `Files in the project: ${files.join(', ') || '(none)'}`,
+    tasks.length ? `Recent requests:\n${tasks.join('\n')}` : '',
+    steps.length ? `What the agent did most recently:\n${steps.join('\n')}` : '',
+    said ? `The agent's latest message:\n${String(said).slice(0, 1200)}` : '',
+  ].filter(Boolean).join('\n\n');
+}
 app.post(`${T}/ask-thread`, withThread(async (l, { question }) => {
   const t = await newThread(l.thread.folder, 'ask', l.thread.id, true);
   t.engine = l.thread.engine; t.providerId = l.thread.providerId; await saveThread(t);
   t.title = String(question).slice(0, 60);
   const side = await open(t.id);
   if (!side) return { error: 'could not open side thread' };
-  if (side.agent instanceof ClaudeCodeAgent && l.agent instanceof ClaudeCodeAgent) {
-    side.agent.sessionId = l.agent.sessionId; side.agent.fork = true;
-  } else if (side.agent instanceof Agent) side.agent.messages = [side.agent.messages[0], ...l.agent.snapshot()];
+  side.agent.notes.push(await briefOf(l));
   void side.agent.run(String(question), 12).finally(() => side.emit({ type: 'idle' }));
   return { id: t.id };
 }));

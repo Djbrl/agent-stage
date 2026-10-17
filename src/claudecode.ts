@@ -57,7 +57,6 @@ export class ClaudeCodeAgent {
   get root() { return this.ctx.root; }
   setConfig(cfg: ModelConfig) { this.cfg = cfg; }
   setOptions(o: Partial<AgentOptions>) { this.opts = { ...this.opts, ...o }; }
-  snapshot(): Message[] { return []; }
   interject(text: string) { this.inbox?.push(text); this.emit({ type: 'user', text }); }
   notes: string[] = []; // see Agent.notes
   private stopping = false;

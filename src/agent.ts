@@ -74,17 +74,6 @@ export class Agent {
   // Things the model must know before its next task (e.g. the user undid its work). Not shown in the chat.
   notes: string[] = [];
 
-  // Conversation so far, safe to continue elsewhere (unfinished tool calls get a placeholder result).
-  snapshot(): Message[] {
-    const context = this.messages.slice(1);
-    const last = context.at(-1);
-    if (last?.role === 'assistant' && last.tool_calls?.length) {
-      const answered = new Set(context.filter((m) => m.role === 'tool').map((m) => m.tool_call_id));
-      for (const c of last.tool_calls) if (!answered.has(c.id)) context.push({ role: 'tool', tool_call_id: c.id, content: '(still running)' });
-    }
-    return context;
-  }
-
   // Ask: a side question answered right away from the current context. No tools, nothing changes on disk,
   // and the main run keeps going untouched.
   async ask(text: string) {
