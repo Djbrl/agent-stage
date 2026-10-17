@@ -95,7 +95,7 @@ export class ClaudeCodeAgent {
       return 'Learner confirmed this design. You still need an implementation checkpoint before writing code.';
     }
     if (a.choice === 'skip') return `Learner declined this step: don't implement it and don't write any files for it. Briefly acknowledge, then ask what they'd like to do instead (or end your turn).`;
-    return `Learner wants to discuss before deciding${a.text ? `: "${a.text}"` : ''}. Answer them, then end your turn or offer the checkpoint again.`;
+    return `Learner wants to discuss before deciding${a.text ? `: "${a.text}"` : ''}. Answer them in your reply text, in plain words (they only see what you write, not your thinking). Then end your turn, or offer the checkpoint again after the answer.`;
   }
 
   async run(task: string, maxSteps = 30) {
@@ -136,14 +136,9 @@ export class ClaudeCodeAgent {
       ...(asking ? { disallowedTools: [...WRITES, 'Bash'] } : {}),
       mcpServers: { agentstage: server },
       ...(this.sessionId ? { resume: this.sessionId, forkSession: this.fork } : {}),
-      // Edits run freely (like our own engine); shell commands go through the approval card.
-      canUseTool: async (name: string, input: Record<string, unknown>) => {
-        if (name === 'Bash') {
-          const ok = await this.ctx.approve(String(input.command ?? ''));
-          return ok ? { behavior: 'allow', updatedInput: input } : { behavior: 'deny', message: 'The user denied this command.' };
-        }
-        return { behavior: 'allow', updatedInput: input };
-      },
+      // Edits run freely (like our own engine). Shell commands are approved in the PreToolUse hook below, not here:
+      // the SDK skips canUseTool for commands it considers read-only, which would bypass the approval card.
+      canUseTool: async (_name: string, input: Record<string, unknown>) => ({ behavior: 'allow', updatedInput: input }),
       hooks: {
         // Learn mode lock, enforced by the engine: no edits or commands before an approved Implementation checkpoint.
         PreToolUse: [{ hooks: [async (input: any) => {
@@ -151,6 +146,9 @@ export class ClaudeCodeAgent {
           if (learning && (WRITES.has(n) || n === 'Bash') && !this.unlocked) {
             return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny',
               permissionDecisionReason: `Locked by agent-stage: call ${CHECKPOINT} with kind "implementation" and get the learner's confirmation first.` } };
+          }
+          if (n === 'Bash' && !(await this.ctx.approve(String(input.tool_input?.command ?? '')))) {
+            return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'The user denied this command.' } };
           }
           if (WRITES.has(n)) {
             const p = String(input.tool_input?.file_path ?? input.tool_input?.notebook_path ?? '');

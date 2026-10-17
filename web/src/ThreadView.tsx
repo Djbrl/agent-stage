@@ -92,7 +92,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
   const pickStep = (stepId: string) => { setSelected(stepId); setTab('steps'); setPanelOpen(true); };
   if (layout === 'studio') {
     const agentPanel = (
-      <AgentPanel visible={tab === 'chat'} state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
+      <AgentPanel visible={tab === 'chat'} threadProvider={meta.providerId} state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
         status={<HealthDot health={health} serverDown={serverDown} onRecheck={recheck} gpu={gpuCtl} bare />}
         engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
         problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
@@ -145,7 +145,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
     <HighlightContext.Provider value={{ paths: lit, set: (p) => setLit(p ?? []), known }}>
     <div className={`thread ${showStage ? 'split' : 'solo'}`} style={showStage ? { gridTemplateColumns: `${chatW}px 0 minmax(0, 1fr)` } : undefined}>
       <div className="chat-col">
-        <AgentPanel state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
+        <AgentPanel threadProvider={meta.providerId} state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
           status={<HealthDot health={health} serverDown={serverDown} onRecheck={recheck} gpu={gpuCtl} bare />}
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}

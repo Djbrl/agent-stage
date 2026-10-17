@@ -10,7 +10,7 @@ export type AgentEvent =
   | { type: 'thinking'; text: string }
   | { type: 'tool_start'; id: string; name: string; args: any }
   | { type: 'tool_end'; id: string; name: string; ok: boolean; output: string }
-  | { type: 'approval'; id: string; command: string }
+  | { type: 'approval'; id: string; command: string; check?: boolean }
   | { type: 'approval_answer'; id: string; ok: boolean }
   | ({ type: 'checkpoint'; id: string } & Checkpoint)
   | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss' | 'skip'; text?: string }
@@ -117,7 +117,7 @@ export class Agent {
       return 'Learner confirmed this design. Record it and continue planning; you still need an implementation checkpoint before writing code.';
     }
     if (answer.choice === 'skip') return `Learner declined this step: don't implement it and don't write any files for it. Briefly acknowledge, then ask what they'd like to do instead (or end your turn).`;
-    return `Learner wants to discuss before deciding${answer.text ? `: "${answer.text}"` : ''}. Answer them, then end your turn or offer the checkpoint again.`;
+    return `Learner wants to discuss before deciding${answer.text ? `: "${answer.text}"` : ''}. Answer them in your reply text, in plain words (they only see what you write, not your thinking). Then end your turn, or offer the checkpoint again after the answer.`;
   }
 
   // Context budget: when the conversation gets long, older tool outputs are replaced by a short stub (the model

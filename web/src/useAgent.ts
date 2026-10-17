@@ -6,7 +6,7 @@ export type AgentEvent = Base & (
   | { type: 'thinking'; text: string }
   | { type: 'tool_start'; id: string; name: string; args: any }
   | { type: 'tool_end'; id: string; name: string; ok: boolean; output: string }
-  | { type: 'approval'; id: string; command: string }
+  | { type: 'approval'; id: string; command: string; check?: boolean }
   | { type: 'approval_answer'; id: string; ok: boolean }
   | { type: 'file_change'; path: string; before: string; after: string }
   | { type: 'checkpoint'; id: string; kind: 'design' | 'implementation'; title: string; summary: string; additions?: { detail: string; proposal: string; why: string }[]; files?: string[] }
@@ -47,7 +47,7 @@ export type State = {
   trail: string[];
   steps: Step[];
   timeline: Entry[];
-  approval: { id: string; command: string } | null;
+  approval: { id: string; command: string; check?: boolean } | null;
   planned: string[]; // files named by an open checkpoint (highlighted on the map)
   running: boolean;
   startedAt: number | null;
@@ -126,7 +126,7 @@ function reduce(s: State, a: Action): State {
       return { ...s, steps, files };
     }
     case 'approval':
-      return { ...s, marker: '$terminal', approval: { id: e.id, command: e.command } };
+      return { ...s, marker: '$terminal', approval: { id: e.id, command: e.command, check: e.check } };
     case 'approval_answer':
       return s.approval?.id === e.id ? { ...s, approval: null } : s;
     case 'verify': {

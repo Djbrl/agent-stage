@@ -105,7 +105,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
 
       {state.approval && (
         <div className="approval">
-          <div className="approval-head"><Icon name="shield" /> {state.approval.command.startsWith('browse ') ? 'The agent wants to visit a website' : state.approval.command.startsWith('open ') ? 'The agent wants to open something on your computer' : 'The agent wants to run a command'}</div>
+          <div className="approval-head"><Icon name="shield" /> {state.approval.check ? 'agent-stage wants to check the work by running its tests' : state.approval.command.startsWith('browse ') ? 'The agent wants to visit a website' : state.approval.command.startsWith('open ') ? 'The agent wants to open something on your computer' : 'The agent wants to run a command'}</div>
           <code>$ {state.approval.command}</code>
           <div className="approval-actions">
             <button className="btn ghost" onClick={() => approve(state.approval!.id, false)}>Deny</button>

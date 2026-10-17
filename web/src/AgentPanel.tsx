@@ -14,7 +14,8 @@ import { engineOf, ENGINE_LABEL, type Engine } from './api';
 function summarize(steps: Step[]) {
   const c = (n: string[]) => steps.filter((s) => n.includes(s.name)).length;
   const parts: string[] = [];
-  const read = c(['read_file', 'list_files', 'search']), wrote = c(['write_file', 'edit_file']), ran = c(['run_command']);
+  const read = c(['read_file', 'list_files', 'search']), ran = c(['run_command']);
+  const wrote = new Set(steps.filter((s) => s.name === 'write_file' || s.name === 'edit_file').map((s) => s.target)).size; // files, not edits
   const web = steps.filter((s) => s.name.startsWith('browser_')).length;
   if (wrote) parts.push(`changed ${wrote} file${wrote > 1 ? 's' : ''}`);
   if (web) parts.push(`used the browser`);
@@ -24,12 +25,13 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ visible = true, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, git }: {
+export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, git }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
   side?: { onKeep: () => void; onClose: () => void; kept: boolean };
   replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean; status?: ReactNode;
+  threadProvider?: string; // the model this thread last ran on (shown when the selected model is another engine's)
   visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
   onUndo?: (ref: string) => void; git?: { repo: boolean; onInit: () => void } | null;
 }) {
@@ -135,12 +137,12 @@ export function AgentPanel({ visible = true, state, title, mode, onMode, onCheck
               <button key={i} className={`work ${live ? 'live' : ''} ${bad ? 'bad' : ''}`} onClick={() => lastStep && onSelect(lastStep.id)} title="Show these steps on the stage"
                 onMouseEnter={() => hl.set(steps.map((s) => s.target).filter((t) => !t.startsWith('$')))} onMouseLeave={() => hl.set(null)}>
                 <span className="work-icon">{live ? <span className="spin" /> : bad ? <Icon name="x" size={11} /> : <Icon name="check" size={11} />}</span>
-                <span className="work-text">{live && lastStep ? stepText(lastStep) : summarize(steps)}</span>
+                <span className="work-text">{live && lastStep ? (state.approval && lastStep.name === 'run_command' ? `Waiting for your OK to run ${lastStep.args?.command ?? 'a command'}` : stepText(lastStep)) : summarize(steps)}</span>
                 <span className="work-count">{steps.length} step{steps.length > 1 ? 's' : ''}</span>
               </button>
             );
           })}
-          {state.running && !replaying && !state.timeline.some((t) => t.kind === 'checkpoint' && !t.answer) && state.steps.at(-1)?.ok !== undefined && (
+          {state.running && !replaying && !state.approval && !state.timeline.some((t) => t.kind === 'checkpoint' && !t.answer) && state.steps.at(-1)?.ok !== undefined && (
             <div className="work live ghost"><span className="work-icon"><span className="spin" /></span><span className="work-text">Thinking…</span></div>
           )}
           <div ref={end} />
@@ -176,7 +178,7 @@ export function AgentPanel({ visible = true, state, title, mode, onMode, onCheck
           )}
           {status}
           {!side && <TokenMeter tokens={state.tokens} />}
-          <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} />
+          <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} />
           <span className="spacer" />
           {voiceSupported && (
             <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle}
@@ -229,18 +231,20 @@ function TokenMeter({ tokens }: { tokens: State['tokens'] }) {
   const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
   return (
     <span className="token-meter" title={`The model reads about ${tokens.context.toLocaleString()} tokens on each step now (the conversation so far). This thread has used ${tokens.total.toLocaleString()} tokens in total${tokens.cost ? `, about $${tokens.cost.toFixed(2)}` : ''}.`}>
-      {k(tokens.context)} <span className="muted">· {k(tokens.total)} used</span>
+      {k(tokens.context)}<span className="muted"> / {k(tokens.total)}</span>
     </span>
   );
 }
 
 // The model chip: "engine · model". Grouped by engine; once a thread has history only its own engine's models
 // are switchable (each engine keeps its own memory of the conversation).
-function ModelPicker({ disabled, onOpenSettings, lockedTo }: { disabled: boolean; onOpenSettings: () => void; lockedTo?: Engine }) {
+function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { disabled: boolean; onOpenSettings: () => void; lockedTo?: Engine; threadProvider?: string }) {
   const { settings, save, me } = useApp();
   const [open, setOpen] = useState(false);
   if (!settings) return null;
-  const active = settings.providers.find((p) => p.id === settings.activeProvider);
+  const selected = settings.providers.find((p) => p.id === settings.activeProvider);
+  // A thread locked to the other engine keeps running on its own model, so that's the one to show.
+  const active = lockedTo && selected && engineOf(selected) !== lockedTo ? settings.providers.find((p) => p.id === threadProvider) ?? selected : selected;
   const groups: Engine[] = ['native', 'claude-code'];
   return (
     <div className="picker">
@@ -285,7 +289,7 @@ function VerifyLine({ e }: { e: Extract<Entry, { kind: 'verify' }> }) {
     fail: `Check failed: ${cmd}. Sent back to the agent`,
     nudge: 'Asked the agent to test its work before finishing',
     declined: 'Check skipped',
-    unavailable: `Couldn't check the work: ${cmd} isn't installed here`,
+    unavailable: `Couldn't check the work: the tool behind ${cmd} isn't installed here`,
   }[e.state];
   return (
     <div className={`verify ${e.state}`}>

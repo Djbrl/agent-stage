@@ -52,7 +52,7 @@ export async function doneCheck(ctx: ToolContext, emit: Emit, run: RunState, app
   }
   if (run.checks >= MAX_CHECKS) return null;
   if (!approved.has(command)) {
-    if (!(await ctx.approve(command))) { emit({ type: 'verify', id, state: 'declined', command }); return null; }
+    if (!(await ctx.approve(command, 'check'))) { emit({ type: 'verify', id, state: 'declined', command }); return null; }
     approved.add(command); // once per thread: retries shouldn't ask again
   }
   emit({ type: 'verify', id, state: 'running', command });

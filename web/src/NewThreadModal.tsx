@@ -52,7 +52,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
               return (
                 <button key={e} className={engine === e ? 'on' : ''} disabled={off} onClick={() => e !== 'codex' && setEngine(e)} title={st?.reason}>
                   <b>{ENGINE_LABEL[e]}</b>
-                  <span className="muted">{e === 'native' ? 'Open models: your GPU, Ollama, NVIDIA…' : e === 'claude-code' ? (off ? st?.reason : 'Anthropic’s agent, with your API key') : 'Coming soon'}</span>
+                  <span className="muted">{e === 'native' ? 'Our own agent loop: your GPU, Claude API, Ollama, NVIDIA…' : e === 'claude-code' ? (off ? st?.reason : 'Anthropic’s agent, with your API key') : 'Coming soon'}</span>
                 </button>
               );
             })}

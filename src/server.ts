@@ -134,12 +134,12 @@ async function load(id: string): Promise<Live | null> {
   const Engine = thread.engine === 'claude-code' ? ClaudeCodeAgent : Agent;
   l.agent = new Engine(toConfig(provider(thread.providerId)), {
     root: thread.folder,
-    approve: (command) => {
+    approve: (command, kind) => {
       if (settings.approval === 'safe' && isSafe(command)) return Promise.resolve(true);
       return new Promise((ok) => {
         const aid = crypto.randomUUID();
         l.approvals.set(aid, ok);
-        emit({ type: 'approval', id: aid, command });
+        emit({ type: 'approval', id: aid, command, ...(kind === 'check' ? { check: true } : {}) });
       });
     },
   }, emit, {

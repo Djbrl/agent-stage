@@ -6,7 +6,7 @@ import { browserSchemas, BROWSER_TOOLS, runBrowserTool } from './browser.ts';
 
 export type ToolContext = {
   root: string;
-  approve: (command: string) => Promise<boolean>; // UI hook: human approves shell commands
+  approve: (command: string, kind?: 'check') => Promise<boolean>; // UI hook: human approves shell commands ('check': agent-stage's own done-check)
   onChange?: (path: string, before: string, after: string) => void; // feeds the diff view
 };
 
