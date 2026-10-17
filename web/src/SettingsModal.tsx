@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { get, send, fmtTokens, engineOf, ENGINE_LABEL, type Provider, type Engine } from './api';
 import { useApp } from './useSettings';
 import { Icon } from './icons';
+import { useTheme, type ThemePref } from './theme';
 
-type Tab = 'models' | 'learning' | 'usage' | 'safety' | 'about';
+type Tab = 'models' | 'learning' | 'appearance' | 'usage' | 'safety' | 'about';
 const KIND_LABEL = { mock: 'Scripted demo', openai: 'OpenAI-compatible', anthropic: 'Anthropic API (our agent loop)', 'claude-code': 'Claude Code engine' };
 
 export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onClose: () => void; onTour?: () => void; initialTab?: Tab }) {
@@ -15,13 +16,14 @@ export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onCl
         <div className="modal-head"><span>Settings</span><button className="icon-btn" onClick={onClose}><Icon name="x" size={13} /></button></div>
         <div className="settings">
           <div className="settings-nav">
-            {(['models', 'learning', 'usage', 'safety', 'about'] as Tab[]).map((t) => (
-              <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ models: 'Engines & models', learning: 'Learning', usage: 'Usage & spend', safety: 'Safety', about: 'About' }[t]}</button>
+            {(['models', 'learning', 'appearance', 'usage', 'safety', 'about'] as Tab[]).map((t) => (
+              <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ models: 'Engines & models', learning: 'Learning', appearance: 'Appearance', usage: 'Usage & spend', safety: 'Safety', about: 'About' }[t]}</button>
             ))}
           </div>
           <div className="settings-body">
             {tab === 'models' && <Models />}
             {tab === 'learning' && <Learning />}
+            {tab === 'appearance' && <Appearance />}
             {tab === 'usage' && <Usage />}
             {tab === 'safety' && <Safety />}
             {tab === 'about' && <About onTour={onTour} />}
@@ -197,6 +199,24 @@ function Learning() {
             on: 'Also on paid APIs: every step costs a small extra call.', off: 'Plain rule-based labels only.' }[v]}</span></span>
         </label>
       ))}
+    </div>
+  );
+}
+
+function Appearance() {
+  const [pref, setPref] = useTheme();
+  const opts: [ThemePref, string, string][] = [['dark', 'Dark', 'Indigo, easy on the eyes at night.'], ['light', 'Light', 'Paper-white, for bright rooms and projectors.'], ['system', 'System', 'Follows your computer.']];
+  return (
+    <div>
+      <div className="label">Theme</div>
+      <div className="theme-pick">
+        {opts.map(([v, name, hint]) => (
+          <button key={v} className={pref === v ? 'on' : ''} onClick={() => setPref(v)}>
+            <span className={`theme-swatch ${v}`} /><b>{name}</b><span className="muted">{hint}</span>
+          </button>
+        ))}
+      </div>
+      <p className="hint">Saved in this browser.</p>
     </div>
   );
 }

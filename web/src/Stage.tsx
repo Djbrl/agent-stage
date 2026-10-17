@@ -1,7 +1,7 @@
 // The stage: the map is the main thing. A few quiet floating controls, the agent's current action as a caption,
 // details in a sheet only when asked, and the approval prompt when the agent needs you.
 import { useEffect, useRef, useState } from 'react';
-import { ProjectMap, type MapApi } from './MapCanvas';
+import { ProjectMap, mapPalette, type MapApi } from './MapCanvas';
 import { StepsSheet, stepText, shotOf, pageOf } from './StepsSheet';
 import type { Replay, State } from './useAgent';
 import { Icon } from './icons';
@@ -75,14 +75,14 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
         </div>
       </div>
 
-      {legend && (
+      {legend && (() => { const pal = mapPalette(); return (
         <div className="legend-pop" onClick={() => setLegend(false)}>
-          <div><i style={{ background: '#ff5b1f' }} />just edited</div><div><i style={{ background: '#ffa66e' }} />edited earlier</div>
-          <div><i style={{ background: '#6b8fc4' }} />read</div><div><i style={{ background: '#f2555a' }} />failed</div>
-          <div><i style={{ background: '#4b515c' }} />untouched</div><div><i style={{ background: '#7b8cff' }} />the agent</div>
+          <div><i style={{ background: pal.hot }} />just edited</div><div><i style={{ background: pal.warm }} />edited earlier</div>
+          <div><i style={{ background: pal.read }} />read</div><div><i style={{ background: pal.red }} />failed</div>
+          <div><i style={{ background: `rgba(${pal.line},${pal.fileFill * 2})`, boxShadow: `inset 0 0 0 1px rgba(${pal.line},${pal.fileStroke})` }} />untouched</div><div><i style={{ background: pal.accent }} />the agent</div>
           <p className="muted">Scroll to zoom, drag to pan. The camera follows the agent until you move it. F follows again.</p>
         </div>
-      )}
+      ); })()}
 
       {browserShot && (
         <button className="browser-win" onClick={() => { onSelect(browserShot.id); setSheetOpen(true); }} title="Open this step">

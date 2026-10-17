@@ -2,6 +2,10 @@ import { Component, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './style.css';
+import { apply, getPref } from './theme';
+
+// "System" theme follows the computer even while Settings is closed.
+matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (getPref() === 'system') apply(); });
 
 // A crash while rendering shows what went wrong instead of a black screen.
 class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {

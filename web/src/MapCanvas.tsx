@@ -13,11 +13,33 @@ type Circle = Pt & { r: number };
 type Tree = { name: string; path: string; children?: Tree[]; lines?: number };
 type Cam = { x: number; y: number; k: number };
 
-// Tuning (Rundown's numbers, adjusted for a dark theme).
-const C = {
-  hot: '#ff5b1f', warm: '#ffa66e', cool: '#4b515c', red: '#f2555a', amber: '#f5b84a', accent: '#7b8cff',
-  ink: '#e8e9ec', halo: 'rgba(15,16,17,0.88)', importOut: 'rgba(95,168,255,0.75)', importIn: 'rgba(62,207,142,0.75)',
+// Colours per theme (Rundown's: "prism" for dark, its default for light). The draw loop picks the palette that
+// matches <html data-theme> on every frame, so switching theme needs no reload.
+type Pal = {
+  hot: string; warm: string; red: string; amber: string; accent: string; ink: string; halo: string; importOut: string; importIn: string;
+  read: string; ripple: string; markerRing: string; markerIdle: string; shadow: string;
+  line: string; // rgb of the neutral strokes and fills, used with alpha
+  text: string; // rgb of secondary labels
+  accentRgb: string; readRgb: string;
+  folderFill: number; folderStroke: number; folderLabel: number; hub: number; hubLabel: number; fileFill: number; fileStroke: number; labelMid: number; labelLow: number;
 };
+const PAL: Record<'dark' | 'light', Pal> = {
+  dark: {
+    hot: '#ff6a2b', warm: '#ffd66e', red: '#ff5c8a', amber: '#ffd66e', accent: '#b4a6ff', ink: '#eef0ff', halo: 'rgba(28,28,70,0.85)',
+    importOut: 'rgba(159,208,255,0.8)', importIn: 'rgba(110,231,183,0.8)', read: '#5fd4e6', ripple: '#ffb36b', markerRing: '#1c1c46', markerIdle: '#a4a9d8',
+    shadow: 'rgba(5,5,20,0.55)', line: '160,170,255', text: '195,200,238', accentRgb: '180,166,255', readRgb: '95,212,230',
+    folderFill: 0.035, folderStroke: 0.2, folderLabel: 0.6, hub: 0.35, hubLabel: 0.6, fileFill: 0.16, fileStroke: 0.32, labelMid: 0.85, labelLow: 0.6,
+  },
+  light: {
+    hot: '#ff5b1f', warm: '#ffc46b', red: '#e11d48', amber: '#d98a00', accent: '#2563eb', ink: '#121214', halo: 'rgba(249,249,247,0.92)',
+    importOut: 'rgba(37,99,235,0.7)', importIn: 'rgba(31,157,85,0.7)', read: '#22a6c4', ripple: '#ff8c50', markerRing: '#ffffff', markerIdle: '#9a9aa3',
+    shadow: 'rgba(18,18,20,0.18)', line: '18,18,20', text: '18,18,20', accentRgb: '37,99,235', readRgb: '34,166,196',
+    folderFill: 0.03, folderStroke: 0.1, folderLabel: 0.5, hub: 0.22, hubLabel: 0.5, fileFill: 0.1, fileStroke: 0.16, labelMid: 0.78, labelLow: 0.5,
+  },
+};
+let C: Pal = PAL.dark;
+export const mapPalette = () => PAL[document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'];
+const rgba = (rgb: string, a: number) => `rgba(${rgb},${a})`;
 const GLIDE = 650, RIPPLE = 700, ERROR_MS = 2600, SIGHT = 1500, TWEEN = 650, MOVE = 700;
 const radius = (lines: number) => Math.min(22, 3.5 + Math.sqrt(lines) * 0.55);
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -238,6 +260,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       } else if (tgt && v.marker) v.marker.to = { x: tgt.x, y: tgt.y };
       direct(now);
 
+      C = mapPalette();
       const { k, x, y } = v.cam;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, v.w, v.h);
@@ -247,17 +270,17 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       // folders
       for (const f of lay.folders) {
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-        if (f.depth <= 2) { ctx.fillStyle = 'rgba(255,255,255,0.014)'; ctx.fill(); }
-        ctx.strokeStyle = 'rgba(255,255,255,0.075)'; ctx.lineWidth = px; ctx.stroke();
-        if (f.r * k > 46) label(ctx, f.name.toUpperCase(), f.x, f.y - f.r + 15 * px, px, 9.5, 'rgba(232,233,236,0.32)', 'center', 600);
+        if (f.depth <= 2) { ctx.fillStyle = rgba(C.line, C.folderFill); ctx.fill(); }
+        ctx.strokeStyle = rgba(C.line, C.folderStroke); ctx.lineWidth = px; ctx.stroke();
+        if (f.r * k > 46) label(ctx, f.name.toUpperCase(), f.x, f.y - f.r + 15 * px, px, 9.5, rgba(C.text, C.folderLabel), 'center', 600);
       }
 
       // islands
       for (const [key, is] of Object.entries(lay.islands)) {
         ctx.beginPath(); ctx.arc(is.x, is.y, is.r, 0, Math.PI * 2);
-        ctx.setLineDash([2 * px, 3 * px]); ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = px; ctx.stroke(); ctx.setLineDash([]);
+        ctx.setLineDash([2 * px, 3 * px]); ctx.strokeStyle = rgba(C.line, C.hub); ctx.lineWidth = px; ctx.stroke(); ctx.setLineDash([]);
         const on = v.marker?.target === key;
-        label(ctx, is.label, is.x + is.r + 7 * px, is.y + 3.5 * px, px, 10.5, on ? C.ink : 'rgba(232,233,236,0.3)', 'left', 500);
+        label(ctx, is.label, is.x + is.r + 7 * px, is.y + 3.5 * px, px, 10.5, on ? C.ink : rgba(C.text, C.hubLabel), 'left', 500);
       }
 
       // import lines, only for the hovered/selected file
@@ -282,7 +305,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         const w = i / (trail.length - 1), a = trail[i - 1], b = trail[i];
         const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y;
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx - dy * 0.15, my + dx * 0.15, b.x, b.y);
-        ctx.strokeStyle = `rgba(123,140,255,${0.08 + 0.4 * w})`; ctx.lineWidth = (1.2 + 1.6 * w) * px; ctx.stroke();
+        ctx.strokeStyle = rgba(C.accentRgb, 0.08 + 0.4 * w); ctx.lineWidth = (1.2 + 1.6 * w) * px; ctx.stroke();
       }
 
       // reads: dotted line of sight from the marker, fading over 1.5s (last 4)
@@ -293,7 +316,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
           if (!p) continue;
           const a = 1 - (Date.now() - r.endedAt!) / SIGHT;
           ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(p.x, p.y);
-          ctx.setLineDash([2 * px, 4 * px]); ctx.strokeStyle = `rgba(95,168,255,${0.75 * a})`; ctx.lineWidth = 1.4 * px; ctx.stroke(); ctx.setLineDash([]);
+          ctx.setLineDash([2 * px, 4 * px]); ctx.strokeStyle = rgba(C.readRgb, 0.75 * a); ctx.lineWidth = 1.4 * px; ctx.stroke(); ctx.setLineDash([]);
         }
       }
 
@@ -307,15 +330,15 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         else if (changedAt && status === 'written') { // an Undo sets it back to idle
           const age = Date.now() - changedAt;
           col = age < 300_000 ? mix(C.hot, C.warm, Math.pow(age / 300_000, 1.5)) : C.warm;
-        } else if (status === 'read') col = '#6b8fc4';
+        } else if (status === 'read') col = C.read;
         ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
         if (col) { ctx.fillStyle = col; ctx.fill(); }
-        else { ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = px; ctx.stroke(); }
+        else { ctx.fillStyle = rgba(C.line, C.fileFill); ctx.fill(); ctx.strokeStyle = rgba(C.line, C.fileStroke); ctx.lineWidth = px; ctx.stroke(); }
         if (path === sel || path === v.hover) { ctx.strokeStyle = C.ink; ctx.lineWidth = (path === sel ? 1.6 : 1.1) * px; ctx.stroke(); }
         if (live.current.lit.includes(path)) {
           const t = (now % 1200) / 1200;
           ctx.beginPath(); ctx.arc(c.x, c.y, c.r + (4 + 6 * t) * px, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(232,233,236,${0.9 - 0.6 * t})`; ctx.lineWidth = 2 * px; ctx.stroke();
+          ctx.strokeStyle = rgba(C.text, 0.9 - 0.6 * t); ctx.lineWidth = 2 * px; ctx.stroke();
         }
         if (st.planned.includes(path)) {
           ctx.beginPath(); ctx.arc(c.x, c.y, c.r + 5 * px, 0, Math.PI * 2);
@@ -326,7 +349,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         const rip = v.ripples[path];
         if (rip && now - rip < RIPPLE) {
           const t = (now - rip) / RIPPLE;
-          ring(ctx, c, c.r + (3 + easeOut(t) * 26) * px, '#ff8c50', (1 - t) * 0.75, 2 * px);
+          ring(ctx, c, c.r + (3 + easeOut(t) * 26) * px, C.ripple, (1 - t) * 0.75, 2 * px);
         }
         const active = v.marker?.target === path;
         const pri = path === sel || path === v.hover || live.current.lit.includes(path) ? 4 : active ? 3 : changedAt ? 2 : k > 1.5 && c.r * k > 7 ? 1 : 0;
@@ -352,7 +375,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         const hits = (b: [number, number, number, number]) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1];
         if (taken.some(hits) || (l.pri < 2 && dots.some(hits))) continue;
         taken.push(box);
-        label(ctx, l.text, l.x, l.y, px, 11.5, l.strong ? C.ink : l.pri >= 2 ? 'rgba(232,233,236,0.78)' : 'rgba(232,233,236,0.45)', 'left', l.strong ? 600 : 500);
+        label(ctx, l.text, l.x, l.y, px, 11.5, l.strong ? C.ink : l.pri >= 2 ? rgba(C.text, C.labelMid) : rgba(C.text, C.labelLow), 'left', l.strong ? 600 : 500);
       }
 
       // agent marker + one ring (error > waiting > thinking)
@@ -374,11 +397,11 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
           ring(ctx, m, (11 + b * 9) * px, C.accent, Math.sin(b * Math.PI) * 0.7, 2 * px);
         }
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 1;
+        ctx.shadowColor = C.shadow; ctx.shadowBlur = 6; ctx.shadowOffsetY = 1;
         ctx.beginPath(); ctx.arc(m.x, m.y, (st.running || err || waiting ? 9 : 6) * px, 0, Math.PI * 2);
-        ctx.fillStyle = err ? C.red : st.running ? C.accent : mix(C.accent, '#8a8f98', 0.55); ctx.fill();
+        ctx.fillStyle = err ? C.red : st.running ? C.accent : mix(C.accent, C.markerIdle, 0.55); ctx.fill();
         ctx.restore();
-        ctx.strokeStyle = '#0f1011'; ctx.lineWidth = 2 * px; ctx.stroke();
+        ctx.strokeStyle = C.markerRing; ctx.lineWidth = 2 * px; ctx.stroke();
         const doing: Record<string, string> = { read_file: 'Reading…', write_file: 'Writing…', edit_file: 'Editing…', run_command: 'Running…', search: 'Searching…', list_files: 'Scanning…' };
         const verb = waiting ? 'Waiting for you' : err ? 'Failed' : !st.running ? 'Idle' : busy ? doing[last!.name] ?? 'Working…' : 'Thinking…';
         if (st.running || err || waiting) label(ctx, `Agent · ${verb}`, m.x + 12 * px, m.y - 13 * px, px, 12, err ? C.red : waiting ? C.amber : C.ink, 'left', 600);
@@ -405,23 +428,23 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       reads.forEach((x, i) => { if (x.name === 'read_file') readAt[x.target] = i; });
       for (const f of v.lay.folders) {
         mctx.beginPath(); mctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-        mctx.strokeStyle = 'rgba(255,255,255,0.10)'; mctx.lineWidth = 1 / k; mctx.stroke();
+        mctx.strokeStyle = rgba(C.line, C.folderStroke); mctx.lineWidth = 1 / k; mctx.stroke();
       }
       const lastRead = [...st.steps].reverse().find((x) => x.name === 'read_file')?.target;
       for (const [path, c] of Object.entries(v.pos)) {
         const r = readAt[path];
         mctx.beginPath(); mctx.arc(c.x, c.y, Math.max(c.r, 2.5 / k), 0, Math.PI * 2);
-        mctx.fillStyle = r === undefined ? 'rgba(120,128,140,0.35)' : `rgba(95,168,255,${0.45 + 0.55 * ((r + 1) / reads.length)})`;
+        mctx.fillStyle = r === undefined ? rgba(C.line, 0.3) : rgba(C.readRgb, 0.45 + 0.55 * ((r + 1) / reads.length));
         mctx.fill();
         if (path === lastRead) {
           const t = (now % 1400) / 1400;
           mctx.beginPath(); mctx.arc(c.x, c.y, c.r + (3 + 10 * t) / k, 0, Math.PI * 2);
-          mctx.strokeStyle = `rgba(95,168,255,${0.8 * (1 - t)})`; mctx.lineWidth = 1.5 / k; mctx.stroke();
+          mctx.strokeStyle = rgba(C.readRgb, 0.8 * (1 - t)); mctx.lineWidth = 1.5 / k; mctx.stroke();
         }
       }
       // main camera's view
       const vx = -v.cam.x / v.cam.k, vy = -v.cam.y / v.cam.k;
-      mctx.strokeStyle = 'rgba(232,233,236,0.5)'; mctx.lineWidth = 1 / k;
+      mctx.strokeStyle = rgba(C.text, 0.5); mctx.lineWidth = 1 / k;
       mctx.strokeRect(vx, vy, v.w / v.cam.k, v.h / v.cam.k);
       const wrote = st.steps.filter((x) => x.change).length;
       const el = mc.parentElement?.querySelector('.rm-count');
