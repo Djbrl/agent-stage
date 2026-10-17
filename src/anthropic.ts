@@ -33,6 +33,15 @@ function toAnthropic(messages: Message[]) {
     }
     push('assistant', blocks.length ? blocks : [{ type: 'text', text: '…' }]);
   }
+  // Thinking blocks are signed against the system prompt and tools they were made with. Switching to Learn
+  // changes both, and the API then rejects them ("Invalid signature in thinking block"). Only the turn in
+  // progress needs its thinking back (the tool loop after the last real user message); older turns can drop it.
+  const lastTurn = out.findLastIndex((m) => m.role === 'user' && !m.content.some((b: any) => b.type === 'tool_result'));
+  for (let i = 0; i < lastTurn; i++) {
+    if (out[i].role !== 'assistant') continue;
+    const kept = out[i].content.filter((b: any) => b.type !== 'thinking' && b.type !== 'redacted_thinking');
+    out[i] = { ...out[i], content: kept.length ? kept : [{ type: 'text', text: '…' }] };
+  }
   return { system, messages: out };
 }
 
