@@ -16,10 +16,11 @@ const INVITE = process.env.INVITE ?? ''; // public.sh sets one by default; empty
 const MAX = Number(process.env.MAX_SESSIONS ?? 5);
 const IDLE_MIN = Number(process.env.IDLE_MIN ?? 20);
 const BUDGET = Number(process.env.TOKEN_BUDGET ?? 400_000); // model tokens per sandbox
+const DISK_MB = Number(process.env.DISK_MB ?? 1024); // what a sandbox may write to disk (Docker Desktop can't cap it per container)
 const IMAGE = 'agent-stage-sandbox', NET = 'agst-sandbox', RELAY = 'agst-relay', RELAY_PORT = 8099;
 const SECRET = randomBytes(24).toString('hex');
 
-type Session = { id: string; token: string; lastSeen: number; tokens: number; ready: boolean; startedAt: number; who: { ip: string; country: string; agent: string } };
+type Session = { id: string; token: string; lastSeen: number; tokens: number; ready: boolean; startedAt: number; diskMb?: number; who: { ip: string; country: string; agent: string } };
 const sessions = new Map<string, Session>(); // cookie id → session
 const byToken = new Map<string, Session>();
 
@@ -186,7 +187,7 @@ async function admin(req: IncomingMessage, res: ServerResponse) {
       .then((r) => r.json()).catch(() => []) as { title: string; running: boolean }[];
     const ago = (t: number) => `${Math.round((Date.now() - t) / 60_000)} min`;
     return `<tr><td class="mono">${x.id}</td><td>${esc(x.who.ip)} ${esc(x.who.country)}<div class="dim">${esc(x.who.agent.replace(/^Mozilla\/5.0 /, ''))}</div></td>
-      <td>${ago(x.startedAt)}</td><td>${ago(x.lastSeen)} ago</td><td>${Math.round(x.tokens / 1000)}k / ${Math.round(BUDGET / 1000)}k</td>
+      <td>${ago(x.startedAt)}</td><td>${ago(x.lastSeen)} ago</td><td>${Math.round(x.tokens / 1000)}k / ${Math.round(BUDGET / 1000)}k<div class="dim">disk ${x.diskMb === undefined ? '…' : Math.round(x.diskMb)} / ${DISK_MB} MB</div></td>
       <td>${threads.map((t) => `${t.running ? '● ' : ''}${esc(t.title)}`).join('<br>') || '<span class="dim">no threads yet</span>'}</td>
       <td><a href="/__admin/open?id=${x.id}">Look inside</a> · <a href="/__admin/stop?id=${x.id}" onclick="return confirm('Delete this sandbox?')">Stop</a></td></tr>`;
   }));
@@ -224,6 +225,20 @@ ${message ? `<p class="msg">${message.replace(/</g, '&lt;')}</p>` : ''}
 
 // Idle sandboxes go away; everything goes away when the manager stops.
 setInterval(() => { for (const s of sessions.values()) if (Date.now() - s.lastSeen > IDLE_MIN * 60_000) void stopSession(s); }, 60_000);
+
+// Disk watchdog: a sandbox that writes more than DISK_MB (its container layer; /tmp is already a capped tmpfs) is deleted.
+const toMb = (size: string) => { const m = size.match(/^([\d.]+)\s*([kMGT]?B)/); return m ? Number(m[1]) * ({ B: 1e-6, kB: 1e-3, MB: 1, GB: 1e3, TB: 1e6 } as any)[m[2]] : 0; };
+setInterval(async () => {
+  if (!sessions.size) return;
+  const out = await docker(['ps', '-s', '--filter', 'name=^sess-', '--format', '{{.Names}}\t{{.Size}}']).catch(() => '');
+  for (const line of out.split('\n').filter(Boolean)) {
+    const [name, size = ''] = line.split('\t');
+    const s = sessions.get(name.replace(/^sess-/, ''));
+    if (!s) continue;
+    s.diskMb = toMb(size);
+    if (s.diskMb > DISK_MB) { console.log(`- sandbox ${s.id} wrote ${Math.round(s.diskMb)} MB (limit ${DISK_MB}): deleted`); void stopSession(s); }
+  }
+}, 30_000);
 // Leave nothing behind: on Ctrl-C, on kill, and on a crash.
 let quitting = false;
 async function shutdown(code = 0) {

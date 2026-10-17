@@ -1,7 +1,7 @@
 #!/bin/sh
 # Put the live demo online from this computer: builds the sandbox image, starts the manager and a Cloudflare
 # tunnel, and prints the public link. Ctrl-C takes everything offline again (sandboxes included).
-# Options (env): INVITE=code (default: a fresh code each run; INVITE=off for none)  MAX_SESSIONS=5  IDLE_MIN=20  TOKEN_BUDGET=400000  NO_TUNNEL=1
+# Options (env): INVITE=code (default: a fresh code each run; INVITE=off for none)  MAX_SESSIONS=5  IDLE_MIN=20  TOKEN_BUDGET=400000  DISK_MB=1024  NO_TUNNEL=1
 set -e
 cd "$(dirname "$0")/.."
 command -v docker >/dev/null || { echo "Docker Desktop is needed: https://www.docker.com/products/docker-desktop/"; exit 1; }
