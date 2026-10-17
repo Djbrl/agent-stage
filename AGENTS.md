@@ -74,7 +74,7 @@ Ops:
 - Verify UI changes in a real browser (playwright-core with `channel: 'chrome'` works well) before saying something is done.
 
 ## State now (17 10 2026)
-- **Local commits on `main` not pushed yet** (the UX pass and the open-work pass of 16–17 10, see `git log origin/main..main`). Ask Jib before pushing.
+- **All work is pushed to `main`** (the UX pass and the open-work pass of 16–17 10).
 - The GPU is off (it auto-stopped), the live demo is offline, no sandboxes are running.
 - **New since 16 10:**
   - light theme (Settings → Appearance; dark is the original near-black);
@@ -93,12 +93,11 @@ Ops:
 - **Reviews:** `review/UX-REVIEW.md` (16 10 hands-on review) and `review/ASK-AND-DISCUSS.md` (design and token cost of Ask/Discuss). Not committed.
 
 ## Open work, roughly by value
-1. **Demo video (≤3 min) and submission by 19 10.** The README is updated; add the video link where its hidden comment says.
-2. **Push** the local commits on `main` (ask Jib).
-3. **Wolof voice input** (parked by Jib): Meta Omnilingual ASR or `CAYTU/whosper-large` on our GPU, then NLLB translation, showing both lines.
-4. A branch per thread (Keep and Undo are built).
-5. Codex engine (parked; its "coming soon" placeholder was removed).
-6. A stable demo URL without the Vercel redeploy trick needs a domain and a named Cloudflare tunnel.
+1. **Demo video (≤3 min) and submission by 19 10** (Jib, later). The README is updated; add the video link where its hidden comment says.
+2. A stable demo URL without the Vercel redeploy trick needs a domain and a named Cloudflare tunnel (Jib, later).
+3. A branch per thread (Keep and Undo are built).
+
+Out of scope for now (Jib, 17 10): Wolof voice input and the Codex engine.
 
 ## Owner
 Jib (Djbrl), Dakar, UTC+0, works roughly 12:00–03:00. Planner: `~/life_planner/projects/agent-stage/`.
