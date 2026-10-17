@@ -698,3 +698,5 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .timeline code { overflow-wrap: anywhere; }
 .token-meter { font: 11px var(--mono); color: var(--dim); white-space: nowrap; cursor: default; }
 .icon-btn.mic.on { color: var(--error); animation: blink 1.2s infinite; }
+.ask-btn { color: var(--dim); }
+.ask-btn.on { color: var(--text); background: var(--hover); }

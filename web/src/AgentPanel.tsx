@@ -33,6 +33,8 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
   onUndo?: (ref: string) => void; git?: { repo: boolean; onInit: () => void } | null;
 }) {
   const [text, setText] = useState('');
+  const [asking, setAsking] = useState(false); // "Ask" with an empty box: the next Enter asks instead of running
+  const box = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const { settings } = useApp();
   const voice = useVoice((t) => setText((x) => (x.trim() ? `${x.trimEnd()} ${t}` : t)), settings?.learn?.language === 'fr' ? 'fr-FR' : 'en-US');
@@ -43,9 +45,14 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
   // Enter = run (idle) or steer (running). "Ask" opens a side thread that never touches files.
   // While a checkpoint waits for you, what you type is your reply to it (one input box, never two).
   const waiting = !side ? state.timeline.findLast((t) => t.kind === 'checkpoint' && !t.answer) as Extract<State['timeline'][number], { kind: 'checkpoint' }> | undefined : undefined;
+  // The agent ended its turn on a question: the box is for the answer.
+  const last = state.timeline.at(-1);
+  const asked = mode === 'learn' && last?.kind === 'done' && last.text.slice(-600).includes('?');
   const submit = (kind: 'run' | 'ask' = 'run') => {
     voice.stop();
     if (!text.trim()) return;
+    if (asking) kind = 'ask';
+    setAsking(false);
     if (kind === 'run' && waiting) onCheckpoint(waiting.id, 'discuss', text.trim());
     else (kind === 'ask' ? onAsk : onRun)(text.trim());
     setText('');
@@ -149,12 +156,14 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
       <div className="composer">
         {waiting && <div className="composer-reply">Replying to <b>{waiting.cp.title || 'the checkpoint'}</b></div>}
         <textarea
+          ref={box}
           value={voice.interim ? `${text}${text && !text.endsWith(' ') ? ' ' : ''}${voice.interim}` : text}
           readOnly={Boolean(voice.interim)}
           rows={centered ? 3 : 2}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
-          placeholder={side ? 'Ask a follow-up…' : waiting ? 'Ask about this step, or say what to change…' : state.running ? 'Steer the agent…' : mode === 'learn' ? 'What do you want to build?' : 'Describe a task…'}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } if (e.key === 'Escape') setAsking(false); }}
+          placeholder={side ? 'Ask a follow-up…' : asking ? 'Ask a question. It reads the project and the chat, but changes nothing…' : waiting ? 'Ask about this step, or say what to change…' : state.running ? 'Steer the agent…'
+            : asked ? 'Type your answer…' : mode === 'learn' ? 'What do you want to build?' : 'Describe a task…'}
         />
         <div className="composer-bar">
           {!side && (
@@ -172,7 +181,8 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
             <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle}
               title={voice.error || (voice.listening ? 'Listening… click to stop' : 'Speak your prompt')}><Icon name="mic" size={14} /></button>
           )}
-          {!side && <button className="btn ghost sm" onClick={() => submit('ask')} disabled={!text.trim()} title="Ask in a side thread: it can read the project but never changes it">Ask</button>}
+          {!side && <button className={`btn ghost sm ask-btn ${asking ? 'on' : ''}`} onClick={() => { if (text.trim()) submit('ask'); else { setAsking(!asking); box.current?.focus(); } }}
+            title="Ask a side question without interrupting the agent. It can read the project but never changes it">Ask</button>}
           {state.running && !side
             ? <button className="btn danger round" onClick={onStop} title="Stop"><Icon name="stop" size={10} /></button>
             : <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? 'Steer' : 'Send'}><Icon name="arrow" size={14} /></button>}
