@@ -26,7 +26,7 @@ export function PublicWelcome({ onDone }: { onDone: () => void }) {
           <div className="limits">
             <div><b>You can</b><span>create, edit and delete files · run commands, Node, Python, pytest, git · start a local web server and open it in the agent's browser{net ? ' · install packages, clone repos, fetch public websites' : ''} · use Build, Learn, Ask and Undo</span></div>
             <div><b>You can't</b><span>{net ? '' : 'reach the internet (no npm/pip installs, no cloning, no outside websites) · '}reach our laptop or other visitors · change keys or settings</span></div>
-            <div><b>Limits</b><span>1 CPU core · 1.5 GB RAM · 512 MB temporary space · 1 GB of disk (a sandbox that writes more is deleted) · 400k model tokens{claude ? ' · $1.50 of Claude' : ''} · 5 sandboxes at a time</span></div>
+            <div><b>Limits</b><span>1 CPU core · 1.5 GB RAM · 512 MB temporary space · 1 GB of disk (a sandbox that writes more is deleted) · 400k model tokens{claude ? ' · $5 of Claude' : ''} · 5 sandboxes at a time</span></div>
           </div>
         </div>
         <div className="modal-foot"><span style={{ flex: 1 }} /><button className="btn primary" onClick={onDone}>Got it</button></div>

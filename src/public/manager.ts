@@ -16,7 +16,7 @@ const INVITE = process.env.INVITE ?? ''; // public.sh sets one by default; empty
 const MAX = Number(process.env.MAX_SESSIONS ?? 5);
 const IDLE_MIN = Number(process.env.IDLE_MIN ?? 20);
 const BUDGET = Number(process.env.TOKEN_BUDGET ?? 400_000); // model tokens per sandbox
-const DEMO_USD = Number(process.env.DEMO_USD ?? 1.5); // Claude spend allowed per sandbox
+const DEMO_USD = Number(process.env.DEMO_USD ?? 5); // Claude spend allowed per sandbox
 // Internet in the sandboxes, through the relay's proxy (public websites on 80/443 only). On by default with an invite code.
 const INTERNET = process.env.INTERNET ? process.env.INTERNET === '1' : Boolean(INVITE);
 const DISK_MB = Number(process.env.DISK_MB ?? 1024); // what a sandbox may write to disk (Docker Desktop can't cap it per container)
