@@ -12,7 +12,7 @@ export type Checkpoint = {
   additions?: { detail: string; proposal: string; why: string }[];
   files?: string[];
 };
-export type CheckpointAnswer = { choice: 'confirm' | 'discuss'; text?: string };
+export type CheckpointAnswer = { choice: 'confirm' | 'discuss' | 'skip'; text?: string };
 
 export const WRITE_TOOLS = new Set(['write_file', 'edit_file', 'run_command']);
 

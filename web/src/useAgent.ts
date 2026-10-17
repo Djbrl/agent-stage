@@ -10,7 +10,7 @@ export type AgentEvent = Base & (
   | { type: 'approval_answer'; id: string; ok: boolean }
   | { type: 'file_change'; path: string; before: string; after: string }
   | { type: 'checkpoint'; id: string; kind: 'design' | 'implementation'; title: string; summary: string; additions?: { detail: string; proposal: string; why: string }[]; files?: string[] }
-  | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss'; text?: string }
+  | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss' | 'skip'; text?: string }
   | { type: 'user'; text: string }
   | { type: 'question'; id: string; text: string }
   | { type: 'answer'; id: string; text: string }
@@ -19,6 +19,7 @@ export type AgentEvent = Base & (
   | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string }
   | { type: 'snapshot'; ref: string }
   | { type: 'task_end'; ref: string; after: string; files: number }
+  | { type: 'idle' }
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
@@ -36,7 +37,7 @@ export type Entry =
   | { kind: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string; at: number }
   | { kind: 'restored'; files: { status: string; path: string }[]; at: number }
   | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
-  | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss'; text?: string }; at: number }
+  | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss' | 'skip'; text?: string }; at: number }
   | { kind: 'actions'; steps: string[]; at: number };
 
 export type State = {
@@ -53,10 +54,11 @@ export type State = {
   snapshot: string | null; // checkpoint of the task in progress
   undone: string[]; // checkpoints already restored
   changed: Record<string, number>; // checkpoint → files its task changed (no Undo for a task that changed nothing)
+  tokens: { context: number; total: number; cost: number }; // context = size of the last request; total = all tokens this thread
 };
 
 export const initial: State = {
-  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null, snapshot: null, undone: [], changed: {},
+  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null, snapshot: null, undone: [], changed: {}, tokens: { context: 0, total: 0, cost: 0 },
 };
 
 export function targetOf(name: string, args: any): string {
@@ -73,7 +75,9 @@ function reduce(s: State, a: Action): State {
   if (a.kind === 'files') {
     const files = { ...s.files };
     for (const f of a.files) files[f] ??= 'idle';
-    return { ...s, files, running: s.running || a.running };
+    // The server's "running" only counts on first load: right after "done" it can still say true for a moment,
+    // and taking that would leave the chat stuck on "Thinking…" with a Stop button that stops nothing.
+    return { ...s, files, running: s.running || (a.running && !s.timeline.length) };
   }
   const e = a.e;
   switch (e.type) {
@@ -134,6 +138,10 @@ function reduce(s: State, a: Action): State {
     }
     case 'snapshot':
       return { ...s, snapshot: e.ref };
+    case 'usage':
+      return { ...s, tokens: { context: e.promptTokens, total: s.tokens.total + e.promptTokens + e.completionTokens, cost: s.tokens.cost + (e.costUsd ?? 0) } };
+    case 'idle':
+      return { ...s, running: false, approval: null };
     case 'task_end':
       return { ...s, changed: { ...s.changed, [e.ref]: e.files } };
     case 'restored': {
@@ -259,7 +267,7 @@ export function useAgent(threadId: string) {
       dispatch({ kind: 'event', e: { type: 'approval_answer', id, ok, at: Date.now() } });
       return post('approve', { id, ok });
     },
-    answerCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => post('checkpoint', { id, choice, text }),
+    answerCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => post('checkpoint', { id, choice, text }),
     setMode: (mode: 'build' | 'learn') => post('mode', { mode }).then(() => setMeta({ ...meta, mode })),
   };
 }

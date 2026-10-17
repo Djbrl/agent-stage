@@ -17,6 +17,7 @@ import { Sidebar, type Nav } from './Sidebar';
 
 export type Layout = 'studio' | 'classic';
 type Tab = 'chat' | 'steps' | 'threads';
+let firstOpen = true; // the app opens on the threads list; picking a thread then lands on its chat
 
 export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayout }: {
   id: string; onOpenSettings: () => void; layout?: Layout; nav?: Nav; onLayout?: (l: Layout) => void;
@@ -75,7 +76,12 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
   );
 
   // ── studio: the map fills the window; chat, steps and threads are tabs of one floating panel ──
-  const [tab, setTab] = useState<Tab>('chat');
+  const [tab, setTab] = useState<Tab>(() => {
+    const toured = (() => { try { return localStorage.getItem('toured') === '1'; } catch { return true; } })();
+    const t = firstOpen && toured ? 'threads' : 'chat'; // the first-visit tour points at the chat
+    firstOpen = false;
+    return t;
+  });
   const [panelW, setPanelW] = useState(() => storedNumber('panelW', 400));
   const [panelOpen, setPanelOpen] = useState(true);
   const [phone, setPhone] = useState(() => window.innerWidth <= 700);
@@ -105,9 +111,9 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
           <aside className="studio-panel" style={{ width: panelW }}>
             <div className="studio-head">
               <div className="studio-tabs">
+                <button className={tab === 'threads' ? 'on' : ''} onClick={() => setTab('threads')}>Threads</button>
                 <button className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>Chat{state.running && <span className="live-dot" />}</button>
                 <button className={tab === 'steps' ? 'on' : ''} onClick={() => setTab('steps')}>Steps{state.steps.length ? <span className="count">{state.steps.length}</span> : null}</button>
-                <button className={tab === 'threads' ? 'on' : ''} onClick={() => setTab('threads')}>Threads</button>
               </div>
               <button className="icon-btn" onClick={() => setPanelOpen(false)} title="Hide the panel: just the map"><Icon name="chevron" size={13} className="flip" /></button>
             </div>
@@ -117,7 +123,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
               {tab === 'steps' && <StepsSheet embedded state={state} selected={selected} onSelect={setSelected} onClose={() => setTab('chat')} threadId={id} replay={replay} />}
               {tab === 'threads' && nav && (
                 <div className="studio-pane">
-                  <Sidebar embedded railed={false} onToggle={() => {}} {...nav} />
+                  <Sidebar embedded railed={false} onToggle={() => {}} {...nav} onSelect={(t) => { if (t === id) setTab('chat'); nav.onSelect(t); }} />
                   {onLayout && <button className="btn ghost sm studio-switch" onClick={() => onLayout('classic')}>Switch to the classic layout</button>}
                 </div>
               )}

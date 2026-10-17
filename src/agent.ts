@@ -13,7 +13,7 @@ export type AgentEvent =
   | { type: 'approval'; id: string; command: string }
   | { type: 'approval_answer'; id: string; ok: boolean }
   | ({ type: 'checkpoint'; id: string } & Checkpoint)
-  | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss'; text?: string }
+  | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss' | 'skip'; text?: string }
   | { type: 'file_change'; path: string; before: string; after: string }
   | { type: 'user'; text: string }
   | { type: 'question'; id: string; text: string }
@@ -23,6 +23,7 @@ export type AgentEvent =
   | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string }
   | { type: 'snapshot'; ref: string }
   | { type: 'task_end'; ref: string; after: string; files: number }
+  | { type: 'idle' } // the agent has really finished (sent after done/error, once it no longer counts as running)
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
@@ -115,6 +116,7 @@ export class Agent {
       if (cp.kind === 'implementation') { this.unlocked = true; return 'Learner confirmed: implement exactly this step now. Then give the Implementation report.'; }
       return 'Learner confirmed this design. Record it and continue planning; you still need an implementation checkpoint before writing code.';
     }
+    if (answer.choice === 'skip') return `Learner declined this step: don't implement it and don't write any files for it. Briefly acknowledge, then ask what they'd like to do instead (or end your turn).`;
     return `Learner wants to discuss before deciding${answer.text ? `: "${answer.text}"` : ''}. Answer them, then end your turn or offer the checkpoint again.`;
   }
 

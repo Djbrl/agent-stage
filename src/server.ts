@@ -79,7 +79,7 @@ setTimeout(() => void gpu.adopt(), 1500);
 // ── threads: each has its own agent, folder, event history and usage ───────
 type Stamped = AgentEvent & { at: number };
 type Live = { thread: Thread; agent: Agent | ClaudeCodeAgent; emit: (e: AgentEvent) => void; listeners: Set<(e: Stamped) => void>; approvals: Map<string, (ok: boolean) => void>;
-  checkpoints: Map<string, (a: { choice: 'confirm' | 'discuss'; text?: string }) => void> };
+  checkpoints: Map<string, (a: { choice: 'confirm' | 'discuss' | 'skip'; text?: string }) => void> };
 const live = new Map<string, Live>();
 const saveSoon = new Map<string, NodeJS.Timeout>();
 
@@ -271,7 +271,7 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
 async function runTask(l: Live, task: string) {
   const ref = await checkpoint(l.thread.folder, l.thread.id, task).catch(() => null);
   if (ref) l.emit({ type: 'snapshot', ref });
-  await l.agent.run(task, settings.maxSteps);
+  await l.agent.run(task, settings.maxSteps).finally(() => l.emit({ type: 'idle' }));
   if (!ref) return;
   const after = await checkpoint(l.thread.folder, l.thread.id, `after: ${task}`).catch(() => null);
   const files = after ? await changedBetween(l.thread.folder, ref, after).catch(() => []) : [];
@@ -315,6 +315,7 @@ app.post(`${T}/git/init`, async (c) => {
   catch (e: any) { return c.json({ error: e.message }, 500); }
 });
 app.post(`${T}/stop`, withThread((l) => {
+  if (!l.agent.running && !l.approvals.size && !l.checkpoints.size) { l.emit({ type: 'idle' }); return; } // the page thought it was still running
   l.agent.stop();
   for (const [id, ok] of l.approvals) { l.emit({ type: 'approval_answer', id, ok: false }); ok(false); }
   l.approvals.clear();
@@ -349,12 +350,12 @@ app.post(`${T}/ask-thread`, withThread(async (l, { question }) => {
   if (side.agent instanceof ClaudeCodeAgent && l.agent instanceof ClaudeCodeAgent) {
     side.agent.sessionId = l.agent.sessionId; side.agent.fork = true;
   } else if (side.agent instanceof Agent) side.agent.messages = [side.agent.messages[0], ...l.agent.snapshot()];
-  void side.agent.run(String(question), 12);
+  void side.agent.run(String(question), 12).finally(() => side.emit({ type: 'idle' }));
   return { id: t.id };
 }));
 app.post(`${T}/keep`, withThread((l) => { l.thread.temp = false; persist(l); }));
 app.post(`${T}/checkpoint`, withThread((l, { id, choice, text }) => {
-  l.checkpoints.get(id)?.({ choice: choice === 'confirm' ? 'confirm' : 'discuss', text });
+  l.checkpoints.get(id)?.({ choice: choice === 'confirm' || choice === 'skip' ? choice : 'discuss', text });
   l.checkpoints.delete(id);
 }));
 app.post(`${T}/mode`, withThread((l, { mode }) => {

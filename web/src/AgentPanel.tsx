@@ -2,6 +2,7 @@
 // and the detail lives on the stage. What stays prominent: your messages, the agent's words, and anything that
 // needs you (checkpoints).
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useVoice, voiceSupported } from './voice';
 import type { State, Step, Entry } from './useAgent';
 import { Icon } from './icons';
 import { stepText } from './StepsSheet';
@@ -25,7 +26,7 @@ function summarize(steps: Step[]) {
 
 export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, git }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
-  mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss', text?: string) => void;
+  mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
   side?: { onKeep: () => void; onClose: () => void; kept: boolean };
   replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean; status?: ReactNode;
@@ -33,14 +34,20 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
 }) {
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
+  const { settings } = useApp();
+  const voice = useVoice((t) => setText((x) => (x.trim() ? `${x.trimEnd()} ${t}` : t)), settings?.learn?.language === 'fr' ? 'fr-FR' : 'en-US');
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [state.timeline.length, state.steps.length]);
   const byId = Object.fromEntries(state.steps.map((s) => [s.id, s]));
   const hl = useHighlight();
 
   // Enter = run (idle) or steer (running). "Ask" opens a side thread that never touches files.
+  // While a checkpoint waits for you, what you type is your reply to it (one input box, never two).
+  const waiting = !side ? state.timeline.findLast((t) => t.kind === 'checkpoint' && !t.answer) as Extract<State['timeline'][number], { kind: 'checkpoint' }> | undefined : undefined;
   const submit = (kind: 'run' | 'ask' = 'run') => {
+    voice.stop();
     if (!text.trim()) return;
-    (kind === 'ask' ? onAsk : onRun)(text.trim());
+    if (kind === 'run' && waiting) onCheckpoint(waiting.id, 'discuss', text.trim());
+    else (kind === 'ask' ? onAsk : onRun)(text.trim());
     setText('');
   };
 
@@ -140,12 +147,14 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
       {problem && !side && <div className="problem"><span className="sdot bad" />{problem}</div>}
       {replaying ? <div className="composer replay-note">You're watching a replay. Press <b>● Live</b> (or End) to get back.</div> :
       <div className="composer">
+        {waiting && <div className="composer-reply">Replying to <b>{waiting.cp.title || 'the checkpoint'}</b></div>}
         <textarea
-          value={text}
+          value={voice.interim ? `${text}${text && !text.endsWith(' ') ? ' ' : ''}${voice.interim}` : text}
+          readOnly={Boolean(voice.interim)}
           rows={centered ? 3 : 2}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
-          placeholder={side ? 'Ask a follow-up…' : state.running ? 'Steer the agent…' : mode === 'learn' ? 'What do you want to build?' : 'Describe a task…'}
+          placeholder={side ? 'Ask a follow-up…' : waiting ? 'Ask about this step, or say what to change…' : state.running ? 'Steer the agent…' : mode === 'learn' ? 'What do you want to build?' : 'Describe a task…'}
         />
         <div className="composer-bar">
           {!side && (
@@ -156,8 +165,13 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
             </div>
           )}
           {status}
+          {!side && <TokenMeter tokens={state.tokens} />}
           <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} />
           <span className="spacer" />
+          {voiceSupported && (
+            <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle}
+              title={voice.error || (voice.listening ? 'Listening… click to stop' : 'Speak your prompt')}><Icon name="mic" size={14} /></button>
+          )}
           {!side && <button className="btn ghost sm" onClick={() => submit('ask')} disabled={!text.trim()} title="Ask in a side thread: it can read the project but never changes it">Ask</button>}
           {state.running && !side
             ? <button className="btn danger round" onClick={onStop} title="Stop"><Icon name="stop" size={10} /></button>
@@ -169,38 +183,43 @@ export function AgentPanel({ state, title, mode, onMode, onCheckpoint, problem, 
   );
 }
 
-function CheckpointCard({ entry, onAnswer }: { entry: Extract<State['timeline'][number], { kind: 'checkpoint' }>; onAnswer: (id: string, c: 'confirm' | 'discuss', t?: string) => void }) {
+function CheckpointCard({ entry, onAnswer }: { entry: Extract<State['timeline'][number], { kind: 'checkpoint' }>; onAnswer: (id: string, c: 'confirm' | 'discuss' | 'skip', t?: string) => void }) {
   const { cp, answer } = entry;
-  const [discussing, setDiscussing] = useState(false);
-  const [note, setNote] = useState('');
   const impl = cp.kind === 'implementation';
   return (
     <div className={`checkpoint ${cp.kind} ${answer ? 'done' : ''}`}>
       <div className="callout-head">✦ {impl ? 'Implementation' : 'Design'} checkpoint<span>: {cp.title}</span></div>
       <Markdown text={cp.summary} />
       {cp.additions?.length ? (
-        <table className="table additions">
-          <thead><tr><th>Proposed addition</th><th>Proposal</th><th>Why it matters</th></tr></thead>
-          <tbody>{cp.additions.map((a, i) => <tr key={i}><td>{a.detail}</td><td>{a.proposal}</td><td className="muted">{a.why}</td></tr>)}</tbody>
-        </table>
+        <ul className="cp-additions">{cp.additions.map((a, i) => (
+          <li key={i}><b>{a.proposal}</b>{a.detail && <span className="cp-detail">{a.detail}</span>}{a.why && <span className="muted">{a.why}</span>}</li>
+        ))}</ul>
       ) : null}
       {cp.files?.length ? <div className="cp-files">{cp.files.map((f) => <span key={f} className="chip mono">{f}</span>)}</div> : null}
       {answer ? (
-        <div className={`cp-answer ${answer.choice}`}>{answer.choice === 'confirm' ? (impl ? '✓ You approved this step' : '✓ Design confirmed') : `You asked to discuss${answer.text ? `: “${answer.text}”` : ''}`}</div>
-      ) : discussing ? (
-        <div className="cp-discuss">
-          <textarea autoFocus rows={2} value={note} placeholder="What doesn't make sense yet?" onChange={(e) => setNote(e.target.value)} />
-          <div className="row"><button className="btn ghost" onClick={() => setDiscussing(false)}>Back</button>
-            <button className="btn primary" onClick={() => onAnswer(entry.id, 'discuss', note.trim() || undefined)}>Send</button></div>
-        </div>
+        <div className={`cp-answer ${answer.choice}`}>{answer.choice === 'confirm' ? (impl ? '✓ You approved this step' : '✓ Design confirmed')
+          : answer.choice === 'skip' ? 'You skipped this step' : `You asked: “${answer.text ?? ''}”`}</div>
       ) : (
-        <div className="cp-actions">
-          <button className="btn primary" onClick={() => onAnswer(entry.id, 'confirm')}>{impl ? 'Implement this step' : 'Confirm and continue'}</button>
-          <button className="btn ghost" onClick={() => setDiscussing(true)}>Discuss</button>
-          {impl && <span className="muted lock">The agent can't touch files until you approve.</span>}
-        </div>
+        <>
+          <div className="cp-actions">
+            <button className="btn primary" onClick={() => onAnswer(entry.id, 'confirm')}>{impl ? 'Implement this step' : 'Confirm and continue'}</button>
+            <button className="btn ghost" onClick={() => onAnswer(entry.id, 'skip')}>Skip this step</button>
+          </div>
+          <div className="muted cp-hint">{impl ? "The agent can't touch files until you approve. " : ''}Questions? Type them in the box below.</div>
+        </>
       )}
     </div>
+  );
+}
+
+// How big the conversation is now (what the model reads on each step) and what this thread has used so far.
+function TokenMeter({ tokens }: { tokens: State['tokens'] }) {
+  if (!tokens.total) return null;
+  const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+  return (
+    <span className="token-meter" title={`The model reads about ${tokens.context.toLocaleString()} tokens on each step now (the conversation so far). This thread has used ${tokens.total.toLocaleString()} tokens in total${tokens.cost ? `, about $${tokens.cost.toFixed(2)}` : ''}.`}>
+      {k(tokens.context)} <span className="muted">· {k(tokens.total)} used</span>
+    </span>
   );
 }
 

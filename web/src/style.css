@@ -682,3 +682,19 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .composer { position: relative; }
 .composer .picker { position: static; }
 .composer .picker-menu { left: 6px; right: 6px; min-width: 0; max-height: min(60vh, 520px); overflow-y: auto; }
+/* checkpoint: proposals as a list (a 3-column table doesn't fit a chat column) */
+.cp-additions { list-style: none; margin: 10px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cp-additions li { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.035); font-size: 12.5px; line-height: 1.5; }
+.cp-additions b { font-weight: 500; color: var(--text); }
+.cp-detail { font: 11.5px var(--mono); color: var(--dim); overflow-wrap: anywhere; }
+.cp-hint { font-size: 11.5px; margin-top: 8px; }
+.composer-reply { padding: 8px 12px 0; font-size: 11.5px; color: var(--warn); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.composer-reply b { font-weight: 500; }
+/* the chat never scrolls sideways: wide code and tables scroll inside themselves */
+.timeline { overflow-x: hidden; }
+.timeline > * { min-width: 0; max-width: 100%; }
+.timeline pre { max-width: 100%; overflow-x: auto; }
+.timeline table { display: block; max-width: 100%; overflow-x: auto; }
+.timeline code { overflow-wrap: anywhere; }
+.token-meter { font: 11px var(--mono); color: var(--dim); white-space: nowrap; cursor: default; }
+.icon-btn.mic.on { color: var(--error); animation: blink 1.2s infinite; }

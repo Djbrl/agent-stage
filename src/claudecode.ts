@@ -60,7 +60,8 @@ export class ClaudeCodeAgent {
   snapshot(): Message[] { return []; }
   interject(text: string) { this.inbox?.push(text); this.emit({ type: 'user', text }); }
   notes: string[] = []; // see Agent.notes
-  stop() { void this.q?.interrupt().catch(() => {}); this.inbox?.close(); }
+  private stopping = false;
+  stop() { this.stopping = true; void this.q?.interrupt().catch(() => {}); this.inbox?.close(); }
   async ask(text: string) { this.emit({ type: 'answer', id: crypto.randomUUID(), text: `(Use Ask to open a side thread.) ${text}` }); }
 
   private rel(p: unknown) {
@@ -93,12 +94,14 @@ export class ClaudeCodeAgent {
       if (cp.kind === 'implementation') { this.unlocked = true; return 'Learner confirmed: implement exactly this step now, then give the Implementation report.'; }
       return 'Learner confirmed this design. You still need an implementation checkpoint before writing code.';
     }
+    if (a.choice === 'skip') return `Learner declined this step: don't implement it and don't write any files for it. Briefly acknowledge, then ask what they'd like to do instead (or end your turn).`;
     return `Learner wants to discuss before deciding${a.text ? `: "${a.text}"` : ''}. Answer them, then end your turn or offer the checkpoint again.`;
   }
 
   async run(task: string, maxSteps = 30) {
     const learning = this.opts.mode === 'learn', asking = this.opts.mode === 'ask';
     this.unlocked = false;
+    this.stopping = false;
     this.running = true;
     this.emit({ type: 'user', text: task });
     this.inbox = new Inbox();
@@ -170,6 +173,7 @@ export class ClaudeCodeAgent {
 
     const pending = new Map<string, string>(); // tool_use_id → our tool name
     const run = newRun();
+    let ended = false; // one done/error per run: after a stop the SDK also throws, which mustn't show as a second error
     let lastText = '', heldText = ''; // narration shows when the next tool call arrives; the final text goes to "done"
     try {
       for await (const m of this.q as AsyncIterable<any>) {
@@ -205,12 +209,14 @@ export class ClaudeCodeAgent {
             const notYet = this.opts.mode === 'build' && run.wrote ? await doneCheck(this.ctx, this.emit as any, run, this.checkApproved) : null;
             if (notYet) { this.inbox.push(notYet); continue; }
             this.emit({ type: 'done', text: (m.result ?? lastText) + gaveUpNote(run) });
-          } else this.emit({ type: 'error', message: m.subtype === 'error_max_turns' ? `Stopped: reached the step limit (${maxSteps} steps)` : `Claude Code stopped: ${m.subtype}` });
+          } else this.emit({ type: 'error', message: this.stopping ? 'Stopped by you' : m.subtype === 'error_max_turns' ? `Stopped: reached the step limit (${maxSteps} steps)`
+            : 'Claude Code ran into an error and stopped. Send your message again to retry.' });
+          ended = true;
           this.inbox.close();
         }
       }
     } catch (e: any) {
-      this.emit({ type: 'error', message: /abort|interrupt/i.test(String(e?.message)) ? 'Stopped by you' : `Claude Code: ${e?.message ?? e}` });
+      if (!ended) this.emit({ type: 'error', message: this.stopping || /abort|interrupt/i.test(String(e?.message)) ? 'Stopped by you' : `Claude Code: ${e?.message ?? e}` });
     } finally {
       for (const [id, name] of pending) this.emit({ type: 'tool_end', id, name, ok: false, output: 'interrupted' });
       this.running = false;
