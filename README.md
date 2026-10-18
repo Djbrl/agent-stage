@@ -1,5 +1,10 @@
 # agent-stage *(temporary name)*
 
+[![CI](https://github.com/Djbrl/agent-stage/actions/workflows/ci.yml/badge.svg)](https://github.com/Djbrl/agent-stage/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Djbrl/agent-stage)](https://github.com/Djbrl/agent-stage/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Node ≥ 22.18](https://img.shields.io/badge/node-%E2%89%A5%2022.18-brightgreen)](https://nodejs.org)
+
 A lightweight, **visual** coding agent. You give it a task, and instead of reading a wall of text
 you **watch it work**: an agent marker moves across a map of your project, files light up as
 they are read and edited, and failures show up in red. You can **stop** it, **ask** it
@@ -125,7 +130,8 @@ AI tools used to build it (Claude Code, Mobbin MCP) are listed in
 | any OpenAI-compatible model | Ollama, vLLM, LM Studio, OpenRouter | add it in Settings → Models |
 
 ## Contributing
-See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md). Found a security problem? Please
+report it privately, as explained in [SECURITY.md](SECURITY.md). Changes per release: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 MIT
