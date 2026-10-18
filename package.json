@@ -1,6 +1,6 @@
 {
   "name": "agent-stage",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Visual, lightweight coding agent for open-weight models (temporary name)",
   "license": "MIT",
   "type": "module",

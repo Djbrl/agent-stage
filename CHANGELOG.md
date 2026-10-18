@@ -1,0 +1,51 @@
+# Changelog
+
+What changed in each release of agent-stage. Dates are day month year.
+
+## 0.1.0 · 18 10 2026
+
+The first release, built in five days for the Open Source × AI Hackathon 2026.
+
+### See the agent work
+- **Project map.** Folders and files drawn as circles. The agent's marker moves to each file it reads or edits,
+  fresh edits glow, failures show, and the camera follows the work.
+- **Plain-language steps.** Every action gets a short label and a "why"; any diff has "Explain this change".
+  English or French.
+- **Replay** any thread step by step on the map.
+- **Studio layout** (the map fills the window, one floating panel with Chat, Steps and Threads) and a classic layout.
+- **Light and dark themes**, voice prompting, and a layout that works on a phone.
+
+### Stay in control
+- **Approve every shell command** before it runs.
+- **Stop** the agent at any time, **steer** it mid-run, or **Ask** a side question that reads a short brief of the
+  thread instead of the whole conversation.
+- **Undo** puts back only the files a task changed. **Keep** commits them with a message the model writes. Both rely on
+  git checkpoints kept under private refs, so your branch and staged files are never touched.
+- **Done means checked.** When the agent says it's finished, the harness runs the project's tests (or typecheck, build,
+  pytest, cargo, go) and sends failures back, up to three times.
+- **Costs in view**: tokens per thread, spend estimates, GPU time, and compact or clear a thread's context on demand.
+
+### Learn while it builds
+- **Learn mode** (inspired by [VibeWise](https://github.com/nykooi1/vibe-wise)): you design, the agent teaches. It asks
+  for your approach, pushes back on flawed choices, gives hints before full code, and explains new terms in plain words.
+- The harness blocks file writes until you approve each step. You can also skip a step.
+
+### Any model
+- **Our own agent loop** for open-weight models: Qwen3-Coder on a self-hosted GPU, NVIDIA, Ollama, OpenRouter, any
+  OpenAI-compatible API, and the Claude API. It is hardened for open models: retries, recovery of tool calls written as
+  text, a repeat guard and a context budget.
+- **The Claude Code engine** through the Claude Agent SDK, with the same map, approvals and Learn mode.
+- **One-click GPU** on Brev with vLLM: create, load the model, auto-stop when idle, destroy on stop.
+- **Computer use**: the agent drives your Chrome as text (page text plus numbered controls), so open models can test the
+  web apps they build.
+
+### Online demo
+- `npm run public` puts agent-stage online from your own computer. Each visitor gets a private, sealed Docker sandbox:
+  no access to your computer or home network, the model key stays with the manager, a spending cap per sandbox,
+  disk and idle limits, and an invite code by default.
+
+### Quality
+- 29 tests with Node's built-in runner (the file tools, the done-check, git checkpoints, the demo's network filter), a
+  typecheck for the server and the UI, and GitHub Actions running both plus the UI build on every push.
+- The tests found and fixed two bugs: a valid file name like `..notes.md` was refused, and the demo's internet proxy
+  let IPv6 written the long way (`0:0:0:0:0:0:0:1`) reach its own loopback.
