@@ -40,7 +40,7 @@ const read = async <T>(p: string, fallback: T): Promise<T> => {
 export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunnelHost?: string; brevInstance?: string }, sandbox: string): Promise<Settings> {
   await mkdir(THREADS, { recursive: true });
   const saved = await read<Settings | null>(join(DATA_DIR, 'settings.json'), null);
-  if (saved) return { learn: { level: 'beginner', frequency: 'normal', language: 'en' }, ...saved };
+  if (saved) return { ...saved, learn: saved.learn ?? { level: 'beginner', frequency: 'normal', language: 'en' } }; // files from before Learn mode
   // First run: seed from .env so existing setups keep working.
   const providers: Provider[] = [{ id: 'mock', name: 'Demo (scripted)', kind: 'mock', baseUrl: '', apiKey: '', model: 'mock' }];
   if (env.apiKey && env.apiKey !== 'mock') providers.push({

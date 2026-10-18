@@ -73,7 +73,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
           </> : <>
           <div className="label">Project</div>
           <div className="open-pick">
-            <button className="btn" disabled={busy} onClick={() => send<{ path?: string }>('/api/pick-folder', {}).then((r) => r.path && start(r.path), (e) => setErr(e.message))}>
+            <button className="btn" disabled={busy} onClick={() => send<{ path?: string }>('/api/pick-folder', {}).then((r) => { if (r.path) start(r.path); }, (e) => setErr(e.message))}>
               <Icon name="folder" size={13} /> Open folder…
             </button>
             <button className="btn ghost" disabled={busy} onClick={() => start(null)} title="Creates an empty folder in ~/agent-stage-projects">Start without a folder</button>

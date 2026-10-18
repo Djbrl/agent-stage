@@ -96,8 +96,9 @@ browser (React, web/)  ──HTTP + Server-Sent Events──▶  Hono server (sr
 
 ## Dependencies
 Server: `hono`, `@hono/node-server`, `playwright-core` (drives your installed Chrome), `@anthropic-ai/sdk`,
-`@anthropic-ai/claude-agent-sdk`, `zod`. UI: `react`, `react-dom`, `d3-hierarchy`, `vite`, `@vitejs/plugin-react`.
-Node 24 runs the TypeScript directly; there is no build step for the server.
+`@anthropic-ai/claude-agent-sdk`, `zod`. UI: `react`, `react-dom`, `d3-hierarchy`, `vite`, `@vitejs/plugin-react`. Checks: `typescript` (type checking only).
+Node 24 runs the TypeScript directly; there is no build step for the server. Tests use Node's built-in runner:
+`npm test`, and `npm run typecheck`. GitHub Actions runs both, plus the UI build, on every push.
 
 Live demo from your own computer, one private sandbox per visitor: `npm run public` ([docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)).
 

@@ -160,6 +160,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
               </div>
             );
             // A burst of tool calls: one quiet line. Live while working, a summary after. Click → steps on the stage.
+            if (e.kind !== 'actions') return null;
             const steps = e.steps.map((id) => byId[id]).filter((s) => s && s.name !== 'checkpoint'); // the card says it already
             if (!steps.length) return null;
             const live = steps.some((s) => s.ok === undefined);

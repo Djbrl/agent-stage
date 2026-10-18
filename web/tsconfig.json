@@ -1,0 +1,10 @@
+{
+  // The UI is bundled by Vite, so imports resolve the bundler way.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

@@ -105,7 +105,7 @@ export class GpuManager {
       for (let i = 0; i < 30 && !connected; i++) {
         connected = (await run(SSH, [...SSH_OPTS, name, 'true'], { timeoutMs: 30_000 })).code === 0;
         if (!connected) { if (i % 3 === 0) this.log('Waiting for SSH…'); await sleep(10_000); }
-        if (this.state.phase === 'stopping') return;
+        if ((this.state.phase as GpuPhase) === 'stopping') return; // stop() can change it while we wait
       }
       if (!connected) throw new Error('Could not reach the machine over SSH.');
       this.log('Connected.');

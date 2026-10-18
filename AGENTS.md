@@ -18,6 +18,8 @@ npm install
 npm run mock      # UI with a scripted model, no key or GPU needed → http://localhost:3000
 npm start         # real models; settings in ~/.agent-stage/settings.json (mode 600)
 npm run public    # live online demo from this laptop (needs Docker Desktop), see docs/PUBLIC-DEMO.md
+npm test          # node:test, files in test/ (tools, done-check, git checkpoints, the relay's address filter)
+npm run typecheck # tsc for the server (tsconfig.json) and the UI (web/tsconfig.json); CI runs both plus the build
 ```
 
 **Node:** 24 runs `.ts` directly with **type stripping only**, so don't use parameter properties, enums or namespaces. `npm start` rebuilds `web/dist` first.

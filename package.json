@@ -14,7 +14,9 @@
     "start": "npm run build && node --env-file-if-exists=.env src/server.ts",
     "web": "vite --config web/vite.config.ts",
     "mock": "npm run build && MODEL_API_KEY=mock TUNNEL_HOST= BREV_INSTANCE= GPU_HOURLY_USD=0 node --env-file-if-exists=.env src/server.ts",
-    "public": "sh scripts/public.sh"
+    "public": "sh scripts/public.sh",
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc -p . && tsc -p web"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.300",
@@ -27,9 +29,13 @@
   },
   "devDependencies": {
     "@types/d3-hierarchy": "^3.1.7",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
     "vite": "^8.3.4"
   }
 }
