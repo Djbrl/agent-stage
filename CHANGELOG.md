@@ -2,6 +2,16 @@
 
 What changed in each release of agent-stage. Dates are day month year.
 
+## Unreleased
+
+### Fixed
+- **Links can't lead the file tools out of the project.** A symbolic link inside the project that pointed elsewhere let
+  `read_file`, `write_file` and `edit_file` reach its target; search no longer follows links either.
+- **Windows:** file paths use `/` everywhere (the map showed `src\greet.js` as a loose file outside its folder, and
+  import lines were missing), and `npm run mock` works (npm runs scripts with `cmd.exe` there).
+- **Screen readers:** every icon-only button now has a name (Close, Stop the agent, Speak your prompt, the replay and
+  map controls…), and toggles say whether they are on.
+
 ## 0.1.0 · 18 10 2026
 
 The first release, built in five days for the Open Source × AI Hackathon 2026.
