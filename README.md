@@ -49,6 +49,13 @@ agent-stage makes the agent's work **visible, controllable and teachable**.
   - It explains each new term in plain words and ends with "What you learned".
   - The harness blocks file writes until you approve the step. You can also skip a step. Learn mode is inspired by
     [VibeWise](https://github.com/nykooi1/vibe-wise) (MIT).
+- **Quiz me.** After a step, the tutor asks three short questions about what you just built, one at a time, and tells
+  you what you got right.
+- **Lesson notes.** Download any thread as a study sheet: what you asked, the decisions you made, the ideas explained,
+  what you learned, the quiz, the files changed and the checks run. It is built from the session itself, so it costs
+  nothing and invents nothing.
+- **Share a session.** Export a thread as a file; anyone can open it in agent-stage and replay it step by step on the
+  map, read-only. A teacher can show how a feature was built, and a student can show how they got there.
 
 **Practical**
 - **Any model.** Our own GPU (one-click Brev + vLLM, auto-stop), NVIDIA, Ollama, OpenRouter, the Claude API, or the

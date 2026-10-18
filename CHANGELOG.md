@@ -4,6 +4,15 @@ What changed in each release of agent-stage. Dates are day month year.
 
 ## Unreleased
 
+### Added
+- **Quiz me** (Learn mode): after a finished step, the tutor asks three short questions about it, one at a time, gives
+  feedback on each answer and ends with a score. The scripted demo model plays a quiz too.
+- **Lesson notes**: the thread's "⋯" menu downloads a Markdown study sheet built from the session: what you asked, the
+  decisions at each checkpoint, the ideas explained, what you learned, the quiz, the files changed, the checks and the
+  steps. No model call.
+- **Share a session**: the same menu exports the thread as a file. *New thread → Open a shared session…* opens it as a
+  read-only replay with the map as it was; it can't run the agent, undo or commit, and gets an empty folder of its own.
+
 ### Fixed
 - **Links can't lead the file tools out of the project.** A symbolic link inside the project that pointed elsewhere let
   `read_file`, `write_file` and `edit_file` reach its target; search no longer follows links either.
