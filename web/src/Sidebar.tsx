@@ -1,6 +1,6 @@
 // Left rail, like the desktop coding apps: new thread, threads grouped by folder, account + settings.
 import { useApp } from './useSettings';
-import { ago, fmtTokens, shortPath } from './api';
+import { ago, fmtTokens, shortPath, baseName } from './api';
 import { Icon } from './icons';
 
 export type Nav = { active: string | null; onSelect: (id: string) => void; onNew: () => void; onSettings: () => void };
@@ -8,7 +8,8 @@ export type Nav = { active: string | null; onSelect: (id: string) => void; onNew
 export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle, embedded, onLayout }: Nav & { railed: boolean; onToggle: () => void; embedded?: boolean; onLayout?: () => void }) {
   const { threads, me, settings } = useApp();
   const groups = new Map<string, typeof threads>();
-  for (const t of threads) groups.set(t.folder, [...(groups.get(t.folder) ?? []), t]);
+  const SHARED = 'Shared sessions'; // imported sessions each have their own empty folder: one group for all of them
+  for (const t of threads) { const k = t.shared ? SHARED : t.folder; groups.set(k, [...(groups.get(k) ?? []), t]); }
   const provider = settings?.providers.find((p) => p.id === settings.activeProvider);
   const total = threads.reduce((a, t) => a + t.tokens, 0);
 
@@ -31,7 +32,7 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle,
         {threads.length === 0 && <div className="side-empty">{me?.public ? 'No threads yet. Press New thread and pick a sample project.' : 'No threads yet. Start one in any folder on your computer.'}</div>}
         {[...groups].map(([folder, list]) => (
           <div key={folder} className="side-group">
-            <div className="side-folder" title={shortPath(folder, me?.home)}>{folder.split('/').pop()}</div>
+            <div className="side-folder" title={shortPath(folder, me?.home)}>{baseName(folder)}</div>
             {list.map((t) => (
               <button key={t.id} className={`side-thread ${t.id === active ? 'on' : ''}`} onClick={() => onSelect(t.id)}>
                 {t.running && <span className="spin" />}

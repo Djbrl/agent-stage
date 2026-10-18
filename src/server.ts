@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { streamSSE } from 'hono/streaming';
-import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { homedir, userInfo } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { Agent, type AgentEvent } from './agent.ts';
@@ -18,8 +18,9 @@ import { buildMap, isGenerated } from './mapdata.ts';
 import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMessage, summarizeThread } from './insight.ts';
 import { GpuManager } from './gpu.ts';
 import { ClaudeCodeAgent } from './claudecode.ts';
-import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread,
+import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread, DATA_DIR,
   PRESETS, engineOf, keyOf, apiCost, type Provider, type Settings, type Thread } from './store.ts';
+import { lessonNotes, exportSession, parseSession } from './session.ts';
 
 const sandbox = resolve(process.env.WORKSPACE ?? 'workspace');
 // Public mode: this server runs inside a disposable container for one visitor (see src/public/). The visitor
@@ -206,8 +207,24 @@ const T = '/api/threads/:id';
 // threads
 app.get('/api/threads', async (c) => c.json((await listThreads()).filter((t) => !t.temp).map((t) => ({
   id: t.id, title: t.title, folder: t.folder, updatedAt: t.updatedAt, running: live.get(t.id)?.agent.running ?? false, engine: t.engine ?? 'native',
-  tokens: t.usage.promptTokens + t.usage.completionTokens,
+  tokens: t.usage.promptTokens + t.usage.completionTokens, shared: Boolean(t.shared),
 }))));
+// A session someone shared (a file from Export): it becomes a replay-only thread. It gets an empty folder of its own and
+// the map as it was when exported; anything that would run the agent or touch files is refused for it (see `readOnly`).
+const SHARED_DIR = join(DATA_DIR, 'shared');
+app.post('/api/threads/import', async (c) => {
+  if (Number(c.req.header('content-length') ?? 0) > 40 << 20) return c.json({ error: 'This session file is too big to open (over 40 MB).' }, 413);
+  let s;
+  try { s = parseSession(await c.req.json()); } catch (e: any) { return c.json({ error: e instanceof SyntaxError ? 'This file is not a session file (it isn\'t JSON).' : e.message }, 400); }
+  const folder = join(SHARED_DIR, crypto.randomUUID().slice(0, 8));
+  await mkdir(folder, { recursive: true });
+  const t = await newThread(folder, s.mode, undefined, true); // temp: kept out of the recent folders
+  Object.assign(t, { title: s.title, createdAt: s.createdAt, events: s.events, temp: false, shared: { project: s.project, exportedAt: s.exportedAt, map: s.map } });
+  await saveThread(t);
+  return c.json({ id: t.id });
+});
+const READ_ONLY = 'This is a shared session: you can replay it, not run it. Start a new thread to work on your own project.';
+const readOnly = (l: Live) => Boolean(l.thread.shared);
 app.post('/api/threads', async (c) => {
   const { folder: picked, mode, providerId, scratch } = await c.req.json().catch(() => ({}));
   // No folder yet: give the thread its own empty project under ~/agent-stage-projects.
@@ -230,19 +247,36 @@ app.delete(T, async (c) => {
   const id = c.req.param('id'), l = live.get(id);
   l?.agent.stop(); live.delete(id);
   if (l) stopBackground(l.thread.folder); // the dev servers its agent started
+  const t = l?.thread ?? await loadThread(id);
+  if (t?.shared && within(SHARED_DIR, t.folder) && t.folder !== SHARED_DIR) await rm(t.folder, { recursive: true, force: true }); // its empty folder
   await deleteThread(id);
   return c.json({ ok: true });
 });
 app.get(`${T}/state`, async (c) => {
   const l = await open(c.req.param('id'));
   if (!l) return c.json({ error: 'no such thread' }, 404);
-  return c.json({ workspace: l.thread.folder, title: l.thread.title, mode: l.thread.mode ?? 'build', parent: l.thread.parent,
-    engine: l.thread.engine ?? 'native', providerId: l.thread.providerId,
-    running: l.agent.running, files: await listFiles(l.thread.folder) });
+  const sh = l.thread.shared;
+  return c.json({ workspace: sh ? sh.project : l.thread.folder, title: l.thread.title, mode: l.thread.mode ?? 'build', parent: l.thread.parent,
+    engine: l.thread.engine ?? 'native', providerId: l.thread.providerId, shared: Boolean(sh),
+    running: l.agent.running, files: sh ? sh.map.files.map((f) => f.path) : await listFiles(l.thread.folder) });
 });
 app.get(`${T}/map`, async (c) => {
   const l = await open(c.req.param('id'));
-  return l ? c.json(await buildMap(l.thread.folder)) : c.json({ files: [], edges: [] });
+  return l ? c.json(l.thread.shared?.map ?? await buildMap(l.thread.folder)) : c.json({ files: [], edges: [] });
+});
+// Lesson notes (Markdown) and the session file, both as downloads named after the thread.
+const fileName = (t: Thread, ext: string) => `${t.title.replace(/[^\p{L}\p{N} _-]+/gu, '').trim().replace(/\s+/g, '-').slice(0, 50) || 'session'}.${ext}`;
+const download = (name: string) => ({ 'content-disposition': `attachment; filename="${name.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}` });
+app.get(`${T}/notes`, async (c) => {
+  const l = await open(c.req.param('id'));
+  if (!l) return c.json({ error: 'no such thread' }, 404);
+  return c.body(lessonNotes(l.thread), 200, { 'content-type': 'text/markdown; charset=utf-8', ...download(fileName(l.thread, 'md')) });
+});
+app.get(`${T}/export`, async (c) => {
+  const l = await open(c.req.param('id'));
+  if (!l) return c.json({ error: 'no such thread' }, 404);
+  const map = l.thread.shared?.map ?? await buildMap(l.thread.folder);
+  return c.body(JSON.stringify(exportSession(l.thread, map)), 200, { 'content-type': 'application/json', ...download(fileName(l.thread, 'agent-stage.json')) });
 });
 app.get(`${T}/events`, async (c) => {
   const l = await open(c.req.param('id'));
@@ -266,6 +300,7 @@ app.get(`${T}/log`, async (c) => {
 const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
   const l = await open(c.req.param('id'));
   if (!l) return c.json({ error: 'no such thread' }, 404);
+  if (readOnly(l) && !c.req.path.endsWith('/explain')) return c.json({ error: READ_ONLY }, 403); // "Explain this change" only reads the diff
   const body = await c.req.json().catch(() => ({}));
   gpu.touch(); // any interaction keeps an auto-stopping GPU alive
   // A thread always runs on the currently selected model.
@@ -307,6 +342,7 @@ app.post(`${T}/undo`, async (c) => {
   const l = await open(c.req.param('id'));
   const { ref } = await c.req.json().catch(() => ({}));
   if (!l || !/^[0-9a-f]{40}$/.test(ref ?? '')) return c.json({ error: 'bad request' }, 400);
+  if (readOnly(l)) return c.json({ error: READ_ONLY }, 403);
   if (l.agent.running) return c.json({ error: 'Stop the agent first' }, 409);
   try {
     const files = await restore(l.thread.folder, ref, (await filesOfTasksFrom(l, ref)) ?? undefined);
@@ -321,8 +357,9 @@ app.post(`${T}/keep-task`, async (c) => {
   const l = await open(c.req.param('id'));
   const { ref } = await c.req.json().catch(() => ({}));
   if (!l || !/^[0-9a-f]{40}$/.test(ref ?? '')) return c.json({ error: 'bad request' }, 400);
+  if (readOnly(l)) return c.json({ error: READ_ONLY }, 403);
   if (l.agent.running) return c.json({ error: 'Stop the agent first' }, 409);
-  const end = (l.thread.events as any[]).find((e) => e.type === 'task_end' && e.ref === ref);
+  const end =(l.thread.events as any[]).find((e) => e.type === 'task_end' && e.ref === ref);
   if (!end) return c.json({ error: 'This task has no record of its changes' }, 404);
   try {
     const paths = (await changedBetween(l.thread.folder, ref, end.after)).map((f) => f.path);
@@ -337,11 +374,12 @@ app.post(`${T}/keep-task`, async (c) => {
 });
 app.get(`${T}/git`, async (c) => {
   const l = await open(c.req.param('id'));
-  return l ? c.json({ repo: await isRepo(l.thread.folder) }) : c.json({ error: 'not found' }, 404);
+  return l ? c.json({ repo: !readOnly(l) && await isRepo(l.thread.folder), shared: readOnly(l) }) : c.json({ error: 'not found' }, 404);
 });
 app.post(`${T}/git/init`, async (c) => {
   const l = await open(c.req.param('id'));
   if (!l) return c.json({ error: 'not found' }, 404);
+  if (readOnly(l)) return c.json({ error: READ_ONLY }, 403);
   try { if (!(await isRepo(l.thread.folder))) await initRepo(l.thread.folder); return c.json({ repo: true }); }
   catch (e: any) { return c.json({ error: e.message }, 500); }
 });
@@ -362,6 +400,7 @@ app.get(`${T}/summary`, async (c) => {
   const l = await open(c.req.param('id'));
   const path = c.req.query('path') ?? '';
   if (!l || !path || path.includes('..')) return c.json({ error: 'bad request' }, 400);
+  if (readOnly(l)) return c.json({ off: true }); // its files aren't on this computer
   const p = provider(l.thread.providerId);
   if (!insightsOn(settings, p) && !c.req.query('force')) return c.json({ off: true });
   try { return c.json({ summary: await summarizeFile(toConfig(p), settings, l.thread.folder, path) }); }

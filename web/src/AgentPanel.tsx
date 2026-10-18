@@ -28,7 +28,10 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, onContext, git }: {
+// "Quiz me" (Learn mode). The mock model recognises the first words (QUIZ_START in src/model.ts).
+const QUIZ = "Quiz me on what we just did: ask me 3 short questions about the ideas and the code from this session, one at a time. Wait for my answer before the next question, tell me in one or two sentences whether I'm right and why, and finish with my score and what to review. Don't change any files.";
+
+export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, onContext, git, shared }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
@@ -38,6 +41,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
   onContext?: (action: 'clear' | 'compact') => Promise<string | null>;
   onUndo?: (ref: string) => void; onKeep?: (ref: string) => Promise<string | null>; git?: { repo: boolean; onInit: () => void } | null;
+  shared?: { project: string; onPlay: () => void }; // a session someone shared: replay only, no composer
 }) {
   const [text, setText] = useState('');
   const [asking, setAsking] = useState(false); // "Ask" with an empty box: the next Enter asks instead of running
@@ -71,6 +75,10 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   // The agent ended its turn on a question: the box is for the answer.
   const last = state.timeline.at(-1);
   const asked = mode === 'learn' && last?.kind === 'done' && last.text.slice(-600).includes('?');
+  // After a finished Learn step (not mid-quiz, not while the tutor waits for an answer), offer a quiz on it.
+  const lastAsk = state.timeline.findLast((t) => t.kind === 'user');
+  const quizzing = lastAsk?.kind === 'user' && lastAsk.text === QUIZ;
+  const canQuiz = mode === 'learn' && !side && !state.running && !waiting && !asked && !quizzing && last?.kind === 'done' && state.steps.length > 0;
   const submit = (kind: 'run' | 'ask' = 'run') => {
     voice.stop();
     if (!text.trim()) return;
@@ -189,9 +197,21 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           <button className="btn ghost sm" onClick={git.onInit}>Turn it on</button></div>
       )}
       {problem && !side && <div className="problem"><span className="sdot bad" />{problem}</div>}
-      {replaying ? <div className="composer replay-note">You're watching a replay. Press <b>● Live</b> (or End) to get back.</div> :
+      {shared && !replaying ? (
+        <div className="composer shared-note">
+          <span>A session shared from <b>{shared.project || 'another computer'}</b>. You can replay it, not run it.</span>
+          <button className="btn primary sm" onClick={shared.onPlay}><Icon name="play" size={10} /> Watch it</button>
+        </div>
+      ) : replaying ? <div className="composer replay-note">You're watching a replay. Press <b>● Live</b> (or End) to get back.</div> :
       <div className="composer">
         {waiting && <div className="composer-reply">Replying to <b>{waiting.cp.title || 'the checkpoint'}</b></div>}
+        {canQuiz && !text.trim() && (
+          <div className="composer-suggest">
+            <button className="btn ghost sm" onClick={() => onRun(QUIZ)} title="The tutor asks you 3 short questions about this step, one at a time, and tells you what you got right">
+              <Icon name="quiz" size={12} /> Quiz me
+            </button>
+          </div>
+        )}
         <textarea
           ref={box}
           value={voice.interim ? `${text}${text && !text.endsWith(' ') ? ' ' : ''}${voice.interim}` : text}

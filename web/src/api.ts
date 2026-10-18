@@ -15,7 +15,7 @@ export type Provider = {
 };
 export type Settings = { providers: Provider[]; activeProvider: string; approval: 'always' | 'safe'; maxSteps: number; recentFolders: string[];
   insights?: 'auto' | 'on' | 'off'; learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' } };
-export type ThreadSummary = { id: string; title: string; folder: string; updatedAt: number; running: boolean; tokens: number; engine?: Engine };
+export type ThreadSummary = { id: string; title: string; folder: string; updatedAt: number; running: boolean; tokens: number; engine?: Engine; shared?: boolean };
 export type Me = { name: string; home: string; sandbox: string; public?: boolean; internet?: boolean; samples?: string[] };
 
 export const fmtTokens = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n));
@@ -26,7 +26,9 @@ export function ago(t: number) {
   if (s < 86400) return `${Math.round(s / 3600)}h`;
   return `${Math.round(s / 86400)}d`;
 }
-export const shortPath = (p: string, home?: string) => (home && p.startsWith(home) ? `~${p.slice(home.length)}` : p);
+// A folder's own name from a full path, on macOS, Linux and Windows alike.
+export const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
+export const shortPath =(p: string, home?: string) => (home && p.startsWith(home) ? `~${p.slice(home.length)}` : p);
 
 export type Engine = 'native' | 'claude-code';
 export const engineOf = (p: Provider): Engine => (p.kind === 'claude-code' ? 'claude-code' : 'native');

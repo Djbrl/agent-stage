@@ -801,3 +801,16 @@ input[type=radio], input[type=checkbox] { accent-color: var(--accent); }
 .context-line summary { cursor: pointer; list-style: none; } .context-line summary::-webkit-details-marker { display: none; }
 .context-line .md { margin-top: 6px; color: var(--dim); }
 .work-time { margin-left: auto; font: 11px var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
+
+/* The thread's "⋯" menu (ThreadMenu.tsx): opens downwards from the panel header. */
+.thread-menu-wrap { position: relative; display: inline-flex; }
+.tm-menu.thread-menu { top: calc(100% + 6px); bottom: auto; left: auto; right: 0; width: 280px; }
+.tm-menu a { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 9px; border-radius: 7px; color: var(--text); text-decoration: none; }
+.tm-menu a:hover, .tm-menu a:focus-visible { background: var(--hover); }
+
+/* Learn mode: "Quiz me" after a finished step, and the note shown instead of the composer on a shared session. */
+.composer-suggest { display: flex; gap: 6px; padding: 8px 12px 0; }
+.composer-suggest .btn { display: inline-flex; align-items: center; gap: 5px; }
+.composer.shared-note { padding: 12px; font-size: 12.5px; color: var(--dim); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.composer.shared-note .btn { white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+.btn.disabled { opacity: .4; pointer-events: none; }

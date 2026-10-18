@@ -7,6 +7,7 @@ import type { Replay, State } from './useAgent';
 import { Icon } from './icons';
 import { store } from './Resizer';
 import { useDismiss } from './dismiss';
+import { baseName } from './api';
 
 export function Stage({ state, replay, threadId, workspace, selected, onSelect, sheetOpen, setSheetOpen, approve, onCollapse, lit, full, left = 0 }: {
   state: State; replay: Replay; threadId: string; workspace: string;
@@ -52,7 +53,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
   const caption = replay.active ? (last ? stepText(last) : '')
     : state.approval ? 'Waiting for your approval' : pendingCp ? 'Waiting for your decision'
     : state.running ? (last && last.endedAt === undefined ? stepText(last) : 'Thinking…') : '';
-  const folder = workspace.split('/').pop();
+  const folder = baseName(workspace);
   // A little browser window on the stage while the agent is using the browser.
   const recent = state.steps.slice(-3).reverse().find((s) => shotOf(s));
   const browserShot = !sheetOpen || full ? recent : undefined;

@@ -1,6 +1,6 @@
 // Pick a folder on this computer to start a thread in: the Finder dialog (opened by the server), a recent one, or none.
 import { useEffect, useState } from 'react';
-import { get, send, shortPath, engineOf, ENGINE_LABEL, type Engine, type EngineStatus } from './api';
+import { get, send, shortPath, baseName, engineOf, ENGINE_LABEL, type Engine, type EngineStatus } from './api';
 import { useApp } from './useSettings';
 import { Icon } from './icons';
 import { useDismiss } from './dismiss';
@@ -26,6 +26,19 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
   };
   const browse = (path?: string) => get<Listing>(`/api/fs${path ? `?path=${encodeURIComponent(path)}` : ''}`).then((l) => !l.error && setDir(l));
   useEffect(() => { browse(); }, []);
+
+  // A session file someone shared (thread menu → Share this session): it opens as a replay.
+  const importFile = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true); setErr('');
+    try {
+      let data: unknown;
+      try { data = JSON.parse(await file.text()); } catch { throw new Error('This file is not a session file.'); }
+      const t = await send<{ id: string }>('/api/threads/import', data);
+      refreshThreads();
+      onCreated(t.id);
+    } catch (e: any) { setErr(e.message); setBusy(false); }
+  };
 
   const start = async (folder: string | null) => {
     setBusy(true); setErr('');
@@ -64,7 +77,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
             <div className="folder-list">
               {(me.samples ?? []).map((f) => (
                 <button key={f} className="folder-row" disabled={busy} onClick={() => start(f)}>
-                  <Icon name="folder" size={13} /><span>{f.split('/').pop()}</span>
+                  <Icon name="folder" size={13} /><span>{baseName(f)}</span>
                 </button>
               ))}
               <button className="folder-row" disabled={busy} onClick={() => start(null)}><Icon name="plus" size={13} /><span>Empty project</span></button>
@@ -82,7 +95,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
           <div className="folder-list">
             {(settings?.recentFolders ?? []).map((f) => (
               <button key={f} className="folder-row" disabled={busy} onClick={() => start(f)}>
-                <Icon name="folder" size={13} /><span>{f.split('/').pop()}</span><span className="muted mono">{shortPath(f, me?.home)}</span>
+                <Icon name="folder" size={13} /><span>{baseName(f)}</span><span className="muted mono">{shortPath(f, me?.home)}</span>
                 {f === me?.sandbox && <span className="pill">sandbox</span>}
               </button>
             ))}
@@ -107,6 +120,10 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
         </div>
         <div className="modal-foot">
           {!browsing && !me?.public && <button className="btn ghost sm" onClick={() => setBrowsing(true)}>Browse here instead</button>}
+          <label className={`btn ghost sm ${busy ? 'disabled' : ''}`} title="Open a session file someone shared with you, to replay it on the map">
+            Open a shared session…
+            <input type="file" accept=".json,application/json" hidden disabled={busy} onChange={(e) => { void importFile(e.target.files?.[0]); e.target.value = ''; }} />
+          </label>
           <span style={{ flex: 1 }} />
           {err && <span className="problem">{err}</span>}
           <button className="btn ghost" onClick={onClose}>Cancel</button>

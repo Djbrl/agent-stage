@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Message, ModelConfig } from './model.ts';
+import type { MapData } from './mapdata.ts';
 
 export const DATA_DIR = process.env.AGENT_STAGE_HOME ?? join(homedir(), '.agent-stage');
 const THREADS = join(DATA_DIR, 'threads');
@@ -31,6 +32,7 @@ export type Thread = {
   engine?: Engine; sessionId?: string; fork?: boolean; // claude-code: the SDK session to resume (fork = side thread)
   createdAt: number; updatedAt: number;
   messages: Message[]; events: any[]; usage: ThreadUsage;
+  shared?: { project: string; exportedAt: number; map: MapData }; // imported from a session file: replay only
 };
 
 const read = async <T>(p: string, fallback: T): Promise<T> => {
