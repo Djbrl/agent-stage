@@ -12,7 +12,7 @@ import { configFromEnv } from './model.ts';
 import { startTunnel } from './tunnel.ts';
 import { checkpoint, restore, isRepo, initRepo, changedBetween, diffSince, commitFiles } from './git.ts';
 import { closeBrowser, SHOTS } from './browser.ts';
-import { stopBackground } from './tools.ts';
+import { stopBackground, within } from './tools.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap, isGenerated } from './mapdata.ts';
 import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMessage, summarizeThread } from './insight.ts';
@@ -221,7 +221,7 @@ app.post('/api/threads', async (c) => {
     settings.activeProvider = providerId; await saveSettings(settings); retunnel();
   }
   const dir = resolve(folder || sandbox);
-  if (PUBLIC && relative(sandbox, dir).startsWith('..')) return c.json({ error: 'not a folder' }, 400);
+  if (PUBLIC && !within(sandbox, dir)) return c.json({ error: 'not a folder' }, 400);
   const st = await stat(dir).catch(() => null);
   if (!st?.isDirectory()) return c.json({ error: 'not a folder' }, 400);
   return c.json(await newThread(dir, mode === 'learn' ? 'learn' : 'build'));

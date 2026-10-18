@@ -6,8 +6,8 @@
 //          Never this computer, the home network or the other containers: every name is resolved here and private,
 //          loopback and link-local addresses are refused, so a redirect or DNS trick can't reach them either.
 import { createServer, request, type IncomingMessage, type ServerResponse } from 'node:http';
-import { connect, isIP } from 'node:net';
-import { lookup } from 'node:dns/promises';
+import { connect } from 'node:net';
+import { publicAddress } from './address.ts';
 
 const MANAGER = process.env.MANAGER_URL ?? 'http://host.docker.internal:8080';
 const SECRET = process.env.RELAY_SECRET ?? '';
@@ -37,15 +37,7 @@ createServer((req, res) => {
   pipe(req, res, new URL(req.url ?? '/', `http://${target}:3000`), { ...headers, host: `${target}:3000` });
 }).listen(4001);
 
-// Internet for the sandboxes, public addresses only.
-const PRIVATE = [/^0\./, /^10\./, /^127\./, /^169\.254\./, /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./, /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./,
-  /^192\.0\.0\./, /^198\.1[89]\./, /^2(2[4-9]|[3-5]\d)\./, /^::1?$/, /^f[cd]/i, /^fe[89ab]/i, /^::ffff:/i];
-async function publicAddress(host: string) {
-  const h = host.replace(/^\[|\]$/g, '');
-  const ip = isIP(h) ? h : (await lookup(h)).address;
-  if (PRIVATE.some((r) => r.test(ip))) throw new Error('private address');
-  return ip;
-}
+// Internet for the sandboxes, public addresses only (see address.ts).
 if (process.env.INTERNET === '1') {
   const proxy = createServer(async (req, res) => { // plain http://
     try {

@@ -1,7 +1,7 @@
 // The agent's hands. Everything is confined to the workspace folder.
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { resolve, relative, dirname, join } from 'node:path';
+import { resolve, relative, dirname, join, isAbsolute, sep } from 'node:path';
 import { browserSchemas, BROWSER_TOOLS, runBrowserTool } from './browser.ts';
 
 export type ToolContext = {
@@ -10,9 +10,15 @@ export type ToolContext = {
   onChange?: (path: string, before: string, after: string) => void; // feeds the diff view
 };
 
+// '..notes.md' is a fine name; another drive on Windows comes back absolute.
+export function within(root: string, full: string) {
+  const rel = relative(root, full);
+  return rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel);
+}
+
 function inside(root: string, p: string): string {
   const full = resolve(root, p);
-  if (relative(root, full).startsWith('..')) throw new Error(`path escapes workspace: ${p}`);
+  if (!within(root, full)) throw new Error(`path escapes workspace: ${p}`);
   return full;
 }
 
