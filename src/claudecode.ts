@@ -4,10 +4,10 @@
 import { query, tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { readFile } from 'node:fs/promises';
-import { isAbsolute, join, relative } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import type { AgentEvent, AgentOptions } from './agent.ts';
 import type { Message, ModelConfig } from './model.ts';
-import type { ToolContext } from './tools.ts';
+import { relPath, type ToolContext } from './tools.ts';
 import { browserSchemas, runBrowserTool } from './browser.ts';
 import { SHOTS } from './browser.ts';
 import { doneCheck, newRun, gaveUpNote } from './verify.ts';
@@ -65,7 +65,7 @@ export class ClaudeCodeAgent {
 
   private rel(p: unknown) {
     const s = String(p ?? '');
-    return isAbsolute(s) ? relative(this.ctx.root, s) : s;
+    return isAbsolute(s) ? relPath(this.ctx.root, s) : s;
   }
   // Claude Code's tools → our vocabulary, so the map, labels and steps sheet work unchanged.
   private translate(name: string, input: any): { name: string; args: any } {

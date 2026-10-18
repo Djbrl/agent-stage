@@ -1,7 +1,7 @@
 // The agent's hands. Everything is confined to the workspace folder.
-import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, readdir, mkdir, realpath } from 'node:fs/promises';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { resolve, relative, dirname, join, isAbsolute, sep } from 'node:path';
+import { resolve, relative, dirname, basename, join, isAbsolute, sep } from 'node:path';
 import { browserSchemas, BROWSER_TOOLS, runBrowserTool } from './browser.ts';
 
 export type ToolContext = {
@@ -10,24 +10,35 @@ export type ToolContext = {
   onChange?: (path: string, before: string, after: string) => void; // feeds the diff view
 };
 
+// A project path as the UI, the agent and git write it: always '/', also on Windows.
+export const relPath = (root: string, full: string) => relative(root, full).split(sep).join('/');
+
 // '..notes.md' is a fine name; another drive on Windows comes back absolute.
 export function within(root: string, full: string) {
   const rel = relative(root, full);
   return rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel);
 }
 
-function inside(root: string, p: string): string {
+async function inside(root: string, p: string): Promise<string> {
   const full = resolve(root, p);
   if (!within(root, full)) throw new Error(`path escapes workspace: ${p}`);
+  // A link inside the project can point elsewhere: check where the path really lands. A file that doesn't exist yet
+  // lands wherever its nearest existing folder does.
+  const realRoot = await realpath(root).catch(() => root);
+  for (let dir = full, rest = ''; ; rest = join(basename(dir), rest), dir = dirname(dir)) {
+    const real = await realpath(dir).catch(() => null);
+    if (real !== null) { if (!within(realRoot, join(real, rest))) throw new Error(`path escapes workspace: ${p}`); break; }
+    if (dirname(dir) === dir) break;
+  }
   return full;
 }
 
 async function walk(root: string, dir = root, out: string[] = []): Promise<string[]> {
   for (const e of await readdir(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+    if (e.name === 'node_modules' || e.name.startsWith('.') || e.isSymbolicLink()) continue; // links may lead outside
     const full = join(dir, e.name);
     if (e.isDirectory()) await walk(root, full, out);
-    else out.push(relative(root, full));
+    else out.push(relPath(root, full));
   }
   return out;
 }
@@ -54,13 +65,13 @@ export async function runTool(ctx: ToolContext, name: string, args: any): Promis
       return (await walk(ctx.root)).join('\n') || '(empty)';
     case 'read_file': {
       // Large files would flood the model's context: hand them out in pages.
-      const lines = (await readFile(inside(ctx.root, args.path), 'utf8')).split('\n');
+      const lines = (await readFile(await inside(ctx.root, args.path), 'utf8')).split('\n');
       const from = Math.max(1, Math.floor(args.offset ?? 1)), to = Math.min(lines.length, from + 399);
       const body = lines.slice(from - 1, to).join('\n').slice(0, 40_000);
       return to < lines.length || from > 1 ? `[lines ${from}-${to} of ${lines.length}; read more with offset=${to + 1}]\n${body}` : body;
     }
     case 'write_file': {
-      const p = inside(ctx.root, args.path);
+      const p = await inside(ctx.root, args.path);
       await mkdir(dirname(p), { recursive: true });
       const before = await readFile(p, 'utf8').catch(() => '');
       await writeFile(p, args.content);
@@ -68,7 +79,7 @@ export async function runTool(ctx: ToolContext, name: string, args: any): Promis
       return `wrote ${args.path}`;
     }
     case 'edit_file': {
-      const p = inside(ctx.root, args.path);
+      const p = await inside(ctx.root, args.path);
       const src = await readFile(p, 'utf8');
       const count = src.split(args.old).length - 1;
       if (count === 0) throw new Error('old string not found: read the file again and copy the text exactly');

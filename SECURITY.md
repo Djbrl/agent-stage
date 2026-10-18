@@ -16,7 +16,7 @@ Only the latest release gets security fixes.
 **On your computer**
 - **Every shell command needs your approval** before it runs, and so does the done-check's test command (once per thread).
 - **File tools are locked to the project folder.** Paths that point outside it (`../`, absolute paths, another drive)
-  are refused.
+  are refused, and so are links inside the project that lead outside it.
 - **Undo always works.** A git checkpoint is taken before every task, under private refs, so your branch, history and
   staged files are never touched.
 - **The browser asks before going online.** Pages served on your own computer open freely; any other website asks once
@@ -38,9 +38,6 @@ Only the latest release gets security fixes.
 
 - **An approved command can do anything your user account can do.** The approval is the safeguard: read the command
   before you click Run it. For untrusted tasks, run agent-stage in a container or a throwaway account.
-- **Symbolic links are followed.** A link inside the project that points elsewhere lets the file tools reach its
-  target. Creating one takes a shell command, which needs your approval, but a project you download may already
-  contain one.
 - **Models can be tricked by what they read.** A web page or file can contain instructions aimed at the agent. Approval
   of commands and websites limits the damage; it doesn't make the model immune.
 - **The online demo runs on the host's computer.** It is built for short public demos, not as a permanent service.

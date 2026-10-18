@@ -1,7 +1,7 @@
 // The agent's file and shell tools: they must stay inside the thread's folder.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runTool, type ToolContext } from '../src/tools.ts';
@@ -72,8 +72,42 @@ test('list_files and search skip node_modules and hidden folders', async (t) => 
   await writeFile(join(root, 'node_modules/pkg/index.js'), 'needle');
   await writeFile(join(root, '.git/config'), 'needle');
   await writeFile(join(root, 'src/app.js'), 'const needle = 1;');
-  assert.equal((await runTool(ctx(root), 'list_files', {})).replaceAll('\\', '/'), 'src/app.js');
-  assert.equal((await runTool(ctx(root), 'search', { text: 'needle' })).replaceAll('\\', '/'), 'src/app.js:1: const needle = 1;');
+  // '/' on every system, Windows included: the map, the agent and git all use it
+  assert.equal(await runTool(ctx(root), 'list_files', {}), 'src/app.js');
+  assert.equal(await runTool(ctx(root), 'search', { text: 'needle' }), 'src/app.js:1: const needle = 1;');
+});
+
+// A folder link: 'junction' needs no admin rights on Windows, and is ignored elsewhere.
+const linkDir = (target: string, path: string) => symlink(target, path, 'junction');
+
+test('links inside the project cannot lead the tools outside', async (t) => {
+  const root = await workspace(t), elsewhere = await workspace(t);
+  await writeFile(join(elsewhere, 'secret.txt'), 'top secret');
+  await linkDir(elsewhere, join(root, 'door'));
+  await assert.rejects(runTool(ctx(root), 'read_file', { path: 'door/secret.txt' }), /escapes workspace/);
+  await assert.rejects(runTool(ctx(root), 'write_file', { path: 'door/new.txt', content: 'x' }), /escapes workspace/);
+  await assert.rejects(runTool(ctx(root), 'write_file', { path: 'door/deep/new.txt', content: 'x' }), /escapes workspace/);
+  await assert.rejects(runTool(ctx(root), 'edit_file', { path: 'door/secret.txt', old: 'top', new: 'no' }), /escapes workspace/);
+  assert.equal(await runTool(ctx(root), 'search', { text: 'secret' }), 'no matches');
+  assert.equal(await readFile(join(elsewhere, 'secret.txt'), 'utf8'), 'top secret');
+});
+
+test('a link that stays inside the project still works', async (t) => {
+  const root = await workspace(t);
+  await mkdir(join(root, 'real'));
+  await writeFile(join(root, 'real/a.txt'), 'here');
+  await linkDir(join(root, 'real'), join(root, 'alias'));
+  assert.equal(await runTool(ctx(root), 'read_file', { path: 'alias/a.txt' }), 'here');
+});
+
+test('a project opened through a link works', async (t) => {
+  const real = await workspace(t), parent = await workspace(t);
+  await writeFile(join(real, 'a.txt'), 'via link');
+  await linkDir(real, join(parent, 'project'));
+  const root = join(parent, 'project');
+  assert.equal(await runTool(ctx(root), 'read_file', { path: 'a.txt' }), 'via link');
+  await runTool(ctx(root), 'write_file', { path: 'new/b.txt', content: 'ok' });
+  assert.equal(await readFile(join(real, 'new/b.txt'), 'utf8'), 'ok');
 });
 
 test('run_command asks first, and a denied command fails', async (t) => {

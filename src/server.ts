@@ -12,7 +12,7 @@ import { configFromEnv } from './model.ts';
 import { startTunnel } from './tunnel.ts';
 import { checkpoint, restore, isRepo, initRepo, changedBetween, diffSince, commitFiles } from './git.ts';
 import { closeBrowser, SHOTS } from './browser.ts';
-import { stopBackground, within } from './tools.ts';
+import { stopBackground, within, relPath } from './tools.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap, isGenerated } from './mapdata.ts';
 import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMessage, summarizeThread } from './insight.ts';
@@ -171,7 +171,7 @@ async function listFiles(root: string, dir = root, out: string[] = []): Promise<
     if (isGenerated(e.name)) continue;
     const full = join(dir, e.name);
     if (e.isDirectory()) await listFiles(root, full, out);
-    else out.push(relative(root, full));
+    else out.push(relPath(root, full));
   }
   return out;
 }
