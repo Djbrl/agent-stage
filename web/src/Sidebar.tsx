@@ -14,17 +14,17 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle,
 
   if (railed) return (
     <nav className="sidebar rail">
-      <button className="rail-btn" onClick={onToggle} title="Show threads (⌘B)"><span className="logo" /></button>
-      <button className="rail-btn" onClick={onNew} title="New thread"><Icon name="plus" size={15} /></button>
+      <button className="rail-btn" onClick={onToggle} title="Show threads (⌘B)" aria-label="Show threads"><span className="logo" /></button>
+      <button className="rail-btn" onClick={onNew} title="New thread" aria-label="New thread"><Icon name="plus" size={15} /></button>
       <span className="spacer" />
-      {!me?.public && <button className="rail-btn" onClick={onSettings} title="Settings"><Icon name="gear" size={15} /></button>}
+      {!me?.public && <button className="rail-btn" onClick={onSettings} title="Settings" aria-label="Settings"><Icon name="gear" size={15} /></button>}
       <span className="avatar sm">{(me?.name ?? '?').slice(0, 1).toUpperCase()}</span>
     </nav>
   );
 
   return (
     <nav className={`sidebar ${embedded ? 'embedded' : ''}`}>
-      {!embedded && <div className="side-brand"><span className="logo" />agent-stage{onLayout && <button className="icon-btn" onClick={onLayout} title="Map-first layout"><Icon name="map" size={14} /></button>}<button className="icon-btn" onClick={onToggle} title="Hide threads (⌘B)"><Icon name="sidebar" size={14} /></button></div>}
+      {!embedded && <div className="side-brand"><span className="logo" />agent-stage{onLayout && <button className="icon-btn" onClick={onLayout} title="Map-first layout" aria-label="Map-first layout"><Icon name="map" size={14} /></button>}<button className="icon-btn" onClick={onToggle} title="Hide threads (⌘B)" aria-label="Hide threads"><Icon name="sidebar" size={14} /></button></div>}
       <button className="side-new" onClick={onNew}><Icon name="plus" size={13} /> New thread</button>
 
       <div className="side-scroll">
@@ -48,7 +48,7 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle,
         <div className="side-account">
           <span className="avatar">{(me?.name ?? '?').slice(0, 1).toUpperCase()}</span>
           <div className="who"><div>{me?.name ?? '…'}</div><div className="muted">{me?.public ? 'Online demo · private sandbox' : 'Local · this computer'}</div></div>
-          {!me?.public && <button className="icon-btn" onClick={onSettings} title="Settings"><Icon name="gear" size={15} /></button>}
+          {!me?.public && <button className="icon-btn" onClick={onSettings} title="Settings" aria-label="Settings"><Icon name="gear" size={15} /></button>}
         </div>
       </div>
     </nav>

@@ -89,7 +89,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           <span className="side-actions">
             <span className="pill">{side.kept ? 'kept' : 'temporary'}</span>
             {!side.kept && <button className="btn ghost sm" onClick={side.onKeep}>Keep</button>}
-            <button className="icon-btn" onClick={side.onClose} title="Close"><Icon name="x" size={13} /></button>
+            <button className="icon-btn" onClick={side.onClose} title="Close" aria-label="Close"><Icon name="x" size={13} /></button>
           </span>
         ) : (
           <>
@@ -215,15 +215,15 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} />
           <span className="spacer" />
           {voiceSupported && (
-            <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle}
+            <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle} aria-label={voice.listening ? 'Stop listening' : 'Speak your prompt'} aria-pressed={voice.listening}
               title={voice.error || (voice.listening ? 'Listening… click to stop' : 'Speak your prompt')}><Icon name="mic" size={14} /></button>
           )}
           {!side && <button className={`btn ghost sm ask-btn ${asking ? 'on' : ''}`} onClick={() => { if (text.trim()) submit('ask'); else { setAsking(!asking); box.current?.focus(); } }}
             title="Ask a side question without interrupting the agent. It can read the project but never changes it">Ask</button>}
           {state.running && !side
-            ? <button className="btn danger round" onClick={onStop} title="Stop"><Icon name="stop" size={10} /></button>
-            : <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? 'Steer' : 'Send'}><Icon name="arrow" size={14} /></button>}
-          {state.running && !side && text.trim() && <button className="btn primary round" onClick={() => submit()} title="Steer: the agent reads this before its next step"><Icon name="arrow" size={14} /></button>}
+            ? <button className="btn danger round" onClick={onStop} title="Stop" aria-label="Stop the agent"><Icon name="stop" size={10} /></button>
+            : <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? 'Steer' : 'Send'} aria-label={state.running ? 'Steer' : 'Send'}><Icon name="arrow" size={14} /></button>}
+          {state.running && !side && text.trim() && <button className="btn primary round" onClick={() => submit()} title="Steer: the agent reads this before its next step" aria-label="Steer"><Icon name="arrow" size={14} /></button>}
         </div>
       </div>}
     </aside>

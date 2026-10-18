@@ -39,7 +39,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head"><span>New thread</span><button className="icon-btn" onClick={onClose}><Icon name="x" size={13} /></button></div>
+        <div className="modal-head"><span>New thread</span><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" size={13} /></button></div>
         <div className="modal-body">
           <div className="label">Mode</div>
           <div className="mode-pick">

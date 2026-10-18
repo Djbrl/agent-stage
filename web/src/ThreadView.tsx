@@ -118,7 +118,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
                 <button className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>Chat{state.running && !replay.active && <span className="live-dot" />}</button>
                 <button className={tab === 'steps' ? 'on' : ''} onClick={() => setTab('steps')}>Steps{state.steps.length ? <span className="count">{state.steps.length}</span> : null}</button>
               </div>
-              <button className="icon-btn" onClick={() => setPanelOpen(false)} title="Hide the panel: just the map"><Icon name="chevron" size={13} className="flip" /></button>
+              <button className="icon-btn" onClick={() => setPanelOpen(false)} title="Hide the panel: just the map" aria-label="Hide the panel"><Icon name="chevron" size={13} className="flip" /></button>
             </div>
             <div className="studio-body">
               {/* The chat stays mounted so a half-typed prompt survives a look at the steps. */}
