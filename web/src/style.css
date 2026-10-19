@@ -1431,3 +1431,29 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .ask-body.chat .sketch { margin: 0 12px 8px; flex-shrink: 0; --sketch-max-h: 30vh; }
 .ask-scroll { min-height: 90px; }
 .ask-body.chat .ask-task { margin: -4px 12px 8px; }
+/* Scratchpad v2: docked beside the chat, no title; room, then the box, then + and Send to your current thread */
+.ask-win.scratch { border-radius: 22px; padding: 0 0 12px; }
+.sp-corner { position: absolute; top: 8px; right: 8px; display: flex; gap: 2px; z-index: 2; }
+.sp-corner .icon-btn { margin: 0; background: var(--surface); }
+.sp-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 44px 16px 12px; }
+.sp-body.sent { align-items: center; justify-content: center; gap: 8px; color: var(--write-ink); font-weight: 600; flex-direction: row; }
+.sp-chat { display: flex; flex-direction: column; gap: 10px; }
+.sp-body .sketch { --sketch-max-h: 52vh; }
+.sp-input { margin: 0 12px; display: flex; align-items: flex-end; gap: 8px; border: 2px solid var(--line); border-radius: 16px; padding: 8px 8px 8px 14px; background: var(--surface); flex-shrink: 0; }
+.sp-input:focus-within { border-color: var(--line-strong); }
+.sp-input textarea { flex: 1; resize: none; border: 0; outline: 0; background: none; color: var(--text); font: 15px/1.5 var(--sans); max-height: 30vh; }
+.sp-input .btn.round { width: 34px; height: 34px; flex-shrink: 0; }
+:root .sp-input .btn.primary.round { background: #c8f169; color: #141414; border: 0; }
+.sp-row { display: flex; align-items: center; gap: 8px; margin: 8px 12px 0; flex-shrink: 0; }
+.sp-row .btn.sm { height: 30px; padding: 0 12px; }
+.sp-kept { font-size: 12.5px; }
+.sp-plus { position: relative; }
+.sp-plus-btn { margin: 0; width: 32px; height: 32px; border-radius: 50%; place-items: center; background: var(--hover); color: var(--text); }
+.sp-plus-btn:hover { background: var(--line); }
+.sp-menu { position: absolute; bottom: calc(100% + 6px); left: 0; min-width: 190px; display: flex; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 30px rgb(0 0 0 / calc(.35 * var(--shadow-k))); z-index: 3; }
+.sp-menu::after { content: ''; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px; } /* hover bridge */
+.sp-menu button { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); font: 500 13.5px var(--sans); cursor: pointer; text-align: left; }
+.sp-menu button:hover { background: var(--hover); }
+.sp-menu .icon { color: var(--dim); }
+.ask-win.scratch .ask-error { margin: 0 12px 8px; }
+.sk-btn .icon { margin-right: 4px; }

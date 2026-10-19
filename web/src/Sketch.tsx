@@ -1,4 +1,4 @@
-// Scratchpad drawing: a pen over a blank page or over a picture you bring in (a screenshot to mark up).
+// Scratchpad drawing: a pen (four colours, two sizes, undo, clear) over a blank page or over a picture you bring in (a screenshot to mark up).
 // The strokes live in the window's state, so shrinking the window keeps them. Sent as one PNG.
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { Icon } from './icons';
@@ -50,10 +50,8 @@ export async function sketchFromImage(file: Blob, keep: Sketch): Promise<Sketch>
 export function SketchPad({ value, onChange }: { value: Sketch; onChange: (s: Sketch) => void }) {
   const t = useT();
   const canvas = useRef<HTMLCanvasElement>(null);
-  const file = useRef<HTMLInputElement>(null);
   const [color, setColor] = useState(COLORS[1]);
   const [size, setSize] = useState(SIZES[0]);
-  const [erase, setErase] = useState(false);
   const live = useRef<Stroke | null>(null);
   const [over, setOver] = useState(false);
 
@@ -66,6 +64,20 @@ export function SketchPad({ value, onChange }: { value: Sketch; onChange: (s: Sk
   };
   useEffect(redraw, [value]);
 
+  // ⌘Z / Ctrl+Z takes back the last stroke, unless you're typing (an empty text box doesn't count).
+  const undo = () => { if (value.strokes.length) onChange({ ...value, strokes: value.strokes.slice(0, -1) }); };
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return;
+      const a = document.activeElement as HTMLInputElement | null;
+      if (a?.matches('input, textarea, [contenteditable="true"]') && a.value !== '') return;
+      if (!value.strokes.length) return;
+      e.preventDefault(); undo();
+    };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [value]);
+
   const at = (e: RPointerEvent): [number, number] => {
     const r = canvas.current!.getBoundingClientRect();
     return [((e.clientX - r.left) / r.width) * value.w, ((e.clientY - r.top) / r.height) * value.h];
@@ -73,7 +85,7 @@ export function SketchPad({ value, onChange }: { value: Sketch; onChange: (s: Sk
   const down = (e: RPointerEvent) => {
     if (e.button !== 0) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    live.current = { color, size, erase, pts: [at(e)] };
+    live.current = { color, size, erase: false, pts: [at(e)] };
     redraw();
   };
   const move = (e: RPointerEvent) => { if (!live.current) return; live.current.pts.push(at(e)); redraw(); };
@@ -83,17 +95,14 @@ export function SketchPad({ value, onChange }: { value: Sketch; onChange: (s: Sk
   return (
     <div className="sketch">
       <div className="sketch-tools">
-        {COLORS.map((c) => <button key={c} className={`sk-color ${!erase && color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => { setColor(c); setErase(false); }} aria-label={t('Pen colour', 'Couleur du stylo')} />)}
+        {COLORS.map((c) => <button key={c} className={`sk-color ${color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={t('Pen colour', 'Couleur du stylo')} />)}
         <span className="sk-sep" />
-        {SIZES.map((s) => <button key={s} className={`sk-size ${!erase && size === s ? 'on' : ''}`} onClick={() => { setSize(s); setErase(false); }} aria-label={s === SIZES[0] ? t('Thin pen', 'Stylo fin') : t('Thick pen', 'Stylo épais')}><span style={{ width: s + 2, height: s + 2 }} /></button>)}
-        <button className={`sk-btn ${erase ? 'on' : ''}`} onClick={() => setErase(!erase)} title={t('Eraser', 'Gomme')}>{t('Eraser', 'Gomme')}</button>
+        {SIZES.map((s) => <button key={s} className={`sk-size ${size === s ? 'on' : ''}`} onClick={() => setSize(s)} aria-label={s === SIZES[0] ? t('Thin pen', 'Stylo fin') : t('Thick pen', 'Stylo épais')}><span style={{ width: s + 2, height: s + 2 }} /></button>)}
         <span className="spacer" />
-        <button className="sk-btn" disabled={!value.strokes.length} onClick={() => onChange({ ...value, strokes: value.strokes.slice(0, -1) })} title={t('Undo', 'Annuler')}><Icon name="undo" size={13} /></button>
+        <button className="sk-btn" disabled={!value.strokes.length} onClick={undo} title={t('Undo (⌘Z)', 'Annuler (⌘Z)')}><Icon name="undo" size={13} />{t('Undo', 'Annuler')}</button>
         <button className="sk-btn" disabled={isBlank(value) && !value.strokes.length} onClick={() => onChange(emptySketch())} title={t('Clear the page', 'Effacer la page')}>{t('Clear', 'Effacer')}</button>
-        <button className="sk-btn" onClick={() => file.current?.click()} title={t('Bring in a picture to draw on (or paste one)', 'Importer une image pour dessiner dessus (ou en coller une)')}>{t('Picture', 'Image')}</button>
-        <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { void bring(e.target.files?.[0]); e.target.value = ''; }} />
       </div>
-      <div className={`sketch-page ${over ? 'over' : ''} ${erase ? 'erasing' : ''}`} style={{ aspectRatio: `${value.w} / ${value.h}`, maxWidth: `calc(var(--sketch-max-h, 46vh) * ${(value.w / value.h).toFixed(3)})` }}
+      <div className={`sketch-page ${over ? 'over' : ''}`} style={{ aspectRatio: `${value.w} / ${value.h}`, maxWidth: `calc(var(--sketch-max-h, 46vh) * ${(value.w / value.h).toFixed(3)})` }}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); void bring(e.dataTransfer.files?.[0]); }}>
         {value.bg && <img src={value.bg} alt="" draggable={false} />}

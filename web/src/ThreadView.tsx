@@ -60,7 +60,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
     return files.find((f) => f === clean) ?? files.find((f) => f.endsWith('/' + clean)) ?? null;
   };
 
-  const openSide = (question: string) => ask.open({ question: question || undefined, draw: !question });
+  const openSide = (question: string) => ask.open({ question: question || undefined });
   const askAbout = (quote: string) => ask.open({ quote });
   // Clicking a work line in the chat opens that step on the stage.
   const showStep = (stepId: string) => { setStageOpen(true); setSelected(stepId); setSheetOpen(true); };
