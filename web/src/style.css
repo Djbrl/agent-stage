@@ -926,6 +926,8 @@ body.ask-dragging, body.ask-dragging * { user-select: none !important; }
 .logo { width: 28px; height: 17px; border-radius: 0; box-shadow: none; flex-shrink: 0;
   background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 72'%3E%3Cg fill='none' stroke='%23141414' stroke-width='7' stroke-linejoin='round' stroke-linecap='round'%3E%3Ccircle cx='26' cy='50' r='17'/%3E%3Ccircle cx='94' cy='50' r='17'/%3E%3Cpath d='M26 50 L44 27 L60 50 L74 27 L94 50 M44 27 L84 23 L89 17'/%3E%3C/g%3E%3Ccircle cx='42' cy='11' r='9' fill='%23ff5a1f'/%3E%3Ccircle cx='72' cy='9' r='9' fill='%232f45e8'/%3E%3C/svg%3E"); }
 :root[data-theme="dark"] .logo { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 72'%3E%3Cg fill='none' stroke='%23e8e9ec' stroke-width='7' stroke-linejoin='round' stroke-linecap='round'%3E%3Ccircle cx='26' cy='50' r='17'/%3E%3Ccircle cx='94' cy='50' r='17'/%3E%3Cpath d='M26 50 L44 27 L60 50 L74 27 L94 50 M44 27 L84 23 L89 17'/%3E%3C/g%3E%3Ccircle cx='42' cy='11' r='9' fill='%23ff5a1f'/%3E%3Ccircle cx='72' cy='9' r='9' fill='%237d8dff'/%3E%3C/svg%3E"); }
+/* the welcome screen shows the app icon itself: the tandem on track orange */
+.logo.big, :root[data-theme="dark"] .logo.big { width: 40px; height: 40px; border-radius: 11px; background: url(/icon.svg) center / cover no-repeat; }
 .side-brand { font-family: var(--display); font-weight: 800; font-stretch: 112%; letter-spacing: -.02em; }
 .welcome-card h1, .agent-panel.centered .intro-title { font-family: var(--display); font-weight: 800; font-stretch: 112%; letter-spacing: -.03em; line-height: 1; }
 .welcome-card h1 { font-size: 40px; }
