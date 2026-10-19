@@ -24,10 +24,10 @@ type Tab = 'chat' | 'steps' | 'threads';
 let firstOpen = true; // the app opens on the threads list; picking a thread then lands on its chat
 export const landOnChat = () => { firstOpen = false; }; // a thread you just created opens on its chat
 
-export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayout }: {
-  id: string; onOpenSettings: () => void; layout?: Layout; nav?: Nav; onLayout?: (l: Layout) => void;
+export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', nav, onLayout }: {
+  id: string; onOpenSettings: () => void; onMissing?: () => void; layout?: Layout; nav?: Nav; onLayout?: (l: Layout) => void;
 }) {
-  const { state, replay, meta, run, steer, stop, approve, answerCheckpoint, setMode, resetContext } = useAgent(id);
+  const { state, replay, meta, run, steer, stop, approve, answerCheckpoint, setMode, resetContext } = useAgent(id, onMissing);
   const { health, serverDown, recheck } = useHealth();
   const { refreshThreads, threads, me } = useApp();
   const t = useT();

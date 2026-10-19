@@ -195,8 +195,11 @@ export type Replay = {
   play: () => void; pause: () => void; step: (d: number) => void; seek: (i: number) => void; live: () => void;
 };
 
-export function useAgent(threadId: string) {
+// onMissing: the server has no such thread (deleted, or a fresh data folder while the browser remembers the id).
+export function useAgent(threadId: string, onMissing?: () => void) {
   const base = `/api/threads/${threadId}`;
+  const missing = useRef(onMissing);
+  missing.current = onMissing;
   const [liveState, dispatch] = useReducer(reduce, initial);
   const events = useRef<AgentEvent[]>([]);
   const files = useRef<string[]>([]);
@@ -206,13 +209,16 @@ export function useAgent(threadId: string) {
   const [meta, setMeta] = useReducer((_: any, m: any) => m, { workspace: '…', title: '', mode: 'build' });
 
   useEffect(() => {
+    let gone = false;
     const refresh = () =>
-      fetch(`${base}/state`).then((r) => r.json()).then((st) => {
+      fetch(`${base}/state`).then(async (r) => {
+        if (r.status === 404) { gone = true; es.close(); missing.current?.(); return; }
+        const st = r.ok ? await r.json().catch(() => null) : null;
+        if (!st || !Array.isArray(st.files)) return; // a hiccup: the next refresh tries again
         setMeta(st);
         files.current = st.files;
         dispatch({ kind: 'files', files: st.files, running: st.running });
-      });
-    refresh();
+      }).catch(() => {});
     const take = (e: AgentEvent) => {
       events.current.push(e);
       setEventCount(events.current.length);
@@ -223,10 +229,11 @@ export function useAgent(threadId: string) {
     let poll: ReturnType<typeof setInterval> | undefined, closed = false, poll2: EventSource | undefined;
     const es = new EventSource(`${base}/events`);
     es.onmessage = (m) => take(JSON.parse(m.data));
+    refresh();
     let hello = false;
     es.addEventListener('hello', () => { hello = true; });
     const fallback = setTimeout(() => {
-      if (hello || closed) return;
+      if (hello || closed || gone) return;
       es.close();
       let busy = false;
       poll = setInterval(async () => {
