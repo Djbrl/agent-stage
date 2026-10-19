@@ -139,7 +139,6 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
               {/* Until there's a Threads tab, a new thread and the settings stay one click away. */}
               {nav && !showThreads && <>
                 <button className="icon-btn studio-mini" onClick={nav.onNew} title={t('New session', 'Nouvelle session')} aria-label={t('New session', 'Nouvelle session')}><Icon name="plus" size={14} /></button>
-                {!me?.public && <button className="icon-btn studio-mini" onClick={nav.onSettings} title={t('Settings', 'Réglages')} aria-label={t('Settings', 'Réglages')}><Icon name="gear" size={14} /></button>}
               </>}
               <button className="icon-btn" onClick={() => setPanelOpen(false)} title={t('Hide the panel: just the map', 'Masquer le panneau : juste la carte')} aria-label={t('Hide the panel', 'Masquer le panneau')}><Icon name="chevron" size={13} className="flip" /></button>
             </div>

@@ -98,15 +98,17 @@ function Shell() {
   );
 }
 
-// The bar across the top of a session: where you are, a new session, settings. Keeps the map from feeling closed in.
+// The bar across the top of a session: where you are, a new session, settings (the only Settings button in a session).
+// Keeps the map from feeling closed in.
 function AppHeader({ onNew, onSettings }: { onNew: () => void; onSettings: () => void }) {
   const t = useT();
+  const { me } = useApp();
   return (
     <header className="app-head">
       <span className="app-brand"><span className="logo" /><b>codetandem</b></span>
       <span className="spacer" />
       <button className="app-head-btn primary" onClick={onNew}><Icon name="plus" size={14} />{t('New session', 'Nouvelle session')}</button>
-      <button className="app-head-btn icon" onClick={onSettings} aria-label={t('Settings', 'Réglages')} title={t('Settings', 'Réglages')}><Icon name="gear" size={16} /></button>
+      {!me?.public && <button className="app-head-btn icon" onClick={onSettings} aria-label={t('Settings', 'Réglages')} title={t('Settings', 'Réglages')}><Icon name="gear" size={18} /></button>}
     </header>
   );
 }
