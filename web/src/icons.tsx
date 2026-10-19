@@ -8,7 +8,7 @@ const P = {
   check: 'M3 8.5l3 3 7-7',
   x: 'M4 4l8 8 M12 4l-8 8',
   stop: 'M4 4h8v8H4z',
-  mic: 'M8 2.5a2 2 0 0 0-2 2v3.5a2 2 0 0 0 4 0V4.5a2 2 0 0 0-2-2Z M4 7.5a4 4 0 0 0 8 0 M8 11.5v2',
+  mic: 'M8 1.3a2.7 2.7 0 0 0-2.7 2.7v3.4a2.7 2.7 0 0 0 5.4 0V4A2.7 2.7 0 0 0 8 1.3Z M3.4 7.3a4.6 4.6 0 0 0 9.2 0 M8 11.9v2.8',
   arrow: 'M8 13V3 M4 7l4-4 4 4',
   plus: 'M8 3v10 M3 8h10',
   minus: 'M3.5 8h9',
@@ -22,7 +22,7 @@ const P = {
   sidebar: 'M2.5 3h11v10h-11z M6 3v10',
   map: 'M2 4l4-1.5 4 1.5 4-1.5v9.5l-4 1.5-4-1.5-4 1.5z M6 2.5v9.5 M10 4v9.5',
   folder: 'M2 4.5h4l1.5 1.5H14v6.5H2z',
-  gear: 'M6.8 1.8h2.4l.4 1.6 1.2.7 1.6-.5 1.2 2.1-1.2 1.1v1.4l1.2 1.1-1.2 2.1-1.6-.5-1.2.7-.4 1.6H6.8l-.4-1.6-1.2-.7-1.6.5-1.2-2.1 1.2-1.1V7.3L2.4 6.2l1.2-2.1 1.6.5 1.2-.7z M8 10.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4Z', // a cog wheel
+  gear: 'M6.43 2.94L6.63 1.24L9.37 1.24L9.57 2.94L10.47 3.31L11.81 2.25L13.75 4.19L12.69 5.53L13.06 6.43L14.76 6.63L14.76 9.37L13.06 9.57L12.69 10.47L13.75 11.81L11.81 13.75L10.47 12.69L9.57 13.06L9.37 14.76L6.63 14.76L6.43 13.06L5.53 12.69L4.19 13.75L2.25 11.81L3.31 10.47L2.94 9.57L1.24 9.37L1.24 6.63L2.94 6.43L3.31 5.53L2.25 4.19L4.19 2.25L5.53 3.31Z M8 10.3a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z', // a cog wheel with square teeth
   globe: 'M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12Z M2 8h12 M8 2c-2 2.2-2 9.8 0 12 M8 2c2 2.2 2 9.8 0 12',
   pointer: 'M4 2.5l8 5-3.5 1 2 4-1.5.7-2-4L4 12z',
   undo: 'M5 3L2.5 5.5 5 8 M2.5 5.5H10a3.5 3.5 0 0 1 0 7H6',
@@ -34,10 +34,13 @@ const P = {
 };
 export type IconName = keyof typeof P;
 
+// The cog and the mic sit alone on big round buttons, so they're drawn bolder.
+const BOLD: Partial<Record<string, number>> = { gear: 1.9, mic: 1.6 };
+
 export function Icon({ name, size = 14, className }: { name: IconName; size?: number; className?: string }) {
   return (
     <svg className={`icon ${className ?? ''}`} width={size} height={size} viewBox="0 0 16 16" fill="none"
-      stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      stroke="currentColor" strokeWidth={BOLD[name] ?? 1.5} strokeLinecap="round" strokeLinejoin="round">
       {P[name].split(' M').map((d, i) => <path key={i} d={i ? `M${d}` : d} />)}
     </svg>
   );

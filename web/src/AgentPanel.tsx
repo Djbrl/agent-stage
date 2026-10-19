@@ -249,7 +249,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
                   title={state.running ? t('You can switch once the agent is done', 'Tu pourras changer quand l’agent aura fini')
                     : m === 'learn' ? t('Guide me: you decide, it explains and only writes code once you say yes', 'Guide-moi : tu décides, il explique et n’écrit du code qu’après ton accord')
                     : t('Just build it: the agent does the work', 'Fais-le : l’agent fait le travail')}>
-                  <Icon name={m === 'learn' ? 'guide' : 'build'} size={16} />
+                  {m === 'learn' ? t('Learn', 'Apprendre') : t('Build', 'Construire')}
                 </button>
               ))}
             </div>

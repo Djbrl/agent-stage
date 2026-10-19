@@ -945,8 +945,7 @@ body.ask-dragging, body.ask-dragging * { user-select: none !important; }
 :root[data-theme="light"] .studio-tabs { background: var(--frame); }
 :root[data-theme="light"] .studio-tabs button.on { background: var(--ink); color: #fafaf7; box-shadow: none; }
 :root[data-theme="light"] .studio-tabs button.on .count { color: #c9c9bf; }
-:root[data-theme="light"] .bubble-user { background: var(--blue); color: #fafaf7; border-radius: 18px 18px 6px 18px; }
-:root[data-theme="light"] .bubble-user a, :root[data-theme="light"] .bubble-user code { color: inherit; }
+:root[data-theme="light"] .bubble-user { background: var(--hover); color: var(--text); border-radius: 18px 18px 6px 18px; }
 :root[data-theme="light"] .composer { border: 2px solid var(--ink); }
 :root[data-theme="light"] .composer:focus-within { border-color: var(--blue); }
 :root[data-theme="light"] .seg button.on { background: var(--sun); color: var(--ink); }
@@ -1239,7 +1238,7 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 
 /* composer: icons for the mode and the model, green send, black stop with a green square */
 .mode-icons { display: inline-flex; gap: 4px; background: var(--hover); border-radius: 999px; padding: 3px; }
-.mode-icon { width: 34px; height: 34px; border: 0; border-radius: 50%; display: grid; place-items: center; background: transparent; color: var(--dim); cursor: pointer; transition: background .15s, color .15s; }
+.mode-icon { height: 34px; padding: 0 14px; border: 0; border-radius: 999px; display: grid; place-items: center; font: 700 13.5px var(--sans); white-space: nowrap; background: transparent; color: var(--dim); cursor: pointer; transition: background .15s, color .15s; }
 .mode-icon:hover:not(:disabled) { color: var(--text); }
 .mode-icon.learn.on { background: #ffd23f; color: #141414; }
 .mode-icon.build.on { background: var(--text); color: var(--surface); }
@@ -1264,9 +1263,6 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 :root[data-theme="light"] .checkpoint .btn.primary { background: #2f45e8; color: #fff; height: 36px; padding: 0 18px; font-size: 14px; font-weight: 700; }
 :root[data-theme="light"] .callout { border-radius: 14px; }
 
-/* the ? on anything you can ask about: big, blue, easy to hit */
-.ask-msg { width: 30px; height: 30px; top: -8px; right: -8px; border: 0; background: #2f45e8; color: #fff; font: 800 16px var(--display); box-shadow: 0 6px 16px rgba(47,69,232,.35); }
-.ask-msg:hover { background: #2336c4; color: #fff; }
 .ask-pick { height: 36px; padding: 0 14px; background: #2f45e8; color: #fff; border: 0; font-weight: 700; font-size: 14px; }
 .ask-pick:hover { background: #2336c4; }
 
@@ -1276,3 +1272,16 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .composer .icon-btn.mic { width: 40px; height: 40px; background: var(--hover); color: var(--text); }
 .composer .icon-btn.mic:hover { background: var(--line); }
 .composer .icon-btn.mic.on { background: #d0422a; color: #fff; }
+.app-head-btn { white-space: nowrap; flex-shrink: 0; }
+.app-head-btn.head-settings:hover { background: var(--line); }
+@media (max-width: 640px) { .app-head-btn.head-settings { width: 38px; padding: 0; justify-content: center; } .app-head-btn.head-settings span { display: none; } }
+.lg-word { font-style: normal; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 999px; }
+.lg-word.learn { background: #ffd23f; color: #141414; } .lg-word.build { background: var(--text); color: var(--surface); }
+/* icons on grey buttons are dark grey, not solid black */
+.composer .icon-btn.mic { color: #4a4a45; }
+.composer .icon-btn.mic:hover { color: var(--text); }
+.app-head-btn.head-settings { color: #4a4a45; }
+.app-head-btn.head-settings:hover { color: var(--text); }
+:root[data-theme="dark"] .composer .icon-btn.mic, :root[data-theme="dark"] .app-head-btn.head-settings { color: var(--text-2); }
+/* the ? sits on the message's bottom-right corner */
+.ask-msg { top: auto; bottom: -6px; right: -4px; }

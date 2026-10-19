@@ -108,7 +108,7 @@ function AppHeader({ onNew, onSettings }: { onNew: () => void; onSettings: () =>
       <span className="app-brand"><span className="logo" /><b>codetandem</b></span>
       <span className="spacer" />
       <button className="app-head-btn primary" onClick={onNew}><Icon name="plus" size={14} />{t('New session', 'Nouvelle session')}</button>
-      {!me?.public && <button className="app-head-btn icon" onClick={onSettings} aria-label={t('Settings', 'Réglages')} title={t('Settings', 'Réglages')}><Icon name="gear" size={18} /></button>}
+      {!me?.public && <button className="app-head-btn head-settings" onClick={onSettings} aria-label={t('Settings', 'Réglages')}><Icon name="gear" size={18} /><span>{t('Settings', 'Réglages')}</span></button>}
     </header>
   );
 }
