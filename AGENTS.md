@@ -5,7 +5,7 @@ Read this first. It's the full context as of **16 10 2026**. `CLAUDE.md` points 
 ## What this is
 Hackathon entry for the **Open Source × AI Hackathon 2026** (hacktoberfest.galsen.dev/hackathon). The name "agent-stage" is temporary.
 
-agent-stage is a **visual-first coding-agent harness**. You give a task, and the project is drawn as a map: the agent's marker moves to the files it reads and edits, and steps, diffs and explanations are one click away. It runs open models (Qwen3-Coder on our own Brev GPU, NVIDIA's API, Ollama…) through its own agent loop, or Claude Code through the Agent SDK. It is aimed at the **education prize**: Learn mode, plain-language step labels, replay.
+agent-stage is a **visual-first coding-agent harness**. You give a task, and the project is drawn as a map: the agent's marker moves to the files it reads and edits, and steps, diffs and explanations are one click away. It runs open models (Qwen3-Coder on our own Brev GPU, NVIDIA's API, Ollama…) through its own agent loop, or Claude Code through the Agent SDK. Since 19 10 it is positioned as **the coding-agent harness for learners** and entered in the **Éducation & apprentissage** track (prizes go to the top 3 overall; there is no separate education prize). The target is people who already code, not kids. Learn ("Guide me") is the default mode.
 
 - **Submit by Mon 19 10 2026.** The jury wants a public repo, the MIT licence (done), a README with problem/solution, the AI's role, models and dependencies, visible git history, and a demo video of 3 minutes or less.
 - **Final:** Dakar, 24 10 (a 7-minute pitch plus Q&A).
@@ -94,6 +94,14 @@ Ops:
   - **the Claude Code engine with a real key** (17 10: build, stop, approvals, done-check).
 - **Not verified:** NVIDIA-hosted Nemotron (no key in settings yet). Voice input only checked for presence (headless browsers have no microphone).
 - **Reviews:** `review/UX-REVIEW.md` (16 10 hands-on review) and `review/ASK-AND-DISCUSS.md` (design and token cost of Ask/Discuss). Not committed.
+
+## New on 19 10 (learner pass)
+- **First launch** (`web/src/Welcome.tsx`): "Stay in the loop.", level and language chips (saved to the Learn settings), *Open a project* first, *Try a guided demo* second (an empty project seeded with an intro and three starter ideas, no model call). No mode or engine choice: new threads are Learn with the active model, and a one-time note says both can be changed. The New thread dialog is just folder / empty project / recent.
+- **Contextual tips** (`web/src/Tips.tsx`) replace the deleted 9-stop tour: each fires once, when it becomes relevant (agent moves, approval, checkpoint, first edit, task done, camera taken).
+- **Progressive interface:** Steps tab after the first step, Threads tab with a second thread, map tools and the terminal/browser circles once used, model picker only with several usable models, token meter on hover.
+- **What you learned** (`web/src/Learned.tsx`, `learnedFromTask` in `src/insight.ts`): after a task that changed something, a `learned` event with 2–3 concepts and a "Try it yourself" exercise, plus "concepts so far" per thread.
+- **Plain words and French** across the interface (`web/src/i18n.ts`, `useT()`); modes renamed *Guide me* / *Just build it* in the UI (values stay `learn` / `build`).
+- Open-source kit: smoke test (`test/smoke.test.ts`), CI, CONTRIBUTING, Code of Conduct, templates; good first issues #1–#7 on GitHub.
 
 ## Open work, roughly by value
 1. **Demo video (≤3 min) and submission by 19 10** (Jib, later). The README is updated; add the video link where its hidden comment says.
