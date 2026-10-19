@@ -89,7 +89,7 @@ test('a scratch thread runs a task to the end, writes files, and Undo takes them
   const events: any[] = [];
   const answered = new Set<string>();
   const deadline = Date.now() + 80_000;
-  while (!events.some((e) => e.type === 'idle')) {
+  while (!(events.some((e) => e.type === 'idle') && events.some((e) => e.type === 'task_end'))) {
     assert.ok(Date.now() < deadline, `task did not finish; last events: ${JSON.stringify(events.slice(-5))}`);
     const { events: fresh } = await api(`${T}/log?from=${events.length}`);
     events.push(...fresh);
