@@ -1390,3 +1390,8 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .wd-dots { display: flex; gap: 6px; }
 .wd-dots button { width: 8px; height: 8px; border-radius: 50%; border: 0; padding: 0; background: var(--line-strong); cursor: pointer; }
 .wd-dots button.on { background: var(--text); width: 20px; border-radius: 99px; }
+/* tips: track orange with white text, big enough to read at a glance */
+.tip { width: 300px; background: var(--orange); border-color: transparent; color: #fff; font-size: 15px; font-weight: 600; line-height: 1.45; padding: 14px 16px 12px; border-radius: 14px; gap: 10px; }
+.tip::before { background: var(--orange); border-color: transparent; }
+.tip .tip-ok { height: 30px; padding: 0 14px; background: #fff; color: var(--orange); border: 0; font-weight: 700; font-size: 13px; }
+.tip .tip-ok:hover:not(:disabled) { background: #fff3ec; }
