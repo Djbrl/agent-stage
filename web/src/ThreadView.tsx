@@ -17,6 +17,7 @@ import { Sidebar, type Nav } from './Sidebar';
 import { ThreadMenu } from './ThreadMenu';
 import { Tips } from './Tips';
 import { useT, useLang, serverText } from './i18n';
+import { useAsk } from './AskWindow';
 
 export type Layout = 'studio' | 'classic';
 type Tab = 'chat' | 'steps' | 'threads';
@@ -36,7 +37,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
   const problem = diagnose(health, serverDown, fr);
   const [selected, setSelected] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [sideId, setSideId] = useState<string | null>(null);
+  const ask = useAsk(id); // side questions in a floating window; the main agent keeps working
   const [chatW, setChatW] = useState(() => storedNumber('chatW', 400));
   useEffect(() => store('chatW', Math.round(chatW)), [chatW]);
   useEffect(() => { refreshThreads(); }, [state.running, state.timeline.length]);
@@ -59,9 +60,8 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
     return files.find((f) => f === clean) ?? files.find((f) => f.endsWith('/' + clean)) ?? null;
   };
 
-  const openSide = (question: string) =>
-    fetch(`/api/threads/${id}/ask-thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
-      .then((r) => r.json()).then((j) => j.id && setSideId(j.id));
+  const openSide = (question: string) => ask.open({ question: question || undefined });
+  const askAbout = (quote: string) => ask.open({ quote });
   // Clicking a work line in the chat opens that step on the stage.
   const showStep = (stepId: string) => { setStageOpen(true); setSelected(stepId); setSheetOpen(true); };
 
@@ -117,7 +117,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
         problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
         banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null}
         replaying={replay.active} centered={false}
-        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={pickStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} git={git} shared={shared} header={menu} />
+        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onAskAbout={askAbout} onStop={stop} onSelect={pickStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} git={git} shared={shared} header={menu} />
     );
     const left = panelOpen && !phone ? panelW + 24 : 0; // on phones the panel sits under the map
     return (
@@ -162,7 +162,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
           </button>
         )}
         {tips}
-        {sideId && <div className="studio-side" style={{ left: left || 16 }}><SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={pickStep} /></div>}
+        {ask.layer}
       </div>
       </HighlightContext.Provider>
     );
@@ -177,8 +177,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
           banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null} replaying={replay.active} header={header} centered={!showStage}
-          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} git={git} shared={shared} />
-        {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={showStep} />}
+          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onAskAbout={askAbout} onStop={stop} onSelect={showStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} git={git} shared={shared} />
       </div>
       {showStage && <Resizer onDrag={(dx) => setChatW((w) => Math.max(320, Math.min(760, w + dx)))} onReset={() => setChatW(400)} title={t('Drag to give the chat or the map more room', 'Glisse pour donner plus de place au chat ou à la carte')} />}
       {showStage && (
@@ -187,27 +186,8 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
           approve={approve} onCollapse={() => setStageOpen(false)} lit={lit} onFollowing={setFollowing} />
       )}
       {tips}
+      {ask.layer}
     </div>
     </HighlightContext.Provider>
-  );
-}
-
-// Temporary, read-only side thread for questions: it starts from the work thread's context and never touches it.
-function SideThread({ id, onClose, onOpenSettings, onSelect }: { id: string; onClose: () => void; onOpenSettings: () => void; onSelect: (k: string) => void }) {
-  const { state, meta, run } = useAgent(id);
-  const { refreshThreads } = useApp();
-  const t = useT();
-  const [kept, setKept] = useState(false);
-  const close = () => {
-    if (!kept) fetch(`/api/threads/${id}`, { method: 'DELETE' });
-    onClose();
-  };
-  const keep = () => fetch(`/api/threads/${id}/keep`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
-    .then(() => { setKept(true); refreshThreads(); });
-  return (
-    <div className="side-thread-wrap">
-      <AgentPanel state={state} title={`${t('Why?', 'Pourquoi ?')} · ${meta.title}`} mode="build" onMode={() => {}} onCheckpoint={() => {}} problem={null}
-        onOpenSettings={onOpenSettings} onRun={run} onAsk={() => {}} onStop={() => {}} onSelect={onSelect} side={{ onKeep: keep, onClose: close, kept }} />
-    </div>
   );
 }

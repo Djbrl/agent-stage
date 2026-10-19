@@ -12,6 +12,7 @@ import { useApp } from './useSettings';
 import { useHighlight } from './highlight';
 import { engineOf, agentName, type Engine, type Provider } from './api';
 import { Learned } from './Learned';
+import { parseAsk } from './AskWindow';
 import { useT, useLang, tr, modeName, serverText } from './i18n';
 
 function summarize(steps: Step[], fr: boolean) {
@@ -42,11 +43,12 @@ function summarize(steps: Step[], fr: boolean) {
 // "Quiz me" (Learn mode). The mock model recognises the first words (QUIZ_START in src/model.ts).
 const QUIZ = "Quiz me on what we just did: ask me 3 short questions about the ideas and the code from this session, one at a time. Wait for my answer before the next question, tell me in one or two sentences whether I'm right and why, and finish with my score and what to review. Don't change any files.";
 
-export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git, shared }: {
+export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onAskAbout, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git, shared }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
   side?: { onKeep: () => void; onClose: () => void; kept: boolean };
+  onAskAbout?: (quote: string) => void; // the "?" on an agent message: a side question about that message
   replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean; status?: ReactNode;
   threadProvider?: string; // the model this thread last ran on (shown when the selected model is another engine's)
   visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
@@ -54,7 +56,6 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   shared?: { project: string; onPlay: () => void }; // a session someone shared: replay only, no composer
 }) {
   const [text, setText] = useState('');
-  const [asking, setAsking] = useState(false); // "Ask" with an empty box: the next Enter asks instead of running
   const box = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const { settings } = useApp();
@@ -80,6 +81,9 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   const hl = useHighlight();
   const t = useT();
   const fr = useLang() === 'fr';
+  const askMsg = (text: string) => onAskAbout && !side && !shared ? (
+    <button className="ask-msg" onClick={() => onAskAbout(text)} title={t('Ask about this message', 'Poser une question sur ce message')} aria-label={t('Ask about this message', 'Poser une question sur ce message')}>?</button>
+  ) : null;
 
   // Enter = run (idle) or steer (running). "Ask" opens a side thread that never touches files.
   // While a checkpoint waits for you, what you type is your reply to it (one input box, never two).
@@ -94,8 +98,6 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   const submit = (kind: 'run' | 'ask' = 'run') => {
     voice.stop();
     if (!text.trim()) return;
-    if (asking) kind = 'ask';
-    setAsking(false);
     if (kind === 'run' && waiting) onCheckpoint(waiting.id, 'discuss', text.trim());
     else (kind === 'ask' ? onAsk : onRun)(text.trim());
     setText('');
@@ -133,8 +135,12 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
             </div>
           )}
           {state.timeline.map((e, i) => {
-            if (e.kind === 'user') return <div key={i} className="bubble-user">{e.text === QUIZ ? t('Quiz me', 'Interroge-moi') : e.text}</div>;
-            if (e.kind === 'thought') return <div key={i} className="thought">{typed(e)}</div>;
+            if (e.kind === 'user') {
+              const a = parseAsk(e.text); // a saved side question: show the quote and the question, not the raw prompt
+              return a.quote ? <div key={i} className="ask-you"><blockquote className="ask-quote">{a.quote}</blockquote>{a.question && <div className="bubble-user">{a.question}</div>}</div>
+                : <div key={i} className="bubble-user">{e.text === QUIZ ? t('Quiz me', 'Interroge-moi') : e.text}</div>;
+            }
+            if (e.kind === 'thought') return <div key={i} className="thought askable">{typed(e)}{askMsg(e.text)}</div>;
             if (e.kind === 'checkpoint') return <CheckpointCard key={i} entry={e} onAnswer={onCheckpoint} fr={fr} />;
             if (e.kind === 'learned') return <Learned key={i} entry={e} all={state.concepts} latest={!state.timeline.slice(i + 1).some((x) => x.kind === 'learned')} onTry={side || shared ? undefined : (x) => { setText(x); box.current?.focus(); }} />;
             if (e.kind === 'qa') return (
@@ -166,7 +172,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
                 const stopped = /^Stopped/.test(e.text);
                 return <div key={i} className={`final bad ${stopped ? 'stopped' : ''}`}><div><Icon name={stopped ? 'stop' : 'x'} size={stopped ? 10 : 12} /> {serverText(e.text, fr)}</div>{undoRow}</div>;
               }
-              return <div key={i} className="final">{typed({ ...e, text: serverText(e.text, fr) })}{undoRow}</div>;
+              return <div key={i} className="final askable">{typed({ ...e, text: serverText(e.text, fr) })}{askMsg(e.text)}{undoRow}</div>;
             }
             if (e.kind === 'verify') return <VerifyLine key={i} e={e} fr={fr} />;
             if (e.kind === 'context') return (
@@ -231,8 +237,8 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           readOnly={Boolean(voice.interim)}
           rows={centered ? 3 : 2}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } if (e.key === 'Escape') setAsking(false); }}
-          placeholder={side ? t('Ask a follow-up…', 'Pose une autre question…') : asking ? t('Ask why. It reads the project and the chat, but changes nothing…', 'Demande pourquoi. Il lit le projet et le chat, mais ne change rien…') : waiting ? t('Ask about this step, or say what to change…', 'Pose une question sur cette étape, ou dis ce qu’il faut changer…') : state.running ? t('Steer the agent…', 'Guide l’agent…')
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
+          placeholder={side ? t('Ask a follow-up…', 'Pose une autre question…') : waiting ? t('Ask about this step, or say what to change…', 'Pose une question sur cette étape, ou dis ce qu’il faut changer…') : state.running ? t('Steer the agent…', 'Guide l’agent…')
             : asked ? t('Type your answer…', 'Écris ta réponse…') : mode === 'learn' ? t('What do you want to build?', 'Que veux-tu construire ?') : t('Describe a task…', 'Décris une tâche…')}
         />
         <div className="composer-bar">
@@ -251,7 +257,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
             <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle} aria-label={voice.listening ? t('Stop listening', 'Arrêter l’écoute') : t('Speak your prompt', 'Dicte ta demande')} aria-pressed={voice.listening}
               title={voice.error || (voice.listening ? t('Listening… click to stop', 'J’écoute… clique pour arrêter') : t('Speak your prompt', 'Dicte ta demande'))}><Icon name="mic" size={14} /></button>
           )}
-          {!side && <button className={`btn ghost sm ask-btn ${asking ? 'on' : ''}`} onClick={() => { if (text.trim()) submit('ask'); else { setAsking(!asking); box.current?.focus(); } }}
+          {!side && <button className={'btn ghost sm ask-btn'} onClick={() => { if (text.trim()) submit('ask'); else onAsk(''); }}
             title={t('Ask why it did something, without interrupting it. The answer reads the project but never changes it', 'Demande pourquoi il a fait quelque chose, sans l’interrompre. La réponse lit le projet mais ne le change jamais')}>{t('Ask why', 'Pourquoi ?')}</button>}
           {state.running && !side
             ? <button className="btn danger round" onClick={onStop} title={t('Stop', 'Arrêter')} aria-label={t('Stop the agent', 'Arrêter l’agent')}><Icon name="stop" size={10} /></button>

@@ -11,6 +11,7 @@ const P = {
   mic: 'M8 2.5a2 2 0 0 0-2 2v3.5a2 2 0 0 0 4 0V4.5a2 2 0 0 0-2-2Z M4 7.5a4 4 0 0 0 8 0 M8 11.5v2',
   arrow: 'M8 13V3 M4 7l4-4 4 4',
   plus: 'M8 3v10 M3 8h10',
+  minus: 'M3.5 8h9',
   spark: 'M8 2v3 M8 11v3 M2 8h3 M11 8h3 M4 4l2 2 M10 10l2 2 M4 12l2-2 M10 6l2-2',
   chevron: 'M6 4l4 4-4 4',
   shield: 'M8 2l5 2v4c0 3-2.2 5.2-5 6-2.8-.8-5-3-5-6V4l5-2Z',

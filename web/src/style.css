@@ -328,9 +328,6 @@ kbd { font: 10.5px var(--mono); color: var(--dim); border: 1px solid var(--line)
 .explain { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; max-height: 45%; overflow: auto; }
 .detail .drawer-head .btn.sm { margin-left: auto; } .detail .drawer-head .btn.sm + .icon-btn { margin-left: 0; }
 .thread { position: relative; }
-.side-thread-wrap { position: absolute; left: 0; top: 8px; bottom: 8px; width: clamp(330px, 30vw, 420px); z-index: 15; animation: slidein .2s ease-out;
-  box-shadow: 18px 0 40px rgb(0 0 0 / calc(0.53 * var(--shadow-k))); border-radius: 12px; }
-.side-thread-wrap .agent-panel { height: 100%; border-color: color-mix(in srgb, var(--accent) 33%, transparent); }
 @keyframes slidein { from { transform: translateX(-12px); opacity: 0; } }
 .side-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .replay { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-top: 1px solid var(--line-soft); flex-shrink: 0; }
@@ -382,7 +379,6 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .timeline-inner > * { flex-shrink: 0; }
 .panel-head { gap: 8px; }
 .panel-head .seg { margin-left: auto; }
-.side-thread-wrap { left: 0; top: 0; bottom: 0; width: 100%; }
 
 /* chat: quiet work lines instead of tool lists */
 .work { display: flex; align-items: center; gap: 9px; width: 100%; border: 0; background: none; padding: 5px 8px; margin: -2px 0; border-radius: 8px;
@@ -663,15 +659,12 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .studio-reopen { position: absolute; top: 12px; left: 12px; z-index: 8; display: inline-flex; align-items: center; gap: 8px; max-width: 320px; height: 36px; padding: 0 12px;
   border: 1px solid var(--line-soft); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; box-shadow: 0 8px 30px rgb(0 0 0 / calc(0.4 * var(--shadow-k))); }
 .studio-reopen span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.studio-side { position: absolute; top: 12px; bottom: 12px; width: 380px; z-index: 9; display: flex; }
-.studio-side > * { flex: 1; }
 .studio-shell { grid-template-columns: minmax(0, 1fr); }
 /* phones: the map on top, the panel below it (no floating) */
 @media (max-width: 700px) {
   .studio > .stage { bottom: auto; height: 42vh; }
   .studio-panel { top: 42vh; left: 0; right: 0; bottom: 0; width: auto !important; border-radius: 14px 14px 0 0; }
   .studio-panel > .resizer { display: none; }
-  .studio-side { left: 0 !important; right: 0; top: 42vh; bottom: 0; width: auto; }
 }
 .studio-tabs .live-dot, .studio-reopen .live-dot { position: static; margin: 0; }
 .stage.full .stage-where { visibility: hidden; }
@@ -876,3 +869,53 @@ body:has(.above-composer .starter-ideas):has(.above-composer .defaults-note) .ag
 .composer:hover .token-meter.quiet, .composer:focus-within .token-meter.quiet { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .tip, .tools-in, .studio-tabs button { animation: none; } }
 /* ── /tips & disclosure ── */
+
+/* ── side questions (AskWindow.tsx): a floating window over the app ── */
+.askable { position: relative; }
+.ask-msg { position: absolute; top: -2px; right: -4px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); background: var(--raised);
+  color: var(--dim); font: 600 12px var(--sans); cursor: pointer; opacity: 0; transition: opacity .15s; }
+.askable:hover > .ask-msg, .ask-msg:focus-visible { opacity: 1; }
+.ask-msg:hover { color: var(--text); background: var(--hover); }
+@media (hover: none) { .ask-msg { opacity: .7; } }
+.ask-pick { position: fixed; z-index: 60; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 99px;
+  border: 1px solid var(--line); background: var(--raised); color: var(--text); font: 500 12.5px var(--sans); cursor: pointer;
+  box-shadow: 0 6px 20px rgb(0 0 0 / calc(0.4 * var(--shadow-k))); animation: tip-in .15s ease-out both; }
+.ask-pick:hover { background: var(--hover); }
+.ask-win { position: fixed; z-index: 45; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / calc(0.55 * var(--shadow-k))); overflow: hidden; animation: tip-in .18s ease-out both; }
+.ask-win[hidden] { display: none; }
+.ask-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--line-soft); cursor: grab; user-select: none; touch-action: none; flex-shrink: 0; }
+.ask-head:active { cursor: grabbing; }
+.ask-head .icon-btn { margin: 0; }
+.ask-title { font-weight: 600; font-size: 13px; }
+.ask-sub { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ask-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; overflow: auto; }
+.ask-body.chat { overflow: hidden; padding: 0; gap: 0; }
+.ask-scroll { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.ask-body.chat .ask-box { margin: 0 12px 10px; }
+.ask-quote { margin: 0; padding: 8px 10px; background: color-mix(in srgb, var(--text) 5%, transparent); border-radius: 8px; color: var(--text-2); font-size: 13px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow: auto; }
+.ask-quote.code { font: 12px/1.5 var(--mono); }
+.ask-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ask-chips .btn { border: 1px solid var(--line); }
+.ask-box { display: flex; align-items: flex-end; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 6px 6px 10px; background: var(--raised); flex-shrink: 0; }
+.ask-box textarea { flex: 1; resize: none; border: 0; outline: 0; background: none; color: var(--text); font: 13.5px/1.5 var(--sans); }
+.ask-you { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ask-you .ask-quote { align-self: stretch; max-height: 110px; }
+.ask-win .thought, .ask-win .final { font-size: 13.5px; line-height: 1.6; }
+.ask-looked, .ask-thinking { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.ask-error { margin: 0 14px 8px; color: var(--error-ink); font-size: 12.5px; }
+.ask-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 6px 12px 8px; border-top: 1px solid var(--line-soft); font-size: 12px; flex-shrink: 0; }
+.ask-resize { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; touch-action: none;
+  background: linear-gradient(135deg, transparent 55%, var(--line-strong) 55%, var(--line-strong) 62%, transparent 62%, transparent 75%, var(--line-strong) 75%, var(--line-strong) 82%, transparent 82%); }
+.ask-pills { position: fixed; z-index: 44; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; max-width: calc(100vw - 32px); }
+.ask-pill { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; max-width: 220px; border-radius: 99px; border: 1px solid var(--line);
+  background: var(--raised); color: var(--text); font: 500 12px var(--sans); cursor: pointer; box-shadow: 0 6px 20px rgb(0 0 0 / calc(0.35 * var(--shadow-k))); }
+.ask-pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-pill:hover { background: var(--hover); }
+/* phones: a bottom sheet instead of a floating window */
+.ask-win.sheet-mode { left: 0; right: 0; bottom: 0; top: auto; width: auto; height: min(72vh, 560px); border-radius: 14px 14px 0 0; border-bottom: 0; }
+.ask-win.sheet-mode .ask-head { cursor: default; }
+@media (max-width: 599px) { .ask-pills { bottom: 8px; } .ask-pill { max-width: 140px; } }
+@media (prefers-reduced-motion: reduce) { .ask-win, .ask-pick { animation: none; } }
+body.ask-dragging, body.ask-dragging * { user-select: none !important; }
