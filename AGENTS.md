@@ -101,6 +101,7 @@ Ops:
 - **Progressive interface:** Steps tab after the first step, Threads tab with a second thread, map tools and the terminal/browser circles once used, model picker only with several usable models, token meter on hover.
 - **What you learned** (`web/src/Learned.tsx`, `learnedFromTask` in `src/insight.ts`): after a task that changed something, a `learned` event with 2–3 concepts and a "Try it yourself" exercise, plus "concepts so far" per thread.
 - **Plain words and French** across the interface (`web/src/i18n.ts`, `useT()`); modes renamed *Guide me* / *Just build it* in the UI (values stay `learn` / `build`).
+- **Side questions from anywhere** (`web/src/AskWindow.tsx`): select text in a message, step, diff or code block (*Ask about this*), the "?" on a message, ⌘K or *Ask why* opens a floating window (drag, resize, shrink to a pill, Esc) running a read-only side session (`/ask-thread`) while the main agent keeps working; *Save to notes* keeps it. Replaces the docked side thread.
 - Open-source kit: smoke test (`test/smoke.test.ts`), CI, CONTRIBUTING, Code of Conduct, templates; good first issues #1–#7 on GitHub.
 
 ## Open work, roughly by value

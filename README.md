@@ -80,6 +80,7 @@ and understands.
 - *(to verify)* **Contextual tips** where you need them, instead of a tour.
 - *(to verify)* **"What you learned" card** after each task, with a **"Try it yourself"** exercise.
 - *(to verify)* **A progressive interface**: controls appear as you need them.
+- **Side questions from anywhere**: select any part of the agent's work and ask about it in a floating window, while the agent keeps working. Close it to discard, or save it to your notes.
 
 ![Mid-run, dark theme: the agent marker on the file it is editing](docs/screenshots/studio-dark.png)
 
