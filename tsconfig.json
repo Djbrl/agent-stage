@@ -1,0 +1,19 @@
+{
+  // Type checking only: Node runs the server's .ts files directly and Vite builds the UI.
+  // erasableSyntaxOnly rejects what Node's type stripping can't run (enums, namespaces, parameter properties).
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  "include": ["src", "test", "scripts"]
+}

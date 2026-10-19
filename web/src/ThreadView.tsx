@@ -14,6 +14,7 @@ import { HighlightContext } from './highlight';
 import { useGpu, GpuPanel } from './useGpu';
 import { StepsSheet } from './StepsSheet';
 import { Sidebar, type Nav } from './Sidebar';
+import { ThreadMenu } from './ThreadMenu';
 
 export type Layout = 'studio' | 'classic';
 type Tab = 'chat' | 'steps' | 'threads';
@@ -62,14 +63,18 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
   // Version history: undo needs the folder to be a git repo.
   const [repo, setRepo] = useState<boolean | null>(null);
   useEffect(() => { fetch(`/api/threads/${id}/git`).then((r) => r.json()).then((j) => setRepo(Boolean(j.repo))).catch(() => {}); }, [id]);
-  const git = repo === null ? null : { repo, onInit: () => fetch(`/api/threads/${id}/git/init`, { method: 'POST' }).then((r) => r.ok && setRepo(true)) };
+  // A session someone shared: replay only (no Undo, Keep, version history or composer).
+  const shared = meta.shared ? { project: String(meta.workspace ?? ''), onPlay: () => { setStageOpen(true); replay.play(); } } : undefined;
+  const git = repo === null || shared ? null : { repo, onInit: () => fetch(`/api/threads/${id}/git/init`, { method: 'POST' }).then((r) => r.ok && setRepo(true)) };
   const undo = (ref: string) => fetch(`/api/threads/${id}/undo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
     .then((r) => r.json()).then((j) => j.error && alert(j.error));
   const keep = (ref: string): Promise<string | null> => fetch(`/api/threads/${id}/keep-task`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
     .then((r) => r.json()).then((j) => j.error ?? null, () => 'Could not reach the server');
 
+  const menu = state.timeline.length > 0 ? <ThreadMenu id={id} mode={meta.mode === 'learn' ? 'learn' : 'build'} /> : null;
   const header = (
     <>
+      {menu}
       {hasWork && !stageOpen && (
         <button className={`tool ${state.running ? 'pulse' : ''}`} onClick={() => setStageOpen(true)} title="Show the map">
           <Icon name="map" size={13} />{state.running && <span className="live-dot" />}
@@ -101,7 +106,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
         problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
         banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null}
         replaying={replay.active} centered={false}
-        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={pickStep} onUndo={undo} onKeep={keep} onContext={resetContext} git={git} />
+        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={pickStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} onContext={resetContext} git={git} shared={shared} header={menu} />
     );
     const left = panelOpen && !phone ? panelW + 24 : 0; // on phones the panel sits under the map
     return (
@@ -118,7 +123,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
                 <button className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>Chat{state.running && !replay.active && <span className="live-dot" />}</button>
                 <button className={tab === 'steps' ? 'on' : ''} onClick={() => setTab('steps')}>Steps{state.steps.length ? <span className="count">{state.steps.length}</span> : null}</button>
               </div>
-              <button className="icon-btn" onClick={() => setPanelOpen(false)} title="Hide the panel: just the map"><Icon name="chevron" size={13} className="flip" /></button>
+              <button className="icon-btn" onClick={() => setPanelOpen(false)} title="Hide the panel: just the map" aria-label="Hide the panel"><Icon name="chevron" size={13} className="flip" /></button>
             </div>
             <div className="studio-body">
               {/* The chat stays mounted so a half-typed prompt survives a look at the steps. */}
@@ -153,7 +158,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
           banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null} replaying={replay.active} header={header} centered={!showStage}
-          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} onUndo={undo} onKeep={keep} onContext={resetContext} git={git} />
+          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} onContext={resetContext} git={git} shared={shared} />
         {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={showStep} />}
       </div>
       {showStage && <Resizer onDrag={(dx) => setChatW((w) => Math.max(320, Math.min(760, w + dx)))} onReset={() => setChatW(400)} title="Drag to give the chat or the map more room" />}

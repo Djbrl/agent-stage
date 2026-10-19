@@ -146,6 +146,13 @@ function mockLearn(messages: Message[]): Message {
   const toolsSince = sinceUser.filter((m) => m.role === 'tool');
   const call = (name: string, args: object, content: string | null = null): Message =>
     ({ role: 'assistant', content, tool_calls: [{ id: `mock-${Math.random().toString(36).slice(2, 8)}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] });
+  // "Quiz me": three questions, one per turn, each answer gets feedback.
+  const quiz = messages.findLastIndex((m) => m.role === 'user' && String(m.content).includes(QUIZ_START));
+  if (quiz >= 0) {
+    const answered = messages.slice(quiz + 1).filter((m) => m.role === 'user').length;
+    if (answered < MOCK_QUIZ.length) return { role: 'assistant', content: `${answered ? MOCK_QUIZ_FEEDBACK[answered - 1] + '\n\n' : ''}**Question ${answered + 1} of 3.** ${MOCK_QUIZ[answered]}` };
+    return { role: 'assistant', content: `${MOCK_QUIZ_FEEDBACK[2]}\n\n**Score: 3 / 3** for effort: a real model checks each answer against what we built.\n\n✦ What you learned:\n- A module is a file other files import from\n- Keeping logic apart from printing makes it testable` };
+  }
   if (users === 1) {
     if (!toolsSince.length) return call('list_files', {}, 'Let me look at the project first.');
     return { role: 'assistant', content: '✦ Build checkpoint: where the greeting logic lives\n\nBefore I write anything: how would **you** split this up? For example, would the greeting text be built in the same file that prints it, or somewhere else?\n\n✦ Concept: module\n\nA module is a file that exports functions other files can import. Splitting code into modules lets you reuse and test pieces separately.' };
@@ -160,5 +167,18 @@ function mockLearn(messages: Message[]): Message {
   if (/discuss/i.test(last)) return { role: 'assistant', content: 'Good question. Ask me anything about the plan, and when you are ready, tell me to continue.' };
   if (toolsSince.length === 1) return call('write_file', { path: 'src/greet.js', content: "export function greet(name) {\n  if (!name) return 'Hello, stranger!';\n  return `Hello, ${name}!`;\n}\n" });
   if (toolsSince.length === 2) return call('write_file', { path: 'index.js', content: "import { greet } from './src/greet.js';\n\nconsole.log(greet(process.argv[2]));\n" });
-  return { role: 'assistant', content: '✦ Implementation report\n\n- **`src/greet.js`** exports `greet(name)`, with the empty-name fallback we agreed.\n- **`index.js`** imports it and prints the result for the name passed on the command line.\n\nI did not run anything yet. Try `node index.js Dakar`.' };
+  return { role: 'assistant', content: '✦ Implementation report\n\n- **`src/greet.js`** exports `greet(name)`, with the empty-name fallback we agreed.\n- **`index.js`** imports it and prints the result for the name passed on the command line.\n\nI did not run anything yet. Try `node index.js Dakar`.\n\n✦ What you learned:\n- A module exports functions that other files import\n- A fallback value handles input you did not expect' };
 }
+
+// Sent by the "Quiz me" button (web/src/AgentPanel.tsx sends the same text).
+export const QUIZ_START = 'Quiz me on what we just did';
+const MOCK_QUIZ = [
+  'Why does `greet()` live in `src/greet.js` instead of in `index.js`?',
+  'What does `greet(\'\')` return, and why did we add that case?',
+  'If you wanted to test `greet()` without printing anything, which file would you import?',
+];
+const MOCK_QUIZ_FEEDBACK = [
+  '(demo) A real model would check your answer here. The idea: keeping the logic in its own module lets other files and tests reuse it.',
+  '(demo) It returns *Hello, stranger!*: the fallback avoids printing *Hello, !* when no name is given.',
+  '(demo) `src/greet.js`: the module that holds the logic, so a test can call it directly.',
+];

@@ -18,6 +18,8 @@ npm install
 npm run mock      # UI with a scripted model, no key or GPU needed → http://localhost:3000
 npm start         # real models; settings in ~/.agent-stage/settings.json (mode 600)
 npm run public    # live online demo from this laptop (needs Docker Desktop), see docs/PUBLIC-DEMO.md
+npm test          # node:test, files in test/ (tools, done-check, git checkpoints, the relay's address filter, notes and shared sessions)
+npm run typecheck # tsc for the server (tsconfig.json) and the UI (web/tsconfig.json); CI runs both plus the build
 ```
 
 **Node:** 24 runs `.ts` directly with **type stripping only**, so don't use parameter properties, enums or namespaces. `npm start` rebuilds `web/dist` first.
@@ -39,6 +41,7 @@ npm run public    # live online demo from this laptop (needs Docker Desktop), se
 | `git.ts` | A checkpoint before every task, as a commit under `refs/agent-stage/*` built with a private index (the user's branch and staging are untouched). `restore()` powers Undo. |
 | `gpu.ts`, `tunnel.ts`, `health.ts` | One-click Brev GPU: create → install vLLM → load the model, auto-stop after 20 idle minutes, destroy on stop. The SSH tunnel uses **local port 18000** (port 8000 clashes with other Docker apps on Jib's Mac) and only runs while a GPU exists. |
 | `insight.ts`, `learn.ts`, `mapdata.ts`, `store.ts` | Step labels and summaries, Learn-mode prompts (adapted from VibeWise, credited), map data, and settings/threads. |
+| `session.ts` | Lesson notes (Markdown study sheet from the events) and session files: export a thread, import it as a read-only replay (`thread.shared`; the server refuses anything that would run or change files for it). |
 | `public/manager.ts`, `public/relay.ts` | The online demo (see below). |
 
 **UI** (`web/src/`, Vite + React 19):
@@ -95,7 +98,11 @@ Ops:
 ## Open work, roughly by value
 1. **Demo video (≤3 min) and submission by 19 10** (Jib, later). The README is updated; add the video link where its hidden comment says.
 2. A stable demo URL without the Vercel redeploy trick needs a domain and a named Cloudflare tunnel (Jib, later).
-3. A branch per thread (Keep and Undo are built).
+3. A branch per thread (Keep and Undo are built). Doing it properly means a git worktree per thread (its own folder),
+   which changes how threads and folders work; left for after the submission on purpose (18 10).
+
+Added 18 10: tests and CI, release v0.1.0, SECURITY.md, Quiz me, lesson notes, shared sessions (export / import as a
+read-only replay), plus fixes for links out of the project, Windows paths and screen readers. See CHANGELOG.md.
 
 Out of scope for now (Jib, 17 10): Wolof voice input and the Codex engine.
 

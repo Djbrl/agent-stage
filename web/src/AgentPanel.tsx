@@ -28,7 +28,10 @@ function summarize(steps: Step[]) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, onContext, git }: {
+// "Quiz me" (Learn mode). The mock model recognises the first words (QUIZ_START in src/model.ts).
+const QUIZ = "Quiz me on what we just did: ask me 3 short questions about the ideas and the code from this session, one at a time. Wait for my answer before the next question, tell me in one or two sentences whether I'm right and why, and finish with my score and what to review. Don't change any files.";
+
+export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, onContext, git, shared }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
@@ -38,6 +41,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
   onContext?: (action: 'clear' | 'compact') => Promise<string | null>;
   onUndo?: (ref: string) => void; onKeep?: (ref: string) => Promise<string | null>; git?: { repo: boolean; onInit: () => void } | null;
+  shared?: { project: string; onPlay: () => void }; // a session someone shared: replay only, no composer
 }) {
   const [text, setText] = useState('');
   const [asking, setAsking] = useState(false); // "Ask" with an empty box: the next Enter asks instead of running
@@ -71,6 +75,10 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   // The agent ended its turn on a question: the box is for the answer.
   const last = state.timeline.at(-1);
   const asked = mode === 'learn' && last?.kind === 'done' && last.text.slice(-600).includes('?');
+  // After a finished Learn step (not mid-quiz, not while the tutor waits for an answer), offer a quiz on it.
+  const lastAsk = state.timeline.findLast((t) => t.kind === 'user');
+  const quizzing = lastAsk?.kind === 'user' && lastAsk.text === QUIZ;
+  const canQuiz = mode === 'learn' && !side && !state.running && !waiting && !asked && !quizzing && last?.kind === 'done' && state.steps.length > 0;
   const submit = (kind: 'run' | 'ask' = 'run') => {
     voice.stop();
     if (!text.trim()) return;
@@ -89,7 +97,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           <span className="side-actions">
             <span className="pill">{side.kept ? 'kept' : 'temporary'}</span>
             {!side.kept && <button className="btn ghost sm" onClick={side.onKeep}>Keep</button>}
-            <button className="icon-btn" onClick={side.onClose} title="Close"><Icon name="x" size={13} /></button>
+            <button className="icon-btn" onClick={side.onClose} title="Close" aria-label="Close"><Icon name="x" size={13} /></button>
           </span>
         ) : (
           <>
@@ -160,6 +168,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
               </div>
             );
             // A burst of tool calls: one quiet line. Live while working, a summary after. Click → steps on the stage.
+            if (e.kind !== 'actions') return null;
             const steps = e.steps.map((id) => byId[id]).filter((s) => s && s.name !== 'checkpoint'); // the card says it already
             if (!steps.length) return null;
             const live = steps.some((s) => s.ok === undefined);
@@ -188,9 +197,21 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           <button className="btn ghost sm" onClick={git.onInit}>Turn it on</button></div>
       )}
       {problem && !side && <div className="problem"><span className="sdot bad" />{problem}</div>}
-      {replaying ? <div className="composer replay-note">You're watching a replay. Press <b>● Live</b> (or End) to get back.</div> :
+      {shared && !replaying ? (
+        <div className="composer shared-note">
+          <span>A session shared from <b>{shared.project || 'another computer'}</b>. You can replay it, not run it.</span>
+          <button className="btn primary sm" onClick={shared.onPlay}><Icon name="play" size={10} /> Watch it</button>
+        </div>
+      ) : replaying ? <div className="composer replay-note">You're watching a replay. Press <b>● Live</b> (or End) to get back.</div> :
       <div className="composer">
         {waiting && <div className="composer-reply">Replying to <b>{waiting.cp.title || 'the checkpoint'}</b></div>}
+        {canQuiz && !text.trim() && (
+          <div className="composer-suggest">
+            <button className="btn ghost sm" onClick={() => onRun(QUIZ)} title="The tutor asks you 3 short questions about this step, one at a time, and tells you what you got right">
+              <Icon name="quiz" size={12} /> Quiz me
+            </button>
+          </div>
+        )}
         <textarea
           ref={box}
           value={voice.interim ? `${text}${text && !text.endsWith(' ') ? ' ' : ''}${voice.interim}` : text}
@@ -214,15 +235,15 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} />
           <span className="spacer" />
           {voiceSupported && (
-            <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle}
+            <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle} aria-label={voice.listening ? 'Stop listening' : 'Speak your prompt'} aria-pressed={voice.listening}
               title={voice.error || (voice.listening ? 'Listening… click to stop' : 'Speak your prompt')}><Icon name="mic" size={14} /></button>
           )}
           {!side && <button className={`btn ghost sm ask-btn ${asking ? 'on' : ''}`} onClick={() => { if (text.trim()) submit('ask'); else { setAsking(!asking); box.current?.focus(); } }}
             title="Ask a side question without interrupting the agent. It can read the project but never changes it">Ask</button>}
           {state.running && !side
-            ? <button className="btn danger round" onClick={onStop} title="Stop"><Icon name="stop" size={10} /></button>
-            : <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? 'Steer' : 'Send'}><Icon name="arrow" size={14} /></button>}
-          {state.running && !side && text.trim() && <button className="btn primary round" onClick={() => submit()} title="Steer: the agent reads this before its next step"><Icon name="arrow" size={14} /></button>}
+            ? <button className="btn danger round" onClick={onStop} title="Stop" aria-label="Stop the agent"><Icon name="stop" size={10} /></button>
+            : <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? 'Steer' : 'Send'} aria-label={state.running ? 'Steer' : 'Send'}><Icon name="arrow" size={14} /></button>}
+          {state.running && !side && text.trim() && <button className="btn primary round" onClick={() => submit()} title="Steer: the agent reads this before its next step" aria-label="Steer"><Icon name="arrow" size={14} /></button>}
         </div>
       </div>}
     </aside>

@@ -26,6 +26,8 @@ const P = {
   pointer: 'M4 2.5l8 5-3.5 1 2 4-1.5.7-2-4L4 12z',
   undo: 'M5 3L2.5 5.5 5 8 M2.5 5.5H10a3.5 3.5 0 0 1 0 7H6',
   cpu: 'M4 4h8v8H4z M6 1.5v2.5 M10 1.5v2.5 M6 12v2.5 M10 12v2.5 M1.5 6H4 M1.5 10H4 M12 6h2.5 M12 10h2.5',
+  more: 'M3.5 8h.01 M8 8h.01 M12.5 8h.01',
+  quiz: 'M6 6a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2v.5 M8 12h.01',
 };
 export type IconName = keyof typeof P;
 

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Message, ModelConfig } from './model.ts';
+import type { MapData } from './mapdata.ts';
 
 export const DATA_DIR = process.env.AGENT_STAGE_HOME ?? join(homedir(), '.agent-stage');
 const THREADS = join(DATA_DIR, 'threads');
@@ -31,6 +32,7 @@ export type Thread = {
   engine?: Engine; sessionId?: string; fork?: boolean; // claude-code: the SDK session to resume (fork = side thread)
   createdAt: number; updatedAt: number;
   messages: Message[]; events: any[]; usage: ThreadUsage;
+  shared?: { project: string; exportedAt: number; map: MapData }; // imported from a session file: replay only
 };
 
 const read = async <T>(p: string, fallback: T): Promise<T> => {
@@ -40,7 +42,7 @@ const read = async <T>(p: string, fallback: T): Promise<T> => {
 export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunnelHost?: string; brevInstance?: string }, sandbox: string): Promise<Settings> {
   await mkdir(THREADS, { recursive: true });
   const saved = await read<Settings | null>(join(DATA_DIR, 'settings.json'), null);
-  if (saved) return { learn: { level: 'beginner', frequency: 'normal', language: 'en' }, ...saved };
+  if (saved) return { ...saved, learn: saved.learn ?? { level: 'beginner', frequency: 'normal', language: 'en' } }; // files from before Learn mode
   // First run: seed from .env so existing setups keep working.
   const providers: Provider[] = [{ id: 'mock', name: 'Demo (scripted)', kind: 'mock', baseUrl: '', apiKey: '', model: 'mock' }];
   if (env.apiKey && env.apiKey !== 'mock') providers.push({

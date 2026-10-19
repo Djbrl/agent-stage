@@ -14,7 +14,7 @@ export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onCl
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div className="modal wide" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head"><span>Settings</span><button className="icon-btn" onClick={onClose}><Icon name="x" size={13} /></button></div>
+        <div className="modal-head"><span>Settings</span><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" size={13} /></button></div>
         <div className="settings">
           <div className="settings-nav">
             {(['models', 'learning', 'appearance', 'usage', 'safety', 'about'] as Tab[]).map((t) => (

@@ -98,6 +98,17 @@ Our engine keeps the model's context bounded: files are read 400 lines at a time
 ~120k characters older tool outputs are replaced by short stubs (the model can re-read). `AGENTS.md` / `CLAUDE.md`
 at the project root are loaded as project instructions.
 
+## Lesson notes and shared sessions
+`src/session.ts` turns a thread into something to keep or pass on, from its events alone (no model call):
+- `GET /api/threads/:id/notes`: a Markdown study sheet. It picks the tutor's `✦ Concept`, `✦ Why this matters` and
+  `✦ What you learned` callouts out of its messages, the checkpoints with the learner's answers, the quiz, the files
+  changed, the done-checks and the step labels.
+- `GET /api/threads/:id/export`: a session file (`agent-stage/session`, version 1) with the events (without token usage)
+  and the map as it is now.
+- `POST /api/threads/import`: checks the file's shape, then creates a thread marked `shared`, with an empty folder of
+  its own under `~/.agent-stage/shared/` and the exported map. Every route that would run the agent, undo, commit or
+  touch git answers 403 for it; only "Explain this change" works, since it reads the diff alone.
+
 ## Mock mode
 With no API key, `src/model.ts` plays a scripted run. The whole UI can be developed, tested
 and demoed offline.

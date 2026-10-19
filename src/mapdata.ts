@@ -1,7 +1,8 @@
 // What the map needs from disk: every file with its size, and which files import which.
 // Imports never move anything on the map; they only draw lines on hover.
 import { readFile, readdir, stat } from 'node:fs/promises';
-import { join, relative, dirname, posix } from 'node:path';
+import { join, dirname, posix } from 'node:path';
+import { relPath } from './tools.ts';
 
 export type MapFile = { path: string; lines: number; mtime: number };
 export type MapData = { files: MapFile[]; edges: { from: string; to: string }[] };
@@ -23,7 +24,7 @@ async function walk(root: string, dir = root, out: string[] = []): Promise<strin
     if (isGenerated(e.name)) continue;
     const full = join(dir, e.name);
     if (e.isDirectory()) await walk(root, full, out);
-    else out.push(relative(root, full));
+    else out.push(relPath(root, full));
   }
   return out;
 }

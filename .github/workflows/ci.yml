@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # The git tests and the smoke test make checkpoint commits.
+      - name: Git identity
+        run: |
+          git config --global user.name "agent-stage CI"
+          git config --global user.email "ci@localhost"
+          git config --global init.defaultBranch main
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build the UI
+        run: npm run build
+      - name: Tests (unit tests and an end-to-end run on the scripted model)
+        run: npm test

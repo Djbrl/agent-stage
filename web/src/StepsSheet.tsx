@@ -27,12 +27,12 @@ export function StepsSheet({ state, selected, onSelect, onClose, threadId, repla
   return (
     <aside className={embedded ? 'sheet embedded' : 'sheet'}>
       <div className="sheet-head">
-        {selected ? <button className="icon-btn" onClick={() => onSelect(null)} title="Back to steps"><Icon name="chevron" size={13} className="flip" /></button> : null}
+        {selected ? <button className="icon-btn" onClick={() => onSelect(null)} title="Back to steps" aria-label="Back to steps"><Icon name="chevron" size={13} className="flip" /></button> : null}
         <span className="sheet-title">{selected ? (step ? stepText(step) : filePath?.split('/').pop()) : `${state.steps.length} steps`}</span>
         {!selected && state.steps.length > 1 && (replay.active
           ? <button className="btn ghost sm live" onClick={replay.live}>● Live</button>
           : <button className="btn ghost sm" onClick={replay.play} title="Watch the agent do it again on the map (Space)"><Icon name="play" size={11} /> Replay</button>)}
-        {!embedded && <button className="icon-btn" onClick={onClose} title="Close"><Icon name="x" size={12} /></button>}
+        {!embedded && <button className="icon-btn" onClick={onClose} title="Close" aria-label="Close"><Icon name="x" size={12} /></button>}
       </div>
       {selected ? <Detail state={state} step={step} filePath={filePath ?? null} threadId={threadId} /> : <List state={state} onSelect={onSelect} replay={replay} />}
     </aside>

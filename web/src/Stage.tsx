@@ -7,6 +7,7 @@ import type { Replay, State } from './useAgent';
 import { Icon } from './icons';
 import { store } from './Resizer';
 import { useDismiss } from './dismiss';
+import { baseName } from './api';
 
 export function Stage({ state, replay, threadId, workspace, selected, onSelect, sheetOpen, setSheetOpen, approve, onCollapse, lit, full, left = 0 }: {
   state: State; replay: Replay; threadId: string; workspace: string;
@@ -52,7 +53,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
   const caption = replay.active ? (last ? stepText(last) : '')
     : state.approval ? 'Waiting for your approval' : pendingCp ? 'Waiting for your decision'
     : state.running ? (last && last.endedAt === undefined ? stepText(last) : 'Thinking…') : '';
-  const folder = workspace.split('/').pop();
+  const folder = baseName(workspace);
   // A little browser window on the stage while the agent is using the browser.
   const recent = state.steps.slice(-3).reverse().find((s) => shotOf(s));
   const browserShot = !sheetOpen || full ? recent : undefined;
@@ -68,13 +69,13 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
         <div className="stage-where">{folder}</div>
         <div className="stage-tools">
           {!following && <button className="tool" onClick={() => api.current?.follow()} title="Let the camera follow the agent again (F)"><Icon name="target" size={13} /> Follow</button>}
-          <button className={`tool ${readmap ? 'on' : ''}`} onClick={() => setReadmap(!readmap)} title="What the agent reads (M)"><Icon name="read" size={13} /></button>
-          <button className="tool" onClick={() => api.current?.fit()} title="Whole project (0)"><Icon name="fit" size={13} /></button>
+          <button className={`tool ${readmap ? 'on' : ''}`} onClick={() => setReadmap(!readmap)} title="What the agent reads (M)" aria-label="What the agent reads" aria-pressed={readmap}><Icon name="read" size={13} /></button>
+          <button className="tool" onClick={() => api.current?.fit()} title="Whole project (0)" aria-label="Show the whole project"><Icon name="fit" size={13} /></button>
           <button ref={legendBtn} className="tool" onClick={() => setLegend(!legend)} title="What the colours mean"><span className="q">?</span></button>
           <button className={`tool steps ${sheetOpen ? 'on' : ''}`} onClick={() => setSheetOpen(!sheetOpen)} title="Steps and changes (S)">
             <Icon name="list" size={13} /> {state.steps.length || ''}{state.steps.some((s) => s.ok === false) && <span className="sdot bad" />}
           </button>
-          {!full && <button className="tool" onClick={onCollapse} title="Hide the map"><Icon name="collapse" size={13} /></button>}
+          {!full && <button className="tool" onClick={onCollapse} title="Hide the map" aria-label="Hide the map"><Icon name="collapse" size={13} /></button>}
         </div>
       </div>
 
@@ -98,9 +99,9 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
 
       {replay.active && (
         <div className="replay-pill">
-          <button className="icon-btn" onClick={() => replay.step(-1)}><Icon name="chevron" size={12} className="flip" /></button>
-          <button className="icon-btn" onClick={() => (replay.playing ? replay.pause() : replay.play())}>{replay.playing ? <Icon name="stop" size={10} /> : <Icon name="play" size={11} />}</button>
-          <button className="icon-btn" onClick={() => replay.step(1)}><Icon name="chevron" size={12} /></button>
+          <button className="icon-btn" onClick={() => replay.step(-1)} aria-label="Previous step"><Icon name="chevron" size={12} className="flip" /></button>
+          <button className="icon-btn" onClick={() => (replay.playing ? replay.pause() : replay.play())} aria-label={replay.playing ? 'Pause' : 'Play'}>{replay.playing ? <Icon name="stop" size={10} /> : <Icon name="play" size={11} />}</button>
+          <button className="icon-btn" onClick={() => replay.step(1)} aria-label="Next step"><Icon name="chevron" size={12} /></button>
           <span className="mono">Replay · step {replay.stepIndex}/{replay.stepTotal}</span>
           <button className="btn ghost sm live" onClick={replay.live}>● Live</button>
         </div>
