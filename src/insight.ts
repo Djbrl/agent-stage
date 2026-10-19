@@ -87,6 +87,66 @@ export async function commitMessage(cfg: ModelConfig, task: string, diff: string
   return text.replace(/^```\w*\n?|```$/g, '').trim() || fallback;
 }
 
+// "What you learned": after a finished task, 2-3 concepts tied to what was actually done, plus one small
+// exercise the learner can try by hand. Strict JSON; anything malformed means no card (null).
+export type Learned = { concepts: { name: string; line: string }[]; exercise: string };
+export type TaskRecap = { task: string; files: string[]; commands: string[]; result: string };
+
+export async function learnedFromTask(cfg: ModelConfig, s: Settings, r: TaskRecap): Promise<Learned | null> {
+  if (cfg.kind === 'mock' || cfg.apiKey === 'mock') return mockLearned(r, s);
+  const text = await ask(cfg,
+    `You help a learner remember what they just watched a coding agent do. ${level(s)} Reply with JSON only, no markdown fence:
+{"concepts":[{"name":"<2-4 words>","line":"<one plain sentence, max 22 words, tied to this task: name the file, command or decision>"}],"exercise":"<one or two sentences: a small change the learner can make by hand to this same code to practise one of the concepts>"}
+Give 2 or 3 concepts: the programming ideas behind the work, not a list of steps. Plain words; explain any jargon in a few words.${lang(s)}`,
+    `Task: ${r.task.slice(0, 600)}\nFiles changed: ${r.files.slice(0, 12).join(', ') || 'none'}\nCommands run: ${r.commands.slice(0, 8).join(' | ') || 'none'}\nAgent's final message: ${r.result.slice(0, 1500)}`);
+  return parseLearned(text);
+}
+
+export function parseLearned(text: string): Learned | null {
+  try {
+    const j = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+    const concepts = (Array.isArray(j.concepts) ? j.concepts : [])
+      .filter((c: any) => typeof c?.name === 'string' && typeof c?.line === 'string' && c.name.trim())
+      .slice(0, 3).map((c: any) => ({ name: c.name.trim().slice(0, 60), line: c.line.trim().slice(0, 240) }));
+    const exercise = typeof j.exercise === 'string' ? j.exercise.trim().slice(0, 400) : '';
+    return concepts.length ? { concepts, exercise } : null;
+  } catch { return null; }
+}
+
+function mockLearned(r: TaskRecap, s: Settings): Learned {
+  const fr = s.learn.language === 'fr';
+  if (r.files.some((f) => f.endsWith('.html'))) return fr ? {
+    concepts: [
+      { name: 'Formulaire HTML', line: 'index.html utilise un <form> : la touche Entrée et le bouton lancent le même code.' },
+      { name: 'Serveur local', line: "python3 -m http.server sert le dossier pour qu'un navigateur puisse ouvrir la page." },
+      { name: 'Valeur par défaut', line: 'Si le champ est vide, la page dit « stranger » au lieu de laisser un trou.' },
+    ],
+    exercise: "Ajoute un bouton « Effacer » dans index.html qui vide le champ et le message, puis demande à l'agent de vérifier.",
+  } : {
+    concepts: [
+      { name: 'HTML form', line: 'index.html uses a <form>, so pressing Enter and clicking the button run the same code.' },
+      { name: 'Local server', line: 'python3 -m http.server serves the folder so a browser can open the page.' },
+      { name: 'Fallback value', line: 'An empty name falls back to "stranger" instead of leaving a gap.' },
+    ],
+    exercise: 'Add a "Clear" button to index.html that empties the field and the message, then ask the agent to check it.',
+  };
+  return fr ? {
+    concepts: [
+      { name: 'Module', line: 'src/greet.js exporte greet() et index.js l’importe : la logique et l’affichage restent séparés.' },
+      { name: 'Valeur par défaut', line: 'Un nom vide donne « Hello, stranger! » au lieu de « Hello, ! ».' },
+      { name: 'Test automatique', line: 'test.js vérifie greet() à chaque lancement, donc une erreur se voit tout de suite.' },
+    ],
+    exercise: 'Ajoute une option de langue à greet() pour que greet("Dakar", "fr") renvoie « Bonjour, Dakar ! », avec un test dans test.js.',
+  } : {
+    concepts: [
+      { name: 'Module', line: 'src/greet.js exports greet() and index.js imports it, so the logic and the printing stay apart.' },
+      { name: 'Fallback value', line: 'An empty name gives "Hello, stranger!" instead of "Hello, !".' },
+      { name: 'Automated test', line: 'test.js checks greet() on every run, so a mistake shows up at once.' },
+    ],
+    exercise: 'Give greet() a language option so greet("Dakar", "fr") returns "Bonjour, Dakar !", and add a test for it in test.js.',
+  };
+}
+
 function mockLabel(step: { name: string; args: any; ok: boolean }, s: Settings) {
   const fr = s.learn.language === 'fr';
   const f = step.args?.path ?? '';

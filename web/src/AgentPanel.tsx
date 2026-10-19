@@ -11,6 +11,7 @@ import { Markdown } from './Markdown';
 import { useApp } from './useSettings';
 import { useHighlight } from './highlight';
 import { engineOf, ENGINE_LABEL, type Engine } from './api';
+import { Learned } from './Learned';
 
 function summarize(steps: Step[]) {
   const c = (n: string[]) => steps.filter((s) => n.includes(s.name) && s.ok !== false).length;
@@ -124,6 +125,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
             if (e.kind === 'user') return <div key={i} className="bubble-user">{e.text}</div>;
             if (e.kind === 'thought') return <div key={i} className="thought">{typed(e)}</div>;
             if (e.kind === 'checkpoint') return <CheckpointCard key={i} entry={e} onAnswer={onCheckpoint} />;
+            if (e.kind === 'learned') return <Learned key={i} entry={e} all={state.concepts} latest={!state.timeline.slice(i + 1).some((x) => x.kind === 'learned')} onTry={side || shared ? undefined : (x) => { setText(x); box.current?.focus(); }} />;
             if (e.kind === 'qa') return (
               <div key={i} className="qa">
                 <div className="qa-q"><span className="qa-tag">Ask</span>{e.question}</div>
