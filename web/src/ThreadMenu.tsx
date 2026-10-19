@@ -37,7 +37,7 @@ export function ThreadMenu({ id, mode, running, onContext }: {
           </a>
           <a role="menuitem" href={`/api/threads/${id}/export`} download onClick={() => setOpen(false)}>
             <b>{t('Share this session', 'Partager cette session')}</b>
-            <span className="muted">{t('A file anyone can open in agent-stage to replay it on the map. It includes the code and command output shown here', 'Un fichier que n’importe qui peut ouvrir dans agent-stage pour la revoir sur la carte. Il contient le code et les résultats affichés ici')}</span>
+            <span className="muted">{t('A file anyone can open in Codetandem to replay it on the map. It includes the code and command output shown here', 'Un fichier que n’importe qui peut ouvrir dans Codetandem pour la revoir sur la carte. Il contient le code et les résultats affichés ici')}</span>
           </a>
         </div>
       )}

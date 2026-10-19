@@ -14,7 +14,7 @@ export function PublicWelcome({ onDone }: { onDone: () => void }) {
     <div className="modal-back">
       <div className="modal welcome-demo">
         <div className="modal-body">
-          <h2>{t('Welcome to the agent-stage live demo', 'Bienvenue dans la démo en ligne d’agent-stage')}</h2>
+          <h2>{t('Welcome to the Codetandem live demo', 'Bienvenue dans la démo en ligne de Codetandem')}</h2>
           <ul>
             <li><b>{t('This is your private sandbox.', 'C’est ton bac à sable privé.')}</b> {t('A fresh container, started just for you on our MacBook (M1) and streamed to your browser. Nobody else sees it.', 'Un conteneur tout neuf, lancé juste pour toi sur notre MacBook (M1) et affiché dans ton navigateur. Personne d’autre ne le voit.')}</li>
             <li><b>{t('Everything is real inside it.', 'Tout y est réel.')}</b> {t('The agent creates and edits files, runs tests and opens pages in its own browser.', 'L’agent crée et modifie des fichiers, lance des tests et ouvre des pages dans son propre navigateur.')} {net

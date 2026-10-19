@@ -33,5 +33,5 @@ export const shortPath =(p: string, home?: string) => (home && p.startsWith(home
 export type Engine = 'native' | 'claude-code';
 export const engineOf = (p: Provider): Engine => (p.kind === 'claude-code' ? 'claude-code' : 'native');
 // Which agent runs the model: ours, or Claude Code (through the Agent SDK).
-export const agentName = (e: Engine, fr: boolean) => (e === 'native' ? (fr ? 'Agent d’agent-stage' : 'agent-stage’s agent') : (fr ? 'Agent Claude Code' : 'Claude Code agent'));
+export const agentName = (e: Engine, fr: boolean) => (e === 'native' ? (fr ? 'Agent de Codetandem' : 'Codetandem’s agent') : (fr ? 'Agent Claude Code' : 'Claude Code agent'));
 export type EngineStatus = Record<Engine | 'codex', { ready: boolean; reason?: string }>;

@@ -236,7 +236,7 @@ function About() {
   const fr = useLang() === 'fr';
   return (
     <div className="about">
-      <p><b>agent-stage</b>{fr ? ' : ' : ': '}{t('the coding agent you can follow and learn from, on a map.', 'l’agent de code que tu suis et qui t’apprend, sur une carte.')}</p>
+      <p><b>Codetandem</b>{fr ? ' : ' : ': '}{t('the coding agent you can follow and learn from, on a map.', 'l’agent de code que tu suis et qui t’apprend, sur une carte.')}</p>
       <p className="muted">{t('Data in', 'Données dans')} <span className="mono">~/.agent-stage</span>. {t('MIT licence; Guide me is adapted from VibeWise (MIT).', 'Licence MIT ; Guide-moi est adapté de VibeWise (MIT).')}</p>
     </div>
   );
