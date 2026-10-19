@@ -16,7 +16,7 @@ import { StepsSheet } from './StepsSheet';
 import { Sidebar, type Nav } from './Sidebar';
 import { ThreadMenu } from './ThreadMenu';
 import { Tips } from './Tips';
-import { useT } from './i18n';
+import { useT, useLang, serverText } from './i18n';
 
 export type Layout = 'studio' | 'classic';
 type Tab = 'chat' | 'steps' | 'threads';
@@ -30,9 +30,10 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
   const { health, serverDown, recheck } = useHealth();
   const { refreshThreads, threads, me } = useApp();
   const t = useT();
+  const fr = useLang() === 'fr';
   const [following, setFollowing] = useState(true);
   const gpuCtl = useGpu();
-  const problem = diagnose(health, serverDown);
+  const problem = diagnose(health, serverDown, fr);
   const [selected, setSelected] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sideId, setSideId] = useState<string | null>(null);
@@ -71,16 +72,16 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
   const shared = meta.shared ? { project: String(meta.workspace ?? ''), onPlay: () => { setStageOpen(true); replay.play(); } } : undefined;
   const git = repo === null || shared ? null : { repo, onInit: () => fetch(`/api/threads/${id}/git/init`, { method: 'POST' }).then((r) => r.ok && setRepo(true)) };
   const undo = (ref: string) => fetch(`/api/threads/${id}/undo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
-    .then((r) => r.json()).then((j) => j.error && alert(j.error));
+    .then((r) => r.json()).then((j) => j.error && alert(serverText(j.error, fr)));
   const keep = (ref: string): Promise<string | null> => fetch(`/api/threads/${id}/keep-task`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
-    .then((r) => r.json()).then((j) => j.error ?? null, () => 'Could not reach the server');
+    .then((r) => r.json()).then((j) => j.error ?? null, () => t('Could not reach the server. Check that agent-stage is still running.', 'Impossible de joindre le serveur. Vérifie qu’agent-stage tourne encore.'));
 
-  const menu = state.timeline.length > 0 ? <ThreadMenu id={id} mode={meta.mode === 'learn' ? 'learn' : 'build'} /> : null;
+  const menu = state.timeline.length > 0 ? <ThreadMenu id={id} mode={meta.mode === 'learn' ? 'learn' : 'build'} running={state.running} onContext={shared ? undefined : resetContext} /> : null;
   const header = (
     <>
       {menu}
       {hasWork && !stageOpen && (
-        <button className={`tool ${state.running ? 'pulse' : ''}`} onClick={() => setStageOpen(true)} title="Show the map">
+        <button className={`tool ${state.running ? 'pulse' : ''}`} onClick={() => setStageOpen(true)} title={t('Show the map', 'Afficher la carte')}>
           <Icon name="map" size={13} />{state.running && <span className="live-dot" />}
         </button>
       )}
@@ -88,11 +89,13 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
   );
 
   // ── studio: the map fills the window; chat, steps and threads are tabs of one floating panel ──
+  // The very first open lands on the chat; after that the app reopens on the sessions list (when there are several).
   const [tabPicked, setTab] = useState<Tab>(() => {
-    const toured = (() => { try { return localStorage.getItem('toured') === '1'; } catch { return true; } })();
-    const t = firstOpen && toured ? 'threads' : 'chat'; // the first-visit tour points at the chat
+    const seen = (() => { try { return localStorage.getItem('opened') === '1'; } catch { return false; } })();
+    try { localStorage.setItem('opened', '1'); } catch { /* private window */ }
+    const tab = firstOpen && seen ? 'threads' : 'chat';
     firstOpen = false;
-    return t;
+    return tab;
   });
   // The panel grows with the thread: Steps once there is a step, Threads once there is more than one thread.
   const showSteps = state.steps.length > 0, showThreads = Boolean(nav) && threads.length > 1;
@@ -114,7 +117,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
         problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
         banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null}
         replaying={replay.active} centered={false}
-        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={pickStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} onContext={resetContext} git={git} shared={shared} header={menu} />
+        onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={pickStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} git={git} shared={shared} header={menu} />
     );
     const left = panelOpen && !phone ? panelW + 24 : 0; // on phones the panel sits under the map
     return (
@@ -128,14 +131,14 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
             <div className="studio-head">
               {showSteps || showThreads ? (
                 <div className="studio-tabs">
-                  {showThreads && <button className={`tab-threads ${tab === 'threads' ? 'on' : ''}`} onClick={() => setTab('threads')}>{t('Threads', 'Fils')}</button>}
+                  {showThreads && <button className={`tab-threads ${tab === 'threads' ? 'on' : ''}`} onClick={() => setTab('threads')}>{t('Sessions', 'Sessions')}</button>}
                   <button className={`tab-chat ${tab === 'chat' ? 'on' : ''}`} onClick={() => setTab('chat')}>{t('Chat', 'Chat')}{state.running && !replay.active && <span className="live-dot" />}</button>
                   {showSteps && <button className={`tab-steps ${tab === 'steps' ? 'on' : ''}`} onClick={() => setTab('steps')}>{t('Steps', 'Étapes')}<span className="count">{state.steps.length}</span></button>}
                 </div>
               ) : <span className="spacer" />}
               {/* Until there's a Threads tab, a new thread and the settings stay one click away. */}
               {nav && !showThreads && <>
-                <button className="icon-btn studio-mini" onClick={nav.onNew} title={t('New thread', 'Nouveau fil')} aria-label={t('New thread', 'Nouveau fil')}><Icon name="plus" size={14} /></button>
+                <button className="icon-btn studio-mini" onClick={nav.onNew} title={t('New session', 'Nouvelle session')} aria-label={t('New session', 'Nouvelle session')}><Icon name="plus" size={14} /></button>
                 {!me?.public && <button className="icon-btn studio-mini" onClick={nav.onSettings} title={t('Settings', 'Réglages')} aria-label={t('Settings', 'Réglages')}><Icon name="gear" size={14} /></button>}
               </>}
               <button className="icon-btn" onClick={() => setPanelOpen(false)} title={t('Hide the panel: just the map', 'Masquer le panneau : juste la carte')} aria-label={t('Hide the panel', 'Masquer le panneau')}><Icon name="chevron" size={13} className="flip" /></button>
@@ -147,15 +150,15 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
               {tab === 'threads' && nav && (
                 <div className="studio-pane">
                   <Sidebar embedded railed={false} onToggle={() => {}} {...nav} onSelect={(t) => { if (t === id) setTab('chat'); nav.onSelect(t); }} />
-                  {onLayout && <button className="btn ghost sm studio-switch" onClick={() => onLayout('classic')}>Switch to the classic layout</button>}
+                  {onLayout && <button className="btn ghost sm studio-switch" onClick={() => onLayout('classic')}>{t('Switch to the classic layout', 'Passer à la disposition classique')}</button>}
                 </div>
               )}
             </div>
-            <Resizer onDrag={(dx) => setPanelW((w) => Math.max(320, Math.min(640, w + dx)))} onReset={() => setPanelW(400)} title="Drag to resize the panel" />
+            <Resizer onDrag={(dx) => setPanelW((w) => Math.max(320, Math.min(640, w + dx)))} onReset={() => setPanelW(400)} title={t('Drag to resize the panel', 'Glisse pour redimensionner le panneau')} />
           </aside>
         ) : (
-          <button className="studio-reopen" onClick={() => setPanelOpen(true)} title="Show the panel">
-            <Icon name="chevron" size={13} />{state.running && <span className="live-dot" />}<span>{meta.title}</span>
+          <button className="studio-reopen" onClick={() => setPanelOpen(true)} title={t('Show the panel', 'Afficher le panneau')}>
+            <Icon name="chevron" size={13} />{state.running && <span className="live-dot" />}<span>{!meta.title || meta.title === 'New thread' ? t('New session', 'Nouvelle session') : meta.title}</span>
           </button>
         )}
         {tips}
@@ -174,10 +177,10 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
           banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null} replaying={replay.active} header={header} centered={!showStage}
-          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} onContext={resetContext} git={git} shared={shared} />
+          onRun={(t) => (state.running ? steer(t) : run(t))} onAsk={openSide} onStop={stop} onSelect={showStep} onUndo={shared ? undefined : undo} onKeep={shared ? undefined : keep} git={git} shared={shared} />
         {sideId && <SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={showStep} />}
       </div>
-      {showStage && <Resizer onDrag={(dx) => setChatW((w) => Math.max(320, Math.min(760, w + dx)))} onReset={() => setChatW(400)} title="Drag to give the chat or the map more room" />}
+      {showStage && <Resizer onDrag={(dx) => setChatW((w) => Math.max(320, Math.min(760, w + dx)))} onReset={() => setChatW(400)} title={t('Drag to give the chat or the map more room', 'Glisse pour donner plus de place au chat ou à la carte')} />}
       {showStage && (
         <Stage state={state} replay={replay} threadId={id} workspace={String(meta.workspace)}
           selected={selected} onSelect={setSelected} sheetOpen={sheetOpen} setSheetOpen={setSheetOpen}
@@ -193,6 +196,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
 function SideThread({ id, onClose, onOpenSettings, onSelect }: { id: string; onClose: () => void; onOpenSettings: () => void; onSelect: (k: string) => void }) {
   const { state, meta, run } = useAgent(id);
   const { refreshThreads } = useApp();
+  const t = useT();
   const [kept, setKept] = useState(false);
   const close = () => {
     if (!kept) fetch(`/api/threads/${id}`, { method: 'DELETE' });
@@ -202,7 +206,7 @@ function SideThread({ id, onClose, onOpenSettings, onSelect }: { id: string; onC
     .then(() => { setKept(true); refreshThreads(); });
   return (
     <div className="side-thread-wrap">
-      <AgentPanel state={state} title={`Ask · ${meta.title}`} mode="build" onMode={() => {}} onCheckpoint={() => {}} problem={null}
+      <AgentPanel state={state} title={`${t('Why?', 'Pourquoi ?')} · ${meta.title}`} mode="build" onMode={() => {}} onCheckpoint={() => {}} problem={null}
         onOpenSettings={onOpenSettings} onRun={run} onAsk={() => {}} onStop={() => {}} onSelect={onSelect} side={{ onKeep: keep, onClose: close, kept }} />
     </div>
   );

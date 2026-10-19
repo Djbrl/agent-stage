@@ -69,15 +69,15 @@ export function Tips({ state, following, replaying, shared }: { state: State; fo
       'L’agent veut lancer ceci sur ton ordinateur. Lis d’abord : « Lancer » le laisse faire, « Refuser » dit non juste cette fois.'), ['.approval']);
   }, [state.approval?.id, tick, tip]);
   useEffect(() => {
-    if (pendingCp) fire('checkpoint', t('The agent stops here for your call: let it go ahead, talk it through in the box below, or skip this step.',
-      'L’agent s’arrête ici pour que tu décides : le laisser continuer, en discuter dans la boîte en dessous, ou passer cette étape.'), ['.checkpoint:not(.done) .cp-actions', '.studio-tabs .tab-chat']);
+    if (pendingCp) fire('checkpoint', t('Your call: the agent waits here. Let it go ahead, talk it through in the box below, or skip this step.',
+      'À toi de décider : l’agent attend ici. Laisse-le continuer, discutes-en dans la zone en dessous, ou passe cette étape.'), ['.checkpoint:not(.done) .cp-actions', '.studio-tabs .tab-chat']);
   }, [pendingCp, tick, tip]);
   useEffect(() => {
     if (live.current && edited) fire('edit', t('Click a step to see exactly what changed, and why.', 'Clique sur une étape pour voir exactement ce qui a changé, et pourquoi.'),
       ['.studio-tabs .tab-steps', '.stage-tools .steps', '.work']);
   }, [edited, state.steps.length, tick, tip]);
   useEffect(() => {
-    if (live.current && finished) fire('done', t('Done. Replay it on the map, or ask why it did something.', 'Fini. Rejoue-le sur la carte, ou demande pourquoi il a fait quelque chose.'),
+    if (live.current && finished) fire('done', t('Done. Replay it on the map, or ask why it did something.', 'Fini. Revois-le sur la carte, ou demande pourquoi il a fait quelque chose.'),
       ['.stage-tools .replay-tool', '.ask-btn']);
   }, [finished, tick, tip]);
   useEffect(() => {

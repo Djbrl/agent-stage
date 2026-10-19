@@ -118,9 +118,15 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
   const mini = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<MapData>({ files: [], edges: [] });
   const setFollowing = onFollowChange;
-  const names: Record<string, string> = { $workspace: t('scan & search', 'exploration'), $terminal: t('terminal', 'terminal'), $browser: t('browser', 'navigateur') };
-  const live = useRef({ state, selected, following, data, onSelect, insets, lit, names });
-  live.current = { state, selected, following, data, onSelect, insets, lit, names };
+  const names: Record<string, string> = { $workspace: t('looking around', 'exploration'), $terminal: t('terminal', 'terminal'), $browser: t('browser', 'navigateur') };
+  // What the agent's tag on the map says (drawn on the canvas, so the words travel with the live values).
+  const words: Record<string, string> = {
+    read_file: t('Reading…', 'Lecture…'), write_file: t('Writing…', 'Écriture…'), edit_file: t('Editing…', 'Modification…'), run_command: t('Running…', 'Commande…'),
+    search: t('Searching…', 'Recherche…'), list_files: t('Looking around…', 'Exploration…'), waiting: t('Waiting for you', 'Attend ta réponse'), failed: t('Failed', 'Échec'),
+    idle: t('Idle', 'Au repos'), planned: t('planned', 'prévu'), working: t('Working…', 'Au travail…'), thinking: t('Thinking…', 'Réfléchit…'), agent: t('Agent', 'Agent'),
+  };
+  const live = useRef({ state, selected, following, data, onSelect, insets, lit, names, words });
+  live.current = { state, selected, following, data, onSelect, insets, lit, names, words };
 
   // Re-read the map whenever the agent finishes a step, or an Undo puts files back.
   const doneSteps = state.steps.filter((s) => s.endedAt).length;
@@ -377,7 +383,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         const gx = empty ? lay.root.x - 30 : lay.root.x + lay.root.r * 0.75, gy = (empty ? lay.root.y - 20 : lay.root.y - lay.root.r * 0.6) + i * 22;
         ctx.beginPath(); ctx.arc(gx, gy, 6, 0, Math.PI * 2);
         ctx.setLineDash([2 * px, 3 * px]); ctx.strokeStyle = C.accent; ctx.lineWidth = 1.4 * px; ctx.stroke(); ctx.setLineDash([]);
-        labels.push({ text: `${p} (planned)`, x: gx + 10, y: gy + 4 * px, pri: 3, strong: false });
+        labels.push({ text: `${p} (${live.current.words.planned})`, x: gx + 10, y: gy + 4 * px, pri: 3, strong: false });
       });
 
       // labels, highest priority first, skipping collisions (screen space)
@@ -424,9 +430,9 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         ctx.fillStyle = err ? C.red : st.running ? C.accent : mix(C.accent, C.markerIdle, 0.55); ctx.fill();
         ctx.restore();
         ctx.strokeStyle = C.markerRing; ctx.lineWidth = 2 * px; ctx.stroke();
-        const doing: Record<string, string> = { read_file: 'Reading…', write_file: 'Writing…', edit_file: 'Editing…', run_command: 'Running…', search: 'Searching…', list_files: 'Scanning…' };
-        const verb = waiting ? 'Waiting for you' : err ? 'Failed' : !st.running ? 'Idle' : busy ? doing[last!.name] ?? 'Working…' : 'Thinking…';
-        if (st.running || err || waiting) label(ctx, `Agent · ${verb}`, m.x + 12 * px, m.y - 13 * px, px, 12, err ? C.red : waiting ? C.amber : C.ink, 'left', 600);
+        const w = live.current.words;
+        const verb = waiting ? w.waiting : err ? w.failed : !st.running ? w.idle : busy ? w[last!.name] ?? w.working : w.thinking;
+        if (st.running || err || waiting) label(ctx, `${w.agent} · ${verb}`, m.x + 12 * px, m.y - 13 * px, px, 12, err ? C.red : waiting ? C.amber : C.ink, 'left', 600);
       }
       drawReadmap(now);
     };
@@ -547,8 +553,8 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       <canvas ref={canvas} />
       {data.files.length === 0 && !state.planned.length && <div className="map-empty" style={{ left: insets.left ?? 0, top: insets.top }}>{t('Empty folder. The map draws itself as the agent works.', 'Dossier vide. La carte se dessine pendant que l’agent travaille.')}</div>}
       {readmap && Object.keys(lay.files).length > 0 && (
-        <div className="readmap" title="Lit by what the agent reads. The box is your view.">
-          <div className="rm-head"><span>Reads</span><span className="rm-count mono" /></div>
+        <div className="readmap" title={t('Lit up where the agent reads. The box is what you see now.', 'S’allume là où l’agent lit. Le cadre, c’est ce que tu vois.')}>
+          <div className="rm-head"><span>{t('What it reads', 'Ce qu’il lit')}</span><span className="rm-count mono" /></div>
           <canvas ref={mini} style={{ width: 200, height: 140 }} />
         </div>
       )}

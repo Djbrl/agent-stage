@@ -9,7 +9,7 @@ import { store } from './Resizer';
 import { useDismiss } from './dismiss';
 import { baseName } from './api';
 import { setAnchor } from './Tips';
-import { useT } from './i18n';
+import { useT, useLang } from './i18n';
 
 export function Stage({ state, replay, threadId, workspace, selected, onSelect, sheetOpen, setSheetOpen, approve, onCollapse, lit, full, left = 0, onFollowing }: {
   state: State; replay: Replay; threadId: string; workspace: string;
@@ -20,6 +20,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
   onFollowing?: (f: boolean) => void; // the tips want to know when you take the camera
 }) {
   const t = useT();
+  const fr = useLang() === 'fr';
   const [following, setFollowingState] = useState(true);
   const setFollowing = (f: boolean) => { setFollowingState(f); onFollowing?.(f); };
   // The tools show up once there's something to look at: an empty map needs none of them.
@@ -43,7 +44,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'TEXTAREA' || tag === 'INPUT' || document.querySelector('.modal-back, .tour')) return;
+      if (tag === 'TEXTAREA' || tag === 'INPUT' || document.querySelector('.modal-back')) return;
       if (e.key === 'm' || e.key === 'M') setReadmap((x) => !x);
       if (e.key === 's' || e.key === 'S') setSheetOpen(!sheetOpen);
       if (e.key === 'Escape' && sheetOpen) setSheetOpen(false);
@@ -58,9 +59,9 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
 
   const last = state.steps.at(-1);
   const pendingCp = state.timeline.some((t) => t.kind === 'checkpoint' && !t.answer);
-  const caption = replay.active ? (last ? stepText(last) : '')
+  const caption = replay.active ? (last ? stepText(last, fr) : '')
     : state.approval ? t('Waiting for your approval', 'En attente de ton accord') : pendingCp ? t('Waiting for your decision', 'En attente de ta décision')
-    : state.running ? (last && last.endedAt === undefined ? stepText(last) : t('Thinking…', 'Réflexion…')) : '';
+    : state.running ? (last && last.endedAt === undefined ? stepText(last, fr) : t('Thinking…', 'Réflexion…')) : '';
   const folder = baseName(workspace);
   // A little browser window on the stage while the agent is using the browser.
   const recent = state.steps.slice(-3).reverse().find((s) => shotOf(s));
@@ -77,7 +78,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
         <div className="stage-where">{folder}</div>
         {history && <div className="stage-tools tools-in">
           {!following && <button className="tool follow-tool" onClick={() => api.current?.follow()} title={t('Let the camera follow the agent again (F)', 'La caméra suit de nouveau l’agent (F)')}><Icon name="target" size={13} /> {t('Follow', 'Suivre')}</button>}
-          {!state.running && !replay.active && state.steps.length > 1 && <button className="tool replay-tool" onClick={replay.play} title={t('Watch the agent do it again on the map (Space)', 'Revoir le travail de l’agent sur la carte (Espace)')} aria-label={t('Replay', 'Rejouer')}><Icon name="play" size={11} /></button>}
+          {!state.running && !replay.active && state.steps.length > 1 && <button className="tool replay-tool" onClick={replay.play} title={t('Watch the agent do it again on the map (Space)', 'Revoir le travail de l’agent sur la carte (Espace)')} aria-label={t('Replay', 'Revoir')}><Icon name="play" size={11} /></button>}
           <button className={`tool ${readmap ? 'on' : ''}`} onClick={() => setReadmap(!readmap)} title={t('What the agent reads (M)', 'Ce que lit l’agent (M)')} aria-label={t('What the agent reads', 'Ce que lit l’agent')} aria-pressed={readmap}><Icon name="read" size={13} /></button>
           <button className="tool" onClick={() => api.current?.fit()} title={t('Whole project (0)', 'Tout le projet (0)')} aria-label={t('Show the whole project', 'Voir tout le projet')}><Icon name="fit" size={13} /></button>
           <button ref={legendBtn} className="tool" onClick={() => setLegend(!legend)} title={t('What the colours mean', 'Ce que veulent dire les couleurs')} aria-label={t('What the colours mean', 'Ce que veulent dire les couleurs')}><span className="q">?</span></button>
@@ -98,8 +99,8 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
       ); })()}
 
       {browserShot && (
-        <button className="browser-win" onClick={() => { onSelect(browserShot.id); setSheetOpen(true); }} title="Open this step">
-          <div className="browser-bar"><Icon name="globe" size={11} /><span className="mono">{pageOf(browserShot)}</span></div>
+        <button className="browser-win" onClick={() => { onSelect(browserShot.id); setSheetOpen(true); }} title={t('Open this step', 'Ouvrir cette étape')}>
+          <div className="browser-bar"><Icon name="globe" size={11} /><span className="mono">{pageOf(browserShot) || t('browser', 'navigateur')}</span></div>
           <img src={shotOf(browserShot)!} alt="" />
         </button>
       )}
@@ -108,17 +109,17 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
 
       {replay.active && (
         <div className="replay-pill">
-          <button className="icon-btn" onClick={() => replay.step(-1)} aria-label="Previous step"><Icon name="chevron" size={12} className="flip" /></button>
-          <button className="icon-btn" onClick={() => (replay.playing ? replay.pause() : replay.play())} aria-label={replay.playing ? 'Pause' : 'Play'}>{replay.playing ? <Icon name="stop" size={10} /> : <Icon name="play" size={11} />}</button>
-          <button className="icon-btn" onClick={() => replay.step(1)} aria-label="Next step"><Icon name="chevron" size={12} /></button>
-          <span className="mono">Replay · step {replay.stepIndex}/{replay.stepTotal}</span>
-          <button className="btn ghost sm live" onClick={replay.live}>● Live</button>
+          <button className="icon-btn" onClick={() => replay.step(-1)} aria-label={t('Previous step', 'Étape précédente')}><Icon name="chevron" size={12} className="flip" /></button>
+          <button className="icon-btn" onClick={() => (replay.playing ? replay.pause() : replay.play())} aria-label={replay.playing ? t('Pause', 'Pause') : t('Play', 'Lecture')}>{replay.playing ? <Icon name="stop" size={10} /> : <Icon name="play" size={11} />}</button>
+          <button className="icon-btn" onClick={() => replay.step(1)} aria-label={t('Next step', 'Étape suivante')}><Icon name="chevron" size={12} /></button>
+          <span className="mono">{t('Replay · step', 'Revoir · étape')} {replay.stepIndex}/{replay.stepTotal}</span>
+          <button className="btn ghost sm live" onClick={replay.live}>● {t('Live', 'En direct')}</button>
         </div>
       )}
 
       {state.approval && (
         <div className="approval">
-          <div className="approval-head"><Icon name="shield" /> {state.approval.check ? t('agent-stage wants to check the work by running its tests', 'agent-stage veut vérifier le travail en lançant ses tests') : state.approval.command.startsWith('browse ') ? t('The agent wants to visit a website', 'L’agent veut visiter un site web') : state.approval.command.startsWith('open ') ? t('The agent wants to open something on your computer', 'L’agent veut ouvrir quelque chose sur ton ordinateur') : t('The agent wants to run a command', 'L’agent veut lancer une commande')}</div>
+          <div className="approval-head"><Icon name="shield" /> {state.approval.check ? t('agent-stage wants to check the work by running the tests', 'agent-stage veut vérifier le travail en lançant les tests') : state.approval.command.startsWith('browse ') ? t('The agent wants to visit a website', 'L’agent veut visiter un site web') : state.approval.command.startsWith('open ') ? t('The agent wants to open something on your computer', 'L’agent veut ouvrir quelque chose sur ton ordinateur') : t('The agent wants to run a command', 'L’agent veut lancer une commande')}</div>
           <code>$ {state.approval.command}</code>
           <div className="approval-actions">
             <button className="btn ghost" onClick={() => approve(state.approval!.id, false)}>{t('Deny', 'Refuser')}</button>

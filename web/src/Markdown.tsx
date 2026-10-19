@@ -2,6 +2,7 @@
 // Builds React elements (no innerHTML), so model output can't inject markup.
 import type { ReactNode } from 'react';
 import { useHighlight } from './highlight';
+import { useLang } from './i18n';
 
 function inline(text: string, key = 0): ReactNode[] {
   const out: ReactNode[] = [];
@@ -21,10 +22,18 @@ function inline(text: string, key = 0): ReactNode[] {
 
 const CALLOUT = /^✦\s*(Build checkpoint|Design checkpoint|Implementation checkpoint|Implementation report|System check|Concept|Why this matters|What you learned)\s*:?\s*(.*)$/i;
 
+// The tutor writes its markers in English (src/learn.ts); the card shows them in plain words, in the reader's language.
+const HEAD: Record<string, [string, string]> = {
+  'build-checkpoint': ['Your turn', 'À toi'], 'design-checkpoint': ['Your call', 'À toi de décider'], 'implementation-checkpoint': ['Your call', 'À toi de décider'],
+  'implementation-report': ['What I did', 'Ce que j’ai fait'], 'system-check': ['Check', 'Vérification'], concept: ['Idea', 'Notion'],
+  'why-this-matters': ['Why it matters', 'Pourquoi c’est important'], 'what-you-learned': ['What you learned', 'Ce que tu as appris'],
+};
+
 // Learn-mode callouts ("✦ Concept: closures" + the paragraphs until the next callout) get their own card.
 export function Markdown({ text }: { text: string }) {
+  const fr = useLang() === 'fr';
   const parts = text.split(/\n(?=✦)/);
-  if (parts.length === 1 && !CALLOUT.test(text.trim())) return <Plain text={text} />;
+  if (parts.length === 1 && !CALLOUT.test(text.trim().split('\n')[0])) return <Plain text={text} />;
   return <div className="md">{parts.map((part, i) => {
     const [first, ...rest] = part.trim().split('\n');
     const m = first.match(CALLOUT);
@@ -32,7 +41,7 @@ export function Markdown({ text }: { text: string }) {
     const kind = m[1].toLowerCase().replace(/\s+/g, '-');
     return (
       <div key={i} className={`callout ${kind}`}>
-        <div className="callout-head">✦ {m[1]}{m[2] ? <span>: {m[2]}</span> : null}</div>
+        <div className="callout-head">✦ {HEAD[kind]?.[fr ? 1 : 0] ?? m[1]}{m[2] ? <span>{fr ? ' : ' : ': '}{m[2]}</span> : null}</div>
         {rest.join('\n').trim() && <Plain text={rest.join('\n')} />}
       </div>
     );

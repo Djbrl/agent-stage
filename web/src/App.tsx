@@ -7,6 +7,7 @@ import { SettingsModal } from './SettingsModal';
 import { Welcome, AboveComposer, StarterIdeas, DefaultsNote, defaultsNoted } from './Welcome';
 import { PublicWelcome } from './PublicWelcome';
 import { Resizer, storedNumber, store } from './Resizer';
+import { useT } from './i18n';
 
 export function App() {
   return <AppProvider><Shell /></AppProvider>;
@@ -14,6 +15,7 @@ export function App() {
 
 function Shell() {
   const { threads, me } = useApp();
+  const t = useT();
   // Online demo: say where the visitor is before anything else (once per sandbox).
   const [welcomed, setWelcomed] = useState(() => { try { return localStorage.getItem('demoWelcomed') === '1'; } catch { return false; } });
   const welcome = me?.public && !welcomed ? <PublicWelcome onDone={() => { setWelcomed(true); store('demoWelcomed', 1); }} /> : null;
@@ -70,7 +72,7 @@ function Shell() {
   return (
     <div className="shell" style={{ gridTemplateColumns: railed || narrow ? '52px minmax(0, 1fr)' : `${sideW}px 0 minmax(0, 1fr)` }}>
       <Sidebar {...nav} railed={railed || narrow} onToggle={() => setRailed(!railed)} onLayout={() => setLayout('studio')} />
-      {!railed && !narrow && <Resizer onDrag={(dx) => setSideW((w) => Math.max(200, Math.min(360, w + dx)))} onReset={() => setSideW(248)} />}
+      {!railed && !narrow && <Resizer onDrag={(dx) => setSideW((w) => Math.max(200, Math.min(360, w + dx)))} onReset={() => setSideW(248)} title={t('Drag to resize', 'Glisse pour redimensionner')} />}
       {active ? <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} /> : (
         <Welcome onCreated={created} onBrowse={() => setModal('new')} />
       )}

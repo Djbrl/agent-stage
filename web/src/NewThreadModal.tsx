@@ -1,7 +1,7 @@
-// Pick a folder on this computer to start a thread in: the Finder dialog (opened by the server), a recent one, or none.
+// Pick a folder on this computer to start a session in: the Finder dialog (opened by the server), a recent one, or none.
 import { useEffect, useState } from 'react';
 import { get, send, shortPath, baseName } from './api';
-import { useT } from './i18n';
+import { useT, useLang, serverText } from './i18n';
 import { useApp } from './useSettings';
 import { Icon } from './icons';
 import { useDismiss } from './dismiss';
@@ -11,6 +11,7 @@ type Listing = { path: string; parent: string | null; name: string; folders: str
 export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const { settings, me, refreshThreads } = useApp();
   const t = useT();
+  const fr = useLang() === 'fr';
   useDismiss(true, onClose);
   const [dir, setDir] = useState<Listing | null>(null);
   const [busy, setBusy] = useState(false);
@@ -29,7 +30,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
       const th = await send<{ id: string }>('/api/threads/import', data);
       refreshThreads();
       onCreated(th.id);
-    } catch (e: any) { setErr(e.message); setBusy(false); }
+    } catch (e: any) { setErr(serverText(e.message, fr)); setBusy(false); }
   };
 
   const start = async (folder: string | null) => {
@@ -38,13 +39,13 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
       const th = await send<{ id: string }>('/api/threads', { folder, scratch: folder === null });
       refreshThreads();
       onCreated(th.id);
-    } catch (e: any) { setErr(e.message); setBusy(false); }
+    } catch (e: any) { setErr(serverText(e.message, fr)); setBusy(false); }
   };
 
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head"><span>{t('New thread', 'Nouveau fil')}</span><button className="icon-btn" onClick={onClose} aria-label={t('Close', 'Fermer')}><Icon name="x" size={13} /></button></div>
+        <div className="modal-head"><span>{t('New session', 'Nouvelle session')}</span><button className="icon-btn" onClick={onClose} aria-label={t('Close', 'Fermer')}><Icon name="x" size={13} /></button></div>
         <div className="modal-body">
           {me?.public ? <>
             <div className="label">{t('Project', 'Projet')}</div>
@@ -70,7 +71,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
             {(settings?.recentFolders ?? []).map((f) => (
               <button key={f} className="folder-row" disabled={busy} onClick={() => start(f)}>
                 <Icon name="folder" size={13} /><span>{baseName(f)}</span><span className="muted mono">{shortPath(f, me?.home)}</span>
-                {f === me?.sandbox && <span className="pill">sandbox</span>}
+                {f === me?.sandbox && <span className="pill">{t('sandbox', 'bac à sable')}</span>}
               </button>
             ))}
           </div>
@@ -89,7 +90,7 @@ export function NewThreadModal({ onClose, onCreated }: { onClose: () => void; on
               </div>
             </div>
           )}
-          <p className="hint">{t('The agent can read and edit files in this folder. Shell commands still ask first.', 'L’agent peut lire et modifier les fichiers de ce dossier. Les commandes demandent toujours ton accord.')}</p>
+          <p className="hint">{t('The agent can read and edit files in this folder. Commands still ask you first.', 'L’agent peut lire et modifier les fichiers de ce dossier. Les commandes demandent toujours ton accord.')}</p>
           </>}
         </div>
         <div className="modal-foot">

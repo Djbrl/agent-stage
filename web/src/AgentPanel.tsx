@@ -10,22 +10,31 @@ import { stepText } from './StepsSheet';
 import { Markdown } from './Markdown';
 import { useApp } from './useSettings';
 import { useHighlight } from './highlight';
-import { engineOf, ENGINE_LABEL, type Engine, type Provider } from './api';
+import { engineOf, agentName, type Engine, type Provider } from './api';
 import { Learned } from './Learned';
-import { useT } from './i18n';
+import { useT, useLang, tr, modeName, serverText } from './i18n';
 
-function summarize(steps: Step[]) {
+function summarize(steps: Step[], fr: boolean) {
   const c = (n: string[]) => steps.filter((s) => n.includes(s.name) && s.ok !== false).length;
   const parts: string[] = [];
   const read = c(['read_file', 'list_files', 'search']), ran = c(['run_command']);
   const wrote = new Set(steps.filter((s) => (s.name === 'write_file' || s.name === 'edit_file') && s.ok !== false).map((s) => s.target)).size; // files, not edits
   const failed = steps.filter((s) => s.ok === false).length;
   const web = steps.filter((s) => s.name.startsWith('browser_')).length;
-  if (wrote) parts.push(`changed ${wrote} file${wrote > 1 ? 's' : ''}`);
-  if (web) parts.push(`used the browser`);
-  if (ran) parts.push(`ran ${ran} command${ran > 1 ? 's' : ''}`);
-  if (read && !parts.length) parts.push(`looked at ${read} thing${read > 1 ? 's' : ''}`);
-  if (failed) parts.push(`${failed} step${failed > 1 ? 's' : ''} failed`);
+  const pl = (n: number) => (n > 1 ? 's' : '');
+  if (fr) {
+    if (wrote) parts.push(`${wrote} fichier${pl(wrote)} modifié${pl(wrote)}`);
+    if (web) parts.push('navigateur utilisé');
+    if (ran) parts.push(`${ran} commande${pl(ran)} lancée${pl(ran)}`);
+    if (read && !parts.length) parts.push(`${read} élément${pl(read)} consulté${pl(read)}`);
+    if (failed) parts.push(`${failed} étape${pl(failed)} en échec`);
+  } else {
+    if (wrote) parts.push(`changed ${wrote} file${pl(wrote)}`);
+    if (web) parts.push('used the browser');
+    if (ran) parts.push(`ran ${ran} command${pl(ran)}`);
+    if (read && !parts.length) parts.push(`looked at ${read} thing${pl(read)}`);
+    if (failed) parts.push(`${failed} step${pl(failed)} failed`);
+  }
   const s = parts.join(', ');
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -33,7 +42,7 @@ function summarize(steps: Step[]) {
 // "Quiz me" (Learn mode). The mock model recognises the first words (QUIZ_START in src/model.ts).
 const QUIZ = "Quiz me on what we just did: ask me 3 short questions about the ideas and the code from this session, one at a time. Wait for my answer before the next question, tell me in one or two sentences whether I'm right and why, and finish with my score and what to review. Don't change any files.";
 
-export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, onContext, git, shared }: {
+export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git, shared }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
@@ -41,7 +50,6 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   replaying?: boolean; header?: ReactNode; centered?: boolean; banner?: ReactNode; engine?: Engine; hasHistory?: boolean; status?: ReactNode;
   threadProvider?: string; // the model this thread last ran on (shown when the selected model is another engine's)
   visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
-  onContext?: (action: 'clear' | 'compact') => Promise<string | null>;
   onUndo?: (ref: string) => void; onKeep?: (ref: string) => Promise<string | null>; git?: { repo: boolean; onInit: () => void } | null;
   shared?: { project: string; onPlay: () => void }; // a session someone shared: replay only, no composer
 }) {
@@ -71,6 +79,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   const typed = (e: { text: string; at: number }) => <Typed text={e.text} animate={e.at > mounted.current - 1500} />;
   const hl = useHighlight();
   const t = useT();
+  const fr = useLang() === 'fr';
 
   // Enter = run (idle) or steer (running). "Ask" opens a side thread that never touches files.
   // While a checkpoint waits for you, what you type is your reply to it (one input box, never two).
@@ -95,12 +104,12 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   return (
     <aside className={`agent-panel ${side ? 'side' : ''} ${centered ? 'centered' : ''} ${state.timeline.length ? '' : 'empty'}`}>
       <div className="panel-head">
-        <span className="title thread-title" title={title}>{title || 'New thread'}</span>
+        <span className="title thread-title" title={title}>{!title || title === 'New thread' ? t('New session', 'Nouvelle session') : title}</span>
         {side ? (
           <span className="side-actions">
-            <span className="pill">{side.kept ? 'kept' : 'temporary'}</span>
-            {!side.kept && <button className="btn ghost sm" onClick={side.onKeep}>Keep</button>}
-            <button className="icon-btn" onClick={side.onClose} title="Close" aria-label="Close"><Icon name="x" size={13} /></button>
+            <span className="pill">{side.kept ? t('saved', 'gardée') : t('temporary', 'temporaire')}</span>
+            {!side.kept && <button className="btn ghost sm" onClick={side.onKeep} title={t('Keep this conversation in your sessions', 'Garder cette conversation dans tes sessions')}>{t('Keep', 'Garder')}</button>}
+            <button className="icon-btn" onClick={side.onClose} title={t('Close', 'Fermer')} aria-label={t('Close', 'Fermer')}><Icon name="x" size={13} /></button>
           </span>
         ) : (
           <>
@@ -115,22 +124,22 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           {state.timeline.length === 0 && (
             <div className="intro">
               {side ? null : mode === 'learn' ? <>
-                <div className="intro-title">What do you want to learn to build?</div>
-                <div className="muted">You design, the agent teaches. It asks for your approach first, explains the ideas, and only writes code after you approve.</div>
+                <div className="intro-title">{t('What do you want to build?', 'Que veux-tu construire ?')}</div>
+                <div className="muted">{t('You decide, the agent explains. It asks how you’d do it, explains the ideas, and only writes code once you say yes.', 'Tu décides, l’agent explique. Il te demande comment tu ferais, t’explique les idées, et n’écrit du code qu’après ton accord.')}</div>
               </> : <>
-                <div className="intro-title">What should we build?</div>
-                <div className="muted">Describe a task. When the agent starts working, you'll watch it move through your project on the map.</div>
+                <div className="intro-title">{t('What should we build?', 'Qu’est-ce qu’on construit ?')}</div>
+                <div className="muted">{t('Describe a task. Once the agent starts, you’ll watch it move through your project on the map.', 'Décris une tâche. Dès que l’agent commence, tu le vois avancer dans ton projet sur la carte.')}</div>
               </>}
             </div>
           )}
           {state.timeline.map((e, i) => {
-            if (e.kind === 'user') return <div key={i} className="bubble-user">{e.text}</div>;
+            if (e.kind === 'user') return <div key={i} className="bubble-user">{e.text === QUIZ ? t('Quiz me', 'Interroge-moi') : e.text}</div>;
             if (e.kind === 'thought') return <div key={i} className="thought">{typed(e)}</div>;
-            if (e.kind === 'checkpoint') return <CheckpointCard key={i} entry={e} onAnswer={onCheckpoint} />;
+            if (e.kind === 'checkpoint') return <CheckpointCard key={i} entry={e} onAnswer={onCheckpoint} fr={fr} />;
             if (e.kind === 'learned') return <Learned key={i} entry={e} all={state.concepts} latest={!state.timeline.slice(i + 1).some((x) => x.kind === 'learned')} onTry={side || shared ? undefined : (x) => { setText(x); box.current?.focus(); }} />;
             if (e.kind === 'qa') return (
               <div key={i} className="qa">
-                <div className="qa-q"><span className="qa-tag">Ask</span>{e.question}</div>
+                <div className="qa-q"><span className="qa-tag">{t('Why?', 'Pourquoi ?')}</span>{e.question}</div>
                 <div className="qa-a">{e.answer ? <Markdown text={e.answer} /> : <span className="spin" />}</div>
               </div>
             );
@@ -142,33 +151,33 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
               const kept = e.ref ? state.kept[e.ref] : undefined;
               const undoRow = canUndo && (
                 <div className="undo-row">
-                  {kept ? <span className="muted kept" title={kept.message}>Kept as <span className="mono">{kept.commit}</span> · {kept.message.split('\n')[0]}</span>
-                  : undone ? <span className="muted">Undone</span> : (<>
-                    {onKeep && !later && <KeepButton disabled={state.running} onKeep={() => onKeep(e.ref!)} />}
+                  {kept ? <span className="muted kept" title={kept.message}>{t('Version saved', 'Version gardée')} <span className="mono">{kept.commit}</span> · {kept.message.split('\n')[0]}</span>
+                  : undone ? <span className="muted">{t('Undone', 'Annulé')}</span> : (<>
+                    {onKeep && !later && <KeepButton disabled={state.running} onKeep={() => onKeep(e.ref!)} fr={fr} />}
                     <button className="btn ghost sm" disabled={state.running}
-                      title={later ? 'Puts back the files this task and the later ones changed' : 'Puts back the files this task changed'}
-                      onClick={() => confirm(later ? 'Undo this task and every task after it? The files they changed go back to how they were before.' : 'Undo this task? The files it changed go back to how they were before.') && onUndo!(e.ref!)}>
-                      <Icon name="undo" size={12} /> Undo
+                      title={later ? t('Puts back the files this task and the later ones changed', 'Remet les fichiers changés par cette tâche et les suivantes') : t('Puts back the files this task changed', 'Remet les fichiers changés par cette tâche')}
+                      onClick={() => confirm(later ? t('Undo this task and every task after it? The files they changed go back to how they were before.', 'Annuler cette tâche et toutes les suivantes ? Les fichiers qu’elles ont changés reviennent comme avant.') : t('Undo this task? The files it changed go back to how they were before.', 'Annuler cette tâche ? Les fichiers qu’elle a changés reviennent comme avant.')) && onUndo!(e.ref!)}>
+                      <Icon name="undo" size={12} /> {t('Undo', 'Annuler')}
                     </button>
                   </>)}
                 </div>
               );
               if (e.kind === 'error') { // a stop you asked for isn't a failure: neutral icon
                 const stopped = /^Stopped/.test(e.text);
-                return <div key={i} className={`final bad ${stopped ? 'stopped' : ''}`}><div><Icon name={stopped ? 'stop' : 'x'} size={stopped ? 10 : 12} /> {e.text}</div>{undoRow}</div>;
+                return <div key={i} className={`final bad ${stopped ? 'stopped' : ''}`}><div><Icon name={stopped ? 'stop' : 'x'} size={stopped ? 10 : 12} /> {serverText(e.text, fr)}</div>{undoRow}</div>;
               }
-              return <div key={i} className="final">{typed(e)}{undoRow}</div>;
+              return <div key={i} className="final">{typed({ ...e, text: serverText(e.text, fr) })}{undoRow}</div>;
             }
-            if (e.kind === 'verify') return <VerifyLine key={i} e={e} />;
+            if (e.kind === 'verify') return <VerifyLine key={i} e={e} fr={fr} />;
             if (e.kind === 'context') return (
               <details key={i} className="context-line">
-                <summary>{e.action === 'compact' ? 'Context compacted: the agent continues from a summary' : 'Context cleared: the agent starts fresh from here'}</summary>
+                <summary>{e.action === 'compact' ? t('Chat summarized: the agent goes on from a short summary', 'Conversation résumée : l’agent continue à partir d’un court résumé') : t('Fresh start: the agent forgets the chat before this point', 'Nouveau départ : l’agent oublie la conversation avant ce point')}</summary>
                 {e.summary && <Markdown text={e.summary} />}
               </details>
             );
             if (e.kind === 'restored') return (
               <div key={i} className="restored muted">
-                {e.files.length ? `Restored ${e.files.length} file${e.files.length > 1 ? 's' : ''}: ${e.files.slice(0, 4).map((f) => f.path.split('/').pop()).join(', ')}${e.files.length > 4 ? '…' : ''}` : 'Nothing to restore: the files were already like that.'}
+                {e.files.length ? `${t(`Put back ${e.files.length} file${e.files.length > 1 ? 's' : ''}:`, `${e.files.length} fichier${e.files.length > 1 ? 's' : ''} remis comme avant :`)} ${e.files.slice(0, 4).map((f) => f.path.split('/').pop()).join(', ')}${e.files.length > 4 ? '…' : ''}` : t('Nothing to put back: the files were already like that.', 'Rien à remettre : les fichiers étaient déjà comme ça.')}
               </div>
             );
             // A burst of tool calls: one quiet line. Live while working, a summary after. Click → steps on the stage.
@@ -179,17 +188,17 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
             const bad = steps.some((s) => s.ok === false);
             const lastStep = steps.at(-1);
             return (
-              <button key={i} className={`work ${live ? 'live' : ''} ${bad ? 'bad' : ''}`} onClick={() => lastStep && onSelect(lastStep.id)} title="Show these steps on the stage"
+              <button key={i} className={`work ${live ? 'live' : ''} ${bad ? 'bad' : ''}`} onClick={() => lastStep && onSelect(lastStep.id)} title={t('Show these steps', 'Voir ces étapes')}
                 onMouseEnter={() => hl.set(steps.map((s) => s.target).filter((t) => !t.startsWith('$')))} onMouseLeave={() => hl.set(null)}>
                 <span className="work-icon">{live ? <span className="spin" /> : bad ? <Icon name="x" size={11} /> : <Icon name="check" size={11} />}</span>
-                <span className="work-text">{live && lastStep ? (state.approval && lastStep.name === 'run_command' ? `Waiting for your OK to run ${lastStep.args?.command ?? 'a command'}` : stepText(lastStep)) : summarize(steps)}</span>
+                <span className="work-text">{live && lastStep ? (state.approval && lastStep.name === 'run_command' ? t(`Waiting for your OK to run ${lastStep.args?.command ?? 'a command'}`, `Attend ton accord pour lancer ${lastStep.args?.command ?? 'une commande'}`) : stepText(lastStep, fr)) : summarize(steps, fr)}</span>
                 {live && lastStep && !state.approval && <span className="work-time">{secs(now - lastStep.startedAt)}</span>}
-                <span className="work-count">{steps.length} step{steps.length > 1 ? 's' : ''}</span>
+                <span className="work-count">{steps.length} {t(steps.length > 1 ? 'steps' : 'step', steps.length > 1 ? 'étapes' : 'étape')}</span>
               </button>
             );
           })}
           {state.running && !replaying && !state.approval && !state.timeline.some((t) => t.kind === 'checkpoint' && !t.answer) && state.steps.at(-1)?.ok !== undefined && (
-            <div className="work live ghost"><span className="work-icon"><span className="spin" /></span><span className="work-text">Thinking</span><span className="work-time">{secs(now - (lastEnd ?? state.startedAt ?? now))}</span></div>
+            <div className="work live ghost"><span className="work-icon"><span className="spin" /></span><span className="work-text">{t('Thinking', 'Réflexion')}</span><span className="work-time">{secs(now - (lastEnd ?? state.startedAt ?? now))}</span></div>
           )}
           <div ref={end} />
         </div>
@@ -197,8 +206,8 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
 
       {banner && !side && <div className="banner">{banner}</div>}
       {git && !git.repo && !side && !banner && (
-        <div className="git-note">No version history in this folder, so the agent's changes can't be undone.
-          <button className="btn ghost sm" onClick={git.onInit}>Turn it on</button></div>
+        <div className="git-note">{t('This folder keeps no versions, so the agent’s changes can’t be undone.', 'Ce dossier ne garde pas de versions : les changements de l’agent ne pourront pas être annulés.')}
+          <button className="btn ghost sm" onClick={git.onInit}>{t('Turn it on', 'Activer')}</button></div>
       )}
       {problem && !side && <div className="problem"><span className="sdot bad" />{problem}</div>}
       {shared && !replaying ? (
@@ -206,9 +215,9 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           <span>{t('A session shared from', 'Une session partagée depuis')} <b>{shared.project || t('another computer', 'un autre ordinateur')}</b>. {t('You can replay it, not run it.', 'Tu peux la revoir, pas la lancer.')}</span>
           <button className="btn primary sm" onClick={shared.onPlay}><Icon name="play" size={10} /> {t('Watch it', 'La regarder')}</button>
         </div>
-      ) : replaying ? <div className="composer replay-note">{t('You’re watching a replay. Press', 'Tu regardes une rediffusion. Appuie sur')} <b>● Live</b> {t('(or End) to get back.', '(ou Fin) pour revenir.')}</div> :
+      ) : replaying ? <div className="composer replay-note">{t('You’re watching a replay. Press', 'Tu regardes une rediffusion. Appuie sur')} <b>● {t('Live', 'En direct')}</b> {t('(or End) to get back.', '(ou Fin) pour revenir.')}</div> :
       <div className="composer">
-        {waiting && <div className="composer-reply">{t('Replying to', 'Réponse à')} <b>{waiting.cp.title || t('the checkpoint', 'l’étape')}</b></div>}
+        {waiting && <div className="composer-reply">{t('Replying to', 'Réponse à')} <b>{waiting.cp.title || t('this step', 'cette étape')}</b></div>}
         {canQuiz && !text.trim() && (
           <div className="composer-suggest">
             <button className="btn ghost sm" onClick={() => onRun(QUIZ)} title={t('The tutor asks you 3 short questions about this step, one at a time, and tells you what you got right', 'Le tuteur te pose 3 questions courtes sur cette étape, une à la fois, et te dit ce que tu as juste')}>
@@ -228,14 +237,14 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
         />
         <div className="composer-bar">
           {!side && (
-            <div className="seg sm" title={state.running ? t('Switch when idle', 'Change quand l’agent est au repos') : t('Build: the agent does the work. Learn: you design, it teaches and only writes code after you approve.', 'Build : l’agent fait le travail. Learn : tu conçois, il t’explique et n’écrit du code qu’après ton accord.')}>
+            <div className="seg sm" title={state.running ? t('You can switch once the agent is done', 'Tu pourras changer quand l’agent aura fini') : t('Guide me: you decide, it explains and only writes code once you say yes. Just build it: the agent does the work.', 'Guide-moi : tu décides, il explique et n’écrit du code qu’après ton accord. Fais-le : l’agent fait le travail.')}>
               {(['build', 'learn'] as const).map((m) => (
-                <button key={m} className={mode === m ? 'on' : ''} disabled={state.running} onClick={() => onMode(m)}>{m === 'build' ? 'Build' : 'Learn'}</button>
+                <button key={m} className={mode === m ? 'on' : ''} disabled={state.running} onClick={() => onMode(m)}>{modeName(m, fr)}</button>
               ))}
             </div>
           )}
           {status}
-          {!side && <TokenMeter tokens={state.tokens} running={state.running} onContext={onContext} engine={engine} />}
+          {!side && <TokenMeter tokens={state.tokens} engine={engine} />}
           <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} />
           <span className="spacer" />
           {voiceSupported && (
@@ -254,12 +263,13 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   );
 }
 
-function CheckpointCard({ entry, onAnswer }: { entry: Extract<State['timeline'][number], { kind: 'checkpoint' }>; onAnswer: (id: string, c: 'confirm' | 'discuss' | 'skip', t?: string) => void }) {
+function CheckpointCard({ entry, onAnswer, fr }: { entry: Extract<State['timeline'][number], { kind: 'checkpoint' }>; onAnswer: (id: string, c: 'confirm' | 'discuss' | 'skip', t?: string) => void; fr: boolean }) {
   const { cp, answer } = entry;
   const impl = cp.kind === 'implementation';
+  const t = tr(fr);
   return (
     <div className={`checkpoint ${cp.kind} ${answer ? 'done' : ''}`}>
-      <div className="callout-head">✦ {impl ? 'Implementation' : 'Design'} checkpoint<span>: {cp.title}</span></div>
+      <div className="callout-head">✦ {t('Your call', 'À toi de décider')}<span>{fr ? ' : ' : ': '}{cp.title}</span></div>
       <Markdown text={cp.summary} />
       {cp.additions?.length ? (
         <ul className="cp-additions">{cp.additions.map((a, i) => (
@@ -268,32 +278,33 @@ function CheckpointCard({ entry, onAnswer }: { entry: Extract<State['timeline'][
       ) : null}
       {cp.files?.length ? <div className="cp-files">{cp.files.map((f) => <span key={f} className="chip mono">{f}</span>)}</div> : null}
       {answer ? (
-        <div className={`cp-answer ${answer.choice}`}>{answer.choice === 'confirm' ? (impl ? '✓ You approved this step' : '✓ Design confirmed')
-          : answer.choice === 'skip' ? 'You skipped this step' : `You asked: “${answer.text ?? ''}”`}</div>
+        <div className={`cp-answer ${answer.choice}`}>{answer.choice === 'confirm' ? (impl ? t('✓ You said go ahead', '✓ Tu as dit oui') : t('✓ You agreed with the plan', '✓ Tu as validé le plan'))
+          : answer.choice === 'skip' ? t('You skipped this step', 'Tu as passé cette étape') : t(`You asked: “${answer.text ?? ''}”`, `Tu as demandé : « ${answer.text ?? ''} »`)}</div>
       ) : (
         <>
           <div className="cp-actions">
-            <button className="btn primary" onClick={() => onAnswer(entry.id, 'confirm')}>{impl ? 'Implement this step' : 'Confirm and continue'}</button>
-            <button className="btn ghost" onClick={() => onAnswer(entry.id, 'skip')}>Skip this step</button>
+            <button className="btn primary" onClick={() => onAnswer(entry.id, 'confirm')}>{impl ? t('Go ahead', 'Vas-y') : t('Sounds good, continue', 'D’accord, continue')}</button>
+            <button className="btn ghost" onClick={() => onAnswer(entry.id, 'skip')}>{t('Skip this step', 'Passer cette étape')}</button>
           </div>
-          <div className="muted cp-hint">{impl ? "The agent can't touch files until you approve. " : ''}Questions? Type them in the box below.</div>
+          <div className="muted cp-hint">{impl ? t('It won’t touch your files until you say yes. ', 'Il ne touche pas à tes fichiers avant ton accord. ') : ''}{t('Questions? Type them in the box below.', 'Des questions ? Écris-les dans la zone en dessous.')}</div>
         </>
       )}
     </div>
   );
 }
 
-// Keep: commit this task's files with a message the model writes. Shows progress and any error inline.
-function KeepButton({ disabled, onKeep }: { disabled: boolean; onKeep: () => Promise<string | null> }) {
+// Save this version: commit this task's files with a message the model writes. Shows progress and any error inline.
+function KeepButton({ disabled, onKeep, fr }: { disabled: boolean; onKeep: () => Promise<string | null>; fr: boolean }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const t = tr(fr);
   return (
     <>
-      <button className="btn ghost sm" disabled={disabled || busy} title="Commit the files this task changed, with a message written from the change"
+      <button className="btn ghost sm" disabled={disabled || busy} title={t('Save the files this task changed as a version in git, with a note written from the change', 'Enregistre les fichiers changés par cette tâche comme une version dans git, avec une note tirée du changement')}
         onClick={async () => { setBusy(true); setErr(''); const e = await onKeep(); setBusy(false); if (e) setErr(e); }}>
-        {busy ? <span className="spin" /> : <Icon name="check" size={12} />} {busy ? 'Writing the commit…' : 'Keep'}
+        {busy ? <span className="spin" /> : <Icon name="check" size={12} />} {busy ? t('Saving…', 'Enregistrement…') : t('Save this version', 'Garder cette version')}
       </button>
-      {err && <span className="problem-inline">{err}</span>}
+      {err && <span className="problem-inline">{serverText(err, fr)}</span>}
     </>
   );
 }
@@ -321,30 +332,21 @@ function Typed({ text, animate }: { text: string; animate: boolean }) {
   return <Markdown text={n >= text.length ? text : text.slice(0, n)} />;
 }
 
-// How big the conversation is now (what the model reads on each step) and what this thread has used so far.
-// Click: compact (continue from a summary) or clear (start fresh) what the model remembers of this thread.
-function TokenMeter({ tokens, running, onContext, engine }: { tokens: State['tokens']; running: boolean; onContext?: (a: 'clear' | 'compact') => Promise<string | null>; engine?: Engine }) {
-  const [open, setOpen] = useState(false), [busy, setBusy] = useState<string | null>(null), [err, setErr] = useState('');
-  const wrap = useRef<HTMLSpanElement>(null);
-  useDismiss(open, () => setOpen(false), wrap);
+// How big the conversation is now (what the model reads on each step) and what this session has used so far.
+// Summarize / Start fresh live in the session's "⋯" menu.
+function TokenMeter({ tokens, engine }: { tokens: State['tokens']; engine?: Engine }) {
+  const t = useT();
   if (!tokens.total) return null;
   // Rough window size (Claude models read about 200k, open models usually 128k): past 60% it stays in view.
   const full = tokens.context / (engine === 'claude-code' ? 200_000 : 128_000) > 0.6;
   const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
-  const go = async (a: 'clear' | 'compact') => { setBusy(a); setErr(''); const e = await onContext!(a); setBusy(null); if (e) setErr(e); else setOpen(false); };
+  const cost = tokens.cost ? ` (${t('about', 'environ')} $${tokens.cost.toFixed(2)})` : '';
   return (
-    <span className={`token-meter ${full || open ? '' : 'quiet'}`} ref={wrap}>
-      <button className="tm-btn" onClick={() => onContext && setOpen(!open)}
-        title={`The model reads about ${tokens.context.toLocaleString()} tokens per step; ${tokens.total.toLocaleString()} used in this thread${tokens.cost ? ` (about $${tokens.cost.toFixed(2)})` : ''}.`}>
+    <span className={`token-meter ${full ? '' : 'quiet'}`}>
+      <span className="tm-btn" title={t(`The model reads about ${tokens.context.toLocaleString()} tokens per step; ${tokens.total.toLocaleString()} used in this session${cost}.${full ? ' The chat is getting long: ⋯ → Summarize the chat so far.' : ''}`,
+        `Le modèle lit environ ${tokens.context.toLocaleString('fr')} tokens par étape ; ${tokens.total.toLocaleString('fr')} utilisés dans cette session${cost}.${full ? ' La conversation devient longue : ⋯ → Résumer la conversation.' : ''}`)}>
         {k(tokens.context)}<span className="muted"> / {k(tokens.total)}</span>
-      </button>
-      {open && (
-        <div className="tm-menu">
-          <button disabled={running || Boolean(busy)} onClick={() => go('compact')}><b>{busy === 'compact' ? 'Compacting…' : 'Compact'}</b><span className="muted">Continue from a short summary</span></button>
-          <button disabled={running || Boolean(busy)} onClick={() => go('clear')}><b>Clear</b><span className="muted">Start fresh; the chat stays</span></button>
-          {(running || err) && <span className="muted tm-note">{err || 'Stop the agent first.'}</span>}
-        </div>
-      )}
+      </span>
     </span>
   );
 }
@@ -353,6 +355,8 @@ function TokenMeter({ tokens, running, onContext, engine }: { tokens: State['tok
 // are switchable (each engine keeps its own memory of the conversation).
 function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { disabled: boolean; onOpenSettings: () => void; lockedTo?: Engine; threadProvider?: string }) {
   const { settings, save, me } = useApp();
+  const t = useT();
+  const fr = useLang() === 'fr';
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   useDismiss(open, () => setOpen(false), wrap);
@@ -365,8 +369,8 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
   const groups: Engine[] = ['native', 'claude-code'];
   return (
     <div className="picker" ref={wrap}>
-      <button className="chip" disabled={disabled} onClick={() => setOpen(!open)} title={disabled ? 'Switch models when the agent is idle' : 'Switch model'}>
-        {active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : 'Pick a model'} <Icon name="chevron" size={10} className="rot" />
+      <button className="chip" disabled={disabled} onClick={() => setOpen(!open)} title={disabled ? t('You can switch models once the agent is done', 'Tu pourras changer de modèle quand l’agent aura fini') : t('Switch model', 'Changer de modèle')}>
+        {active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : t('Pick a model', 'Choisir un modèle')} <Icon name="chevron" size={10} className="rot" />
       </button>
       {open && (
         <div className="picker-menu" onMouseLeave={() => setOpen(false)}>
@@ -376,18 +380,18 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
             const locked = lockedTo && lockedTo !== g;
             return (
               <div key={g} className={`picker-group ${locked ? 'locked' : ''}`}>
-                <div className="picker-head">{ENGINE_LABEL[g]}{locked && <span className="muted"> · in a new thread</span>}</div>
+                <div className="picker-head">{agentName(g, fr)}{locked && <span className="muted"> · {t('in a new session', 'dans une nouvelle session')}</span>}</div>
                 {list.map((p) => (
                   <button key={p.id} disabled={locked} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }).catch(() => {}); setOpen(false); }}>
-                    <span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? 'demo' : p.model}</span>
-                    {p.kind !== 'mock' && !p.apiKey && <span className="pill">no key</span>}
+                    <span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? t('demo', 'démo') : p.model}</span>
+                    {p.kind !== 'mock' && !p.apiKey && <span className="pill">{t('needs a key', 'clé manquante')}</span>}
                   </button>
                 ))}
               </div>
             );
           })}
           {!me?.public && <>
-            <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>Models…</button>
+            <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>{t('Models…', 'Modèles…')}</button>
           </>}
         </div>
       )}
@@ -398,22 +402,23 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
 // A model you could switch to right now: the demo, or one with a key (Ollama's placeholder key doesn't count: it may not be running).
 const usable = (p: Provider) => p.kind === 'mock' || (Boolean(p.apiKey) && !/localhost:11434/.test(p.baseUrl));
 
-// The harness checking the agent's work before accepting "done".
-function VerifyLine({ e }: { e: Extract<Entry, { kind: 'verify' }> }) {
+// agent-stage checking the agent's work before accepting "done".
+function VerifyLine({ e, fr }: { e: Extract<Entry, { kind: 'verify' }>; fr: boolean }) {
   const [open, setOpen] = useState(false);
+  const t = tr(fr);
   const cmd = e.command?.replace(/ --silent$/, '');
   const text = {
-    running: `Checking the work: ${cmd}`,
-    pass: `Check passed: ${cmd}`,
-    fail: `Check failed: ${cmd}. Sent back to the agent`,
-    nudge: 'Asked the agent to test its work before finishing',
-    declined: 'Check skipped',
-    unavailable: `Couldn't check the work: the tool behind ${cmd} isn't installed here`,
+    running: t(`Checking the work: ${cmd}`, `Vérification du travail : ${cmd}`),
+    pass: t(`Check passed: ${cmd}`, `Vérification réussie : ${cmd}`),
+    fail: t(`Check failed: ${cmd}. Sent back to the agent`, `Vérification ratée : ${cmd}. Renvoyé à l’agent`),
+    nudge: t('Asked the agent to test its work before finishing', 'On a demandé à l’agent de tester son travail avant de finir'),
+    declined: t('Check skipped', 'Vérification passée'),
+    unavailable: t(`Couldn’t check the work: the tool behind ${cmd} isn’t installed here`, `Impossible de vérifier : l’outil derrière ${cmd} n’est pas installé ici`),
   }[e.state];
   return (
     <div className={`verify ${e.state}`}>
       <button className={`work ${e.state === 'running' ? 'live' : ''} ${e.state === 'fail' ? 'bad' : ''}`} onClick={() => e.output && setOpen(!open)}
-        title={e.output ? 'Show the output' : undefined}>
+        title={e.output ? t('Show the output', 'Voir le résultat') : undefined}>
         <span className="work-icon">{e.state === 'running' ? <span className="spin" /> : e.state === 'pass' ? <Icon name="check" size={11} /> : e.state === 'fail' ? <Icon name="x" size={11} /> : <Icon name="shield" size={11} />}</span>
         <span className="work-text">{text}</span>
       </button>

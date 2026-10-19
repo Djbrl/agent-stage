@@ -1,16 +1,16 @@
 // First launch: the empty state (level, language, open a project or try the guided demo), plus the two small
 // things that sit above the composer of a new thread: starter ideas for the guided demo and a one-time note
-// about the defaults (Learn mode, the active model).
+// about the defaults (Guide me, the active model).
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { get, send, baseName, shortPath } from './api';
 import { useApp } from './useSettings';
-import { useT } from './i18n';
+import { useT, useLang, modeName } from './i18n';
 import { Icon } from './icons';
 
 const read = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const write = (k: string, v: string | null) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ } };
 
-// Create a thread: a folder, or an empty project (guide: with the demo's intro and starter ideas).
+// Create a session (a thread): a folder, or an empty project (guide: with the demo's intro and starter ideas).
 export function useStartThread(onCreated: (id: string) => void) {
   const { refreshThreads } = useApp();
   const [busy, setBusy] = useState(false);
@@ -142,11 +142,12 @@ export function StarterIdeas({ id }: { id: string }) {
 export function DefaultsNote({ onDone }: { onDone: () => void }) {
   const { settings } = useApp();
   const t = useT();
+  const fr = useLang() === 'fr';
   const model = settings?.providers.find((p) => p.id === settings.activeProvider)?.name ?? '';
   useEffect(() => { write('defaultsNoted', '1'); const hide = setTimeout(onDone, 20_000); return () => clearTimeout(hide); }, []);
   return (
     <div className="defaults-note" role="status">
-      <span><b>{t('Learn mode', 'Mode Learn')}{model && ` · ${model}`}.</b> {t('Change either anytime, under the input box.', 'Tu peux changer l’un ou l’autre à tout moment, sous la zone de saisie.')}</span>
+      <span><b>{modeName('learn', fr)}{model && ` · ${model}`}.</b> {t('Change either anytime, under the input box.', 'Tu peux changer l’un ou l’autre à tout moment, sous la zone de saisie.')}</span>
       <button className="icon-btn" onClick={onDone} aria-label={t('Dismiss', 'Fermer')}><Icon name="x" size={11} /></button>
     </div>
   );

@@ -19,12 +19,12 @@ export type ThreadSummary = { id: string; title: string; folder: string; updated
 export type Me = { name: string; home: string; sandbox: string; public?: boolean; internet?: boolean; samples?: string[] };
 
 export const fmtTokens = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n));
-export function ago(t: number) {
+export function ago(t: number, fr = false) {
   const s = Math.round((Date.now() - t) / 1000);
-  if (s < 60) return 'now';
-  if (s < 3600) return `${Math.round(s / 60)}m`;
-  if (s < 86400) return `${Math.round(s / 3600)}h`;
-  return `${Math.round(s / 86400)}d`;
+  if (s < 60) return fr ? 'à l’instant' : 'now';
+  if (s < 3600) return `${Math.round(s / 60)}${fr ? ' min' : 'm'}`;
+  if (s < 86400) return `${Math.round(s / 3600)}${fr ? ' h' : 'h'}`;
+  return `${Math.round(s / 86400)}${fr ? ' j' : 'd'}`;
 }
 // A folder's own name from a full path, on macOS, Linux and Windows alike.
 export const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
@@ -32,5 +32,6 @@ export const shortPath =(p: string, home?: string) => (home && p.startsWith(home
 
 export type Engine = 'native' | 'claude-code';
 export const engineOf = (p: Provider): Engine => (p.kind === 'claude-code' ? 'claude-code' : 'native');
-export const ENGINE_LABEL: Record<Engine | 'codex', string> = { native: 'agent-stage', 'claude-code': 'Claude Code', codex: 'Codex' };
+// Which agent runs the model: ours, or Claude Code (through the Agent SDK).
+export const agentName = (e: Engine, fr: boolean) => (e === 'native' ? (fr ? 'Agent d’agent-stage' : 'agent-stage’s agent') : (fr ? 'Agent Claude Code' : 'Claude Code agent'));
 export type EngineStatus = Record<Engine | 'codex', { ready: boolean; reason?: string }>;

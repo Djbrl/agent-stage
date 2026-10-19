@@ -27,7 +27,7 @@ export function useVoice(onText: (text: string) => void, lang: string) {
       }
       setInterim(live);
     };
-    r.onerror = (e: any) => setError(e.error === 'not-allowed' ? 'Microphone blocked: allow it in the browser.' : e.error === 'no-speech' ? '' : `Voice: ${e.error}`);
+    r.onerror = (e: any) => setError(e.error === 'not-allowed' ? (lang.startsWith('fr') ? 'Micro bloqué : autorise-le dans le navigateur.' : 'Microphone blocked: allow it in the browser.') : e.error === 'no-speech' ? '' : `${lang.startsWith('fr') ? 'Voix : ' : 'Voice: '}${e.error}`);
     r.onend = () => { rec.current = null; setListening(false); setInterim(''); };
     rec.current = r; setError(''); setListening(true);
     r.start();

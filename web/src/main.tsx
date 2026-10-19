@@ -13,12 +13,13 @@ class Boundary extends Component<{ children: ReactNode }, { error: Error | null 
   static getDerivedStateFromError(error: Error) { return { error }; }
   render() {
     if (!this.state.error) return this.props.children;
+    const fr = navigator.language?.toLowerCase().startsWith('fr');
     return (
       <div className="crash">
-        <h2>Something broke on screen.</h2>
-        <p className="muted">The agent and your files are fine; this is only the page. Reloading usually fixes it.</p>
+        <h2>{fr ? 'Un souci d’affichage.' : 'Something broke on screen.'}</h2>
+        <p className="muted">{fr ? 'L’agent et tes fichiers vont bien : c’est seulement la page. Recharger règle souvent le problème.' : 'The agent and your files are fine; this is only the page. Reloading usually fixes it.'}</p>
         <pre>{String(this.state.error.stack ?? this.state.error).slice(0, 1200)}</pre>
-        <button className="btn primary" onClick={() => location.reload()}>Reload</button>
+        <button className="btn primary" onClick={() => location.reload()}>{fr ? 'Recharger' : 'Reload'}</button>
       </div>
     );
   }
