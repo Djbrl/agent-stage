@@ -119,7 +119,8 @@ async function load(id: string): Promise<Live | null> {
     const e = { ...event, at: Date.now() };
     thread.events.push(e);
     // Teaching labels: ask the same model to describe each finished step (queued, never blocks the agent).
-    if (event.type === 'tool_end' && insightsOn(settings, provider(thread.providerId))) {
+    // (Not for side questions: their labels would queue in front of the main agent's.)
+    if (event.type === 'tool_end' && thread.mode !== 'ask' && insightsOn(settings, provider(thread.providerId))) {
       const start = [...thread.events].reverse().find((x: any) => x.type === 'tool_start' && x.id === event.id);
       const task = [...thread.events].reverse().find((x: any) => x.type === 'user')?.text ?? '';
       const cfg = toConfig(provider(thread.providerId));
@@ -323,11 +324,13 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
 };
 // Every task starts from a git checkpoint (when the folder is a repo), so it can be undone.
 // It also ends with one (however it ended: done, stopped, step limit), so Undo knows which files were this task's.
+// A side question (mode 'ask') reads only: no checkpoint, a short step budget, and it never waits on the main thread.
 async function runTask(l: Live, task: string) {
   const from = l.thread.events.length;
-  const ref = await checkpoint(l.thread.folder, l.thread.id, task).catch(() => null);
+  const asking = l.thread.mode === 'ask';
+  const ref = asking ? null : await checkpoint(l.thread.folder, l.thread.id, task).catch(() => null);
   if (ref) l.emit({ type: 'snapshot', ref });
-  await l.agent.run(task, settings.maxSteps).finally(() => l.emit({ type: 'idle' }));
+  await l.agent.run(task, asking ? 12 : settings.maxSteps).finally(() => l.emit({ type: 'idle' }));
   if (ref) {
     const after = await checkpoint(l.thread.folder, l.thread.id, `after: ${task}`).catch(() => null);
     const files = after ? await changedBetween(l.thread.folder, ref, after).catch(() => []) : [];
@@ -458,13 +461,21 @@ async function briefOf(l: Live) {
     said ? `The agent's latest message:\n${String(said).slice(0, 1200)}` : '',
   ].filter(Boolean).join('\n\n');
 }
+const levelNote = (level: 'beginner' | 'intermediate' | 'advanced') => ({
+  beginner: 'The learner is a beginner: use plain words, define terms the first time, keep it short.',
+  intermediate: 'The learner is intermediate: focus on how the parts fit together, keep it short.',
+  advanced: 'The learner is advanced: be precise and brief, mention trade-offs and failure modes.',
+}[level] ?? '');
 app.post(`${T}/ask-thread`, withThread(async (l, { question }) => {
   const t = await newThread(l.thread.folder, 'ask', l.thread.id, true);
-  t.engine = l.thread.engine; t.providerId = l.thread.providerId; await saveThread(t);
-  t.title = String(question).slice(0, 60);
+  // The window sends "About this part:\n> quote\n\nquestion": the title is the question, then the start of the quote.
+  const q = String(question), m = q.match(/^About this part:\n([\s\S]*?)\n\n([\s\S]*)$/);
+  const title = m ? `${m[2].trim()} · ${m[1].replace(/^> ?/gm, '').replace(/\s+/g, ' ').trim()}` : q;
+  t.engine = l.thread.engine; t.providerId = l.thread.providerId; t.title = title.slice(0, 60); await saveThread(t);
   const side = await open(t.id);
   if (!side) return { error: 'could not open side thread' };
-  side.agent.notes.push(await briefOf(l));
+  side.agent.notes.push(await briefOf(l), levelNote(settings.learn.level));
+  // Its own Live and agent: the main agent keeps running (this route never waits on it or touches its messages).
   void side.agent.run(String(question), 12).finally(() => side.emit({ type: 'idle' }));
   return { id: t.id };
 }));

@@ -116,7 +116,9 @@ async function mockChat(messages: Message[], tools: unknown[]): Promise<Message>
     // read-only side thread: peek at a file once, then answer
     const q = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
     if (messages.at(-1)?.role === 'user') return { role: 'assistant', content: 'Let me check the code.', tool_calls: [{ id: 'mock-ask', type: 'function', function: { name: 'list_files', arguments: '{}' } }] };
-    return { role: 'assistant', content: `(demo answer) You asked: *${q}*\n\n✦ Concept: reading before writing\n\nThis side thread can read the project and everything the agent did, but it can't change anything, so your work thread stays clean.` };
+    const ask = String(q).split('\n\n').pop();
+    if (/in French/.test(String(messages[0]?.content ?? ''))) return { role: 'assistant', content: `(réponse de démo) Tu as demandé : *${ask}*\n\n✦ Concept: lire avant d’écrire\n\nCette question à part lit le projet et ce que l’agent a fait, mais ne change rien : ta session principale reste propre.` };
+    return { role: 'assistant', content: `(demo answer) You asked: *${ask}*\n\n✦ Concept: reading before writing\n\nThis side question can read the project and everything the agent did, but it can't change anything, so your main session stays clean.` };
   }
   // The harness's done-check failed: fix it (the scripted bug is a lower-case name).
   const lastMsg = messages.at(-1);
