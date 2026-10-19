@@ -83,7 +83,7 @@ export function lessonNotes(t: Pick<Thread, 'title' | 'mode' | 'folder' | 'creat
   });
   section('Steps', steps.slice(0, 60));
 
-  lines.push('---', '', '*Made with [agent-stage](https://github.com/Djbrl/agent-stage). Replay the session in the app to watch each step on the map.*', '');
+  lines.push('---', '', '*Made with [Codetandem](https://github.com/Djbrl/agent-stage). Replay the session in the app to watch each step on the map.*', '');
   return lines.join('\n');
 }
 
@@ -108,8 +108,8 @@ export function exportSession(t: Thread, map: MapData): SessionFile {
 // A file from someone else: take only the shapes the app knows, so a bad file can't break a thread or the server.
 export function parseSession(raw: unknown): SessionFile {
   const s = raw as Partial<SessionFile> | null;
-  if (!s || typeof s !== 'object' || s.format !== SESSION_FORMAT) throw new Error('This is not an agent-stage session file.');
-  if (s.version !== 1) throw new Error('This session file comes from a newer agent-stage. Update the app to open it.');
+  if (!s || typeof s !== 'object' || s.format !== SESSION_FORMAT) throw new Error('This is not a Codetandem session file.');
+  if (s.version !== 1) throw new Error('This session file comes from a newer Codetandem. Update the app to open it.');
   if (!Array.isArray(s.events) || s.events.length > 50_000) throw new Error('The session file has no readable steps.');
   const str = (v: unknown, max: number) => String(v ?? '').slice(0, max);
   const events = s.events.filter((e): e is Ev => Boolean(e) && typeof e === 'object' && !Array.isArray(e) && typeof e.type === 'string' && e.type !== 'usage')

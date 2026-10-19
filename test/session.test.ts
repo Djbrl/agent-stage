@@ -99,9 +99,9 @@ test('a session file round-trips, without the usage', () => {
 });
 
 test('a bad or foreign file is refused, and odd entries are dropped', () => {
-  assert.throws(() => parseSession(null), /not an agent-stage session/);
-  assert.throws(() => parseSession({ format: 'other' }), /not an agent-stage session/);
-  assert.throws(() => parseSession({ format: SESSION_FORMAT, version: 2 }), /newer agent-stage/);
+  assert.throws(() => parseSession(null), /not a Codetandem session/);
+  assert.throws(() => parseSession({ format: 'other' }), /not a Codetandem session/);
+  assert.throws(() => parseSession({ format: SESSION_FORMAT, version: 2 }), /newer Codetandem/);
   assert.throws(() => parseSession({ format: SESSION_FORMAT, version: 1, events: 'x' }), /no readable steps/);
   const s = parseSession({
     format: SESSION_FORMAT, version: 1, title: 'x'.repeat(500), mode: 'hack',

@@ -27,7 +27,7 @@ export function useHealth() {
 // One sentence: what's wrong and what to do. null = ready to go.
 export function diagnose(h: HealthView | null, serverDown: boolean, fr = false): string | null {
   const t = tr(fr);
-  if (serverDown) return t('The agent-stage server isn’t answering. Start it again with npm start, then reload this page.', 'Le serveur agent-stage ne répond pas. Relance-le avec npm start, puis recharge la page.');
+  if (serverDown) return t('The Codetandem server isn’t answering. Start it again with npm start, then reload this page.', 'Le serveur Codetandem ne répond pas. Relance-le avec npm start, puis recharge la page.');
   if (!h) return null;
   const m = h.model.state;
   if (m === 'ok' || m === 'mock' || m === 'checking') return null;

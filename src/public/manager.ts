@@ -255,7 +255,7 @@ const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 async function page(res: ServerResponse, message = '') {
   const up = await modelUp().catch(() => false);
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-  res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>agent-stage · live demo</title>
+  res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Codetandem · live demo</title>
 <style>
   :root { color-scheme: dark; } body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0c0e; color: #e7e9ee; font: 15px/1.55 system-ui, sans-serif; }
   main { width: min(440px, calc(100% - 32px)); } h1 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 8px; } p { color: #9aa1ad; }
@@ -263,7 +263,7 @@ async function page(res: ServerResponse, message = '') {
   button { padding: 10px 16px; border-radius: 9px; border: 0; background: #e7e9ee; color: #0b0c0e; font: inherit; font-weight: 600; cursor: pointer; }
   .msg { color: #f5b84a; } .busy button { opacity: .6; pointer-events: none; }
 </style>
-<main><h1>agent-stage, live</h1>
+<main><h1>Codetandem, live</h1>
 <p>Watch an AI coding agent work on a real project, on a map. You get your own private sandbox with sample projects: the agent really edits files, runs tests and uses a browser inside it. It's deleted ${IDLE_MIN} minutes after you leave.</p>
 <p>${up ? '● The live model is <b style="color:#3ecf8e">online</b>: an open model on our GPU does the work.' : '○ The live model is offline right now, so the sandbox runs a scripted demo model. Everything else is real.'}</p>
 ${message ? `<p class="msg">${message.replace(/</g, '&lt;')}</p>` : ''}
