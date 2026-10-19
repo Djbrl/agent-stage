@@ -6,6 +6,7 @@ import { NewThreadModal } from './NewThreadModal';
 import { SettingsModal } from './SettingsModal';
 import { Welcome, AboveComposer, StarterIdeas, DefaultsNote, defaultsNoted } from './Welcome';
 import { PublicWelcome } from './PublicWelcome';
+import { Landing, landed, markLanded } from './Landing';
 import { Resizer, storedNumber, store } from './Resizer';
 import { useT } from './i18n';
 
@@ -47,6 +48,8 @@ function Shell() {
     if (threads.length && !active) select(threads[0].id);
   }, [threads]);
 
+  // First visit on this computer (nothing opened yet): the landing page, then the tutorial in Welcome.
+  const [showLanding, setShowLanding] = useState(() => !landed());
   const created = (id: string) => { landOnChat(); select(id); if (!defaultsNoted()) setNoting(true); };
   const nav = { active, onSelect: select, onNew: () => setModal('new'), onSettings: () => setModal('settings') };
   const modals = (
@@ -62,6 +65,7 @@ function Shell() {
       {welcome}
     </>
   );
+  if (showLanding && !me?.public && !active && threads.length === 0) return <Landing onStart={() => { markLanded(); setShowLanding(false); }} />;
   if (layout === 'studio' && active) return (
     <div className="shell studio-shell">
       <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} layout="studio" nav={nav} onLayout={setLayout} />

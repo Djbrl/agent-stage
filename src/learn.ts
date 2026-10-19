@@ -5,7 +5,9 @@
 // the harness itself blocks file writes and commands until the learner confirms an Implementation
 // checkpoint, instead of relying on the prompt alone.
 
-export type LearnPrefs = { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' };
+export type LearnPrefs = { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr'; ai?: AiUse };
+// How they already code with AI, asked on first launch.
+export type AiUse = 'none' | 'chat' | 'agents';
 export type CheckpointKind = 'design' | 'implementation';
 export type Checkpoint = {
   kind: CheckpointKind; title: string; summary: string;
@@ -46,6 +48,9 @@ export function languageLine(lang: 'en' | 'fr') {
 export function learnPrompt(p: LearnPrefs) {
   const depth = { beginner: 'Beginner: give more grounding and define terms the first time they appear.',
     intermediate: 'Intermediate: focus on how parts interact.', advanced: 'Advanced: probe assumptions, failure modes and trust boundaries.' }[p.level];
+  const ai = p.ai ? `\n${{ none: 'They have not coded with AI before: say what you, the agent, are doing and why before each tool you use.',
+    chat: 'They have used chat assistants for code: show how working inside the project differs (you read and run the real files).',
+    agents: 'They already use coding agents: focus on reviewing and steering you, and on the habits that catch agent mistakes.' }[p.ai]}` : '';
   const pace = { light: 'Checkpoint only major decisions.', normal: 'Checkpoint meaningful decisions.', frequent: 'Checkpoint smaller steps too.' }[p.frequency];
   return `You are a coding tutor working inside the learner's project folder. The learner is the engineer and owns the design;
 you explain, give feedback, and implement only what they agreed to. Learning matters more than speed.
@@ -73,7 +78,7 @@ How to work:
   name the tests you added, and never claim a test, check or result that doesn't exist.
 - Close a finished step with "✦ What you learned:" and 2-3 short bullets naming the ideas they met (for example "Counter counts items for you").
 - Keep explanations to a few sentences. Be factual: no praise, no hype.
-${depth}
+${depth}${ai}
 ${pace}
 If the learner explicitly asks you to skip learning and just build, you may call an implementation checkpoint straight away.${languageLine(p.language)}`;
 }

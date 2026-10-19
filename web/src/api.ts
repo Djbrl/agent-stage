@@ -14,7 +14,7 @@ export type Provider = {
   gpuHourly?: number; tunnelHost?: string; brevInstance?: string; gpuTypes?: string; autoStopMin?: number;
 };
 export type Settings = { providers: Provider[]; activeProvider: string; approval: 'always' | 'safe'; maxSteps: number; recentFolders: string[];
-  insights?: 'auto' | 'on' | 'off'; learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' } };
+  insights?: 'auto' | 'on' | 'off'; learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr'; ai?: 'none' | 'chat' | 'agents' } };
 export type ThreadSummary = { id: string; title: string; folder: string; updatedAt: number; running: boolean; tokens: number; engine?: Engine; shared?: boolean };
 export type Me = { name: string; home: string; sandbox: string; public?: boolean; internet?: boolean; samples?: string[] };
 

@@ -24,7 +24,7 @@ export type Settings = {
   maxSteps: number;
   recentFolders: string[];
   insights?: 'auto' | 'on' | 'off'; // AI step labels / file summaries
-  learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr' };
+  learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr'; ai?: 'none' | 'chat' | 'agents' };
 };
 export type ThreadUsage = { promptTokens: number; completionTokens: number; modelMs: number; calls: number; costUsd?: number };
 export type Thread = {
