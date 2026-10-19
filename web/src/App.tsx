@@ -6,10 +6,11 @@ import { NewThreadModal } from './NewThreadModal';
 import { SettingsModal } from './SettingsModal';
 import { Welcome, AboveComposer, StarterIdeas, DefaultsNote, defaultsNoted } from './Welcome';
 import { PublicWelcome } from './PublicWelcome';
-import { Landing, landed, markLanded } from './Landing';
+import { Landing, landed, markLanded, REPLAY } from './Landing';
 import { Onboarding } from './Onboarding';
 import { Resizer, storedNumber, store } from './Resizer';
 import { useT } from './i18n';
+import { leaveDemo } from './api';
 import { Icon } from './icons';
 
 const guided = (id: string) => { try { return localStorage.getItem(`guide:${id}`) === '1'; } catch { return false; } };
@@ -54,11 +55,13 @@ function Shell() {
 
   // First visit on this computer (nothing opened yet): the landing page, then the tutorial in Welcome.
   const [showLanding, setShowLanding] = useState(() => !landed());
+  // Settings → About → Reset onboarding: show the landing page and the first-launch questions again.
+  const [replay, setReplay] = useState(() => { try { return localStorage.getItem(REPLAY) === '1'; } catch { return false; } });
   // The server doesn't have the open thread (its file is gone): forget it quietly, open another or the welcome screen.
   const forget = () => select(threads.find((x) => x.id !== active)?.id ?? null);
 
   // The guided demo's tip already says where the mode and model are, so the defaults note is only for real projects.
-  const created = (id: string) => { landOnChat(); select(id); if (!defaultsNoted() && !guided(id)) setNoting(true); };
+  const created = (id: string) => { if (replay) { try { localStorage.removeItem(REPLAY); } catch { /* private mode */ } setReplay(false); } landOnChat(); select(id); if (!defaultsNoted() && !guided(id)) setNoting(true); };
   const nav = { active, onSelect: select, onNew: () => setModal('new'), onSettings: () => setModal('settings') };
   const modals = (
     <>
@@ -74,7 +77,7 @@ function Shell() {
     </>
   );
   if (!threadsLoaded && !active && !me?.public) return <div className="ob" />; // a blank frame until we know if this is a first run
-  const firstRun = threadsLoaded && !me?.public && !active && threads.length === 0;
+  const firstRun = threadsLoaded && !me?.public && (replay || (!active && threads.length === 0));
   if (firstRun && showLanding) return <Landing onStart={() => { markLanded(); setShowLanding(false); }} />;
   // First run: full screen, one question at a time, then a project or the guided demo.
   if (firstRun) return <><Onboarding onCreated={created} onBrowse={() => setModal('new')} />{modals}</>;
@@ -108,6 +111,7 @@ function AppHeader({ onNew, onSettings }: { onNew: () => void; onSettings: () =>
       <span className="app-brand"><span className="logo" /><b>codetandem</b></span>
       <span className="spacer" />
       <button className="app-head-btn primary" onClick={onNew}><Icon name="plus" size={14} />{t('New session', 'Nouvelle session')}</button>
+      {me?.public && <button className="app-head-btn" onClick={() => confirm(t('Leave the demo? Your sandbox and its files are deleted.', 'Quitter la démo ? Ton bac à sable et ses fichiers sont supprimés.')) && leaveDemo()}>{t('Leave demo', 'Quitter la démo')}</button>}
       {!me?.public && <button className="app-head-btn head-settings" onClick={onSettings} aria-label={t('Settings', 'Réglages')}><Icon name="gear" size={18} /><span>{t('Settings', 'Réglages')}</span></button>}
     </header>
   );

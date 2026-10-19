@@ -9,6 +9,15 @@ import { useApp } from './useSettings';
 const read = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 export const landed = () => read('landed') === '1';
 export const markLanded = () => { try { localStorage.setItem('landed', '1'); } catch { /* private mode */ } };
+// Settings → Reset onboarding: forget the first-launch flags and the tips seen, then show it all again.
+export const REPLAY = 'replayOnboarding';
+export function resetOnboarding() {
+  try {
+    for (const k of ['landed', 'langPicked', 'defaultsNoted', 'tips-seen', 'thread']) localStorage.removeItem(k);
+    localStorage.setItem(REPLAY, '1');
+  } catch { /* private mode */ }
+  location.reload();
+}
 
 const Bike = ({ w = 54, wheel = '#141414', back = '#ff5a1f', front = '#2f45e8', spin = false }: { w?: number; wheel?: string; back?: string; front?: string; spin?: boolean }) => (
   <svg width={w} height={Math.round(w * 0.6)} viewBox="0 0 120 72" aria-hidden="true" className={spin ? 'lp-spin' : undefined}>

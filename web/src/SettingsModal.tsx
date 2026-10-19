@@ -5,6 +5,7 @@ import { useApp } from './useSettings';
 import { Icon, type IconName } from './icons';
 import { useTheme, type ThemePref } from './theme';
 import { useDismiss } from './dismiss';
+import { resetOnboarding } from './Landing';
 import { useT, useLang } from './i18n';
 
 type Tab = 'models' | 'learning' | 'appearance' | 'usage' | 'safety' | 'about';
@@ -509,6 +510,11 @@ function About() {
       <p className="set-intro">{t('The coding agent you can follow and learn from, on a map.', 'L’agent de code que tu suis et qui t’apprend, sur une carte.')}</p>
       <Section title={t('This app', 'Cette app')}>
         <Row label={t('Your data', 'Tes données')} desc={t('Settings, sessions and notes stay on this computer.', 'Réglages, sessions et notes restent sur cet ordinateur.')}><span className="mono muted">~/.agent-stage</span></Row>
+      </Section>
+      <Section title={t('Start over', 'Recommencer')}>
+        <Row label={t('Onboarding', 'Accueil')} desc={t('Shows the welcome page and the first questions again. Your sessions and settings stay.', 'Remontre la page d’accueil et les premières questions. Tes sessions et réglages restent.')}>
+          <button className="btn" onClick={resetOnboarding}>{t('Reset onboarding', 'Revoir l’accueil')}</button>
+        </Row>
       </Section>
       <Section title={t('Credits', 'Crédits')}>
         <Row label={t('Licence', 'Licence')}><span className="muted">MIT</span></Row>
