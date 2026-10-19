@@ -8,7 +8,7 @@ import { useDismiss } from './dismiss';
 
 type Tab = 'models' | 'learning' | 'appearance' | 'usage' | 'safety' | 'about';
 
-export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onClose: () => void; onTour?: () => void; initialTab?: Tab }) {
+export function SettingsModal({ onClose, initialTab = 'models' }: { onClose: () => void; initialTab?: Tab }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   useDismiss(true, onClose);
   return (
@@ -27,7 +27,7 @@ export function SettingsModal({ onClose, onTour, initialTab = 'models' }: { onCl
             {tab === 'appearance' && <Appearance />}
             {tab === 'usage' && <Usage />}
             {tab === 'safety' && <Safety />}
-            {tab === 'about' && <About onTour={onTour} />}
+            {tab === 'about' && <About />}
           </div>
         </div>
       </div>
@@ -223,12 +223,11 @@ function Safety() {
   );
 }
 
-function About({ onTour }: { onTour?: () => void }) {
+function About() {
   return (
     <div className="about">
       <p><b>agent-stage</b>: watch a coding agent work, on a map.</p>
       <p className="muted">Data in <span className="mono">~/.agent-stage</span>. MIT licence; Learn mode adapted from VibeWise (MIT).</p>
-      {onTour && <button className="btn ghost" onClick={onTour}>Replay the tour</button>}
     </div>
   );
 }

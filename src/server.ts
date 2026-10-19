@@ -226,7 +226,7 @@ app.post('/api/threads/import', async (c) => {
 const READ_ONLY = 'This is a shared session: you can replay it, not run it. Start a new thread to work on your own project.';
 const readOnly = (l: Live) => Boolean(l.thread.shared);
 app.post('/api/threads', async (c) => {
-  const { folder: picked, mode, providerId, scratch } = await c.req.json().catch(() => ({}));
+  const { folder: picked, mode, providerId, scratch, guide } = await c.req.json().catch(() => ({}));
   // No folder yet: give the thread its own empty project under ~/agent-stage-projects.
   let folder = picked;
   if (scratch) {
@@ -241,8 +241,16 @@ app.post('/api/threads', async (c) => {
   if (PUBLIC && !within(sandbox, dir)) return c.json({ error: 'not a folder' }, 400);
   const st = await stat(dir).catch(() => null);
   if (!st?.isDirectory()) return c.json({ error: 'not a folder' }, 400);
-  return c.json(await newThread(dir, mode === 'learn' ? 'learn' : 'build'));
+  const t = await newThread(dir, mode === 'build' ? 'build' : 'learn'); // Learn is the default
+  if (guide) { // guided demo: the chat opens with a short intro, no model call needed (the UI adds starter ideas)
+    t.events.push({ type: 'done', text: guideIntro(settings.learn.language), at: Date.now() } as Stamped);
+    await saveThread(t);
+  }
+  return c.json(t);
 });
+const guideIntro = (lang: string) => lang === 'fr'
+  ? "Bienvenue. Ce projet est vide : on part de zéro, ensemble.\n\nDis-moi ce que tu veux construire, ou choisis une idée ci-dessous. Je t'explique chaque étape et je n'écris du code qu'après ton accord."
+  : "Welcome. This project is empty: we start from zero, together.\n\nTell me what you want to build, or pick an idea below. I'll explain each step and only write code once you say yes.";
 app.delete(T, async (c) => {
   const id = c.req.param('id'), l = live.get(id);
   l?.agent.stop(); live.delete(id);
