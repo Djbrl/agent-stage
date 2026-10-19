@@ -12,7 +12,7 @@ import { useApp } from './useSettings';
 import { useHighlight } from './highlight';
 import { engineOf, agentName, isReady, type Engine } from './api';
 import { Learned } from './Learned';
-import { parseAsk } from './AskWindow';
+import { parseAsk, Sketches } from './AskWindow';
 import { useT, useLang, tr, modeName, serverText } from './i18n';
 
 function summarize(steps: Step[], fr: boolean) {
@@ -140,7 +140,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           {state.timeline.map((e, i) => {
             if (e.kind === 'user') {
               const a = parseAsk(e.text); // a saved side question: show the quote and the question, not the raw prompt
-              return a.quote ? <div key={i} className="ask-you"><blockquote className="ask-quote">{a.quote}</blockquote>{a.question && <div className="bubble-user">{a.question}</div>}</div>
+              return a.quote || e.images?.length ? <div key={i} className="ask-you">{a.quote && <blockquote className="ask-quote">{a.quote}</blockquote>}<Sketches names={e.images} />{a.question && <div className="bubble-user">{a.question}</div>}</div>
                 : <div key={i} className="bubble-user">{e.text === QUIZ ? t('Quiz me', 'Interroge-moi') : e.text}</div>;
             }
             if (e.kind === 'thought') return <div key={i} className="thought askable">{typed(e)}{askMsg(e.text)}</div>;
@@ -271,6 +271,8 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
               ))}
             </div>
           )}
+          {!side && !shared && <button className="scratch-btn" onClick={() => onAsk('')} title={t('Ask a side question or sketch an idea. The agent keeps working.', 'Pose une question à part ou dessine une idée. L’agent continue.')}>
+            <Icon name="write" size={14} />{t('Scratchpad', 'Brouillon')}</button>}
           {status}
           {!side && <TokenMeter tokens={state.tokens} engine={engine} />}
           <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} />

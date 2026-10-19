@@ -1395,3 +1395,39 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .tip::before { background: var(--orange); border-color: transparent; }
 .tip .tip-ok { height: 30px; padding: 0 14px; background: #fff; color: var(--orange); border: 0; font-weight: 700; font-size: 13px; }
 .tip .tip-ok:hover:not(:disabled) { background: #fff3ec; }
+/* Scratchpad: the side window, a page to draw on, and the button under the chat box */
+.scratch-btn { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; background: var(--hover); color: var(--text); font: 600 12.5px var(--sans); cursor: pointer; white-space: nowrap; }
+.scratch-btn:hover { background: var(--line); }
+@container (max-width: 400px) { .scratch-btn { padding: 0 9px; font-size: 0; gap: 0; } .scratch-btn .icon { width: 15px; height: 15px; } }
+.ask-title { display: inline-flex; align-items: center; gap: 6px; }
+.sketch { display: flex; flex-direction: column; gap: 8px; }
+.sketch-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.sk-color { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
+.sk-color.on { box-shadow: 0 0 0 2px var(--text); }
+.sk-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+.sk-size { width: 26px; height: 26px; border: 0; border-radius: 7px; background: none; display: grid; place-items: center; cursor: pointer; }
+.sk-size span { display: block; border-radius: 50%; background: var(--text); }
+.sk-size.on, .sk-btn.on { background: var(--hover); }
+.sk-btn { height: 26px; padding: 0 8px; border: 0; border-radius: 7px; background: none; color: var(--dim); font: 500 12px var(--sans); cursor: pointer; display: inline-flex; align-items: center; }
+.sk-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.sk-btn:disabled { opacity: .4; cursor: default; }
+.sketch-page { position: relative; width: 100%; max-height: 52vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; overflow: hidden; touch-action: none; }
+.sketch-page.over { border-color: var(--blue); box-shadow: 0 0 0 2px var(--accent-soft); }
+.sketch-page img, .sketch-page canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sketch-page img { object-fit: fill; pointer-events: none; user-select: none; }
+.sketch-page canvas { cursor: crosshair; }
+.sketch-page.erasing canvas { cursor: cell; }
+.sketch-hint { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; color: #8a8a82; font-size: 13px; pointer-events: none; }
+.ask-box { align-items: flex-end; }
+.ask-draw { margin: 0 0 4px; width: 34px; height: 34px; border-radius: 50%; place-items: center; background: var(--hover); color: var(--text); flex-shrink: 0; }
+.ask-draw.on { background: var(--text); color: var(--on-text); }
+.ask-task { display: flex; justify-content: flex-end; }
+.ask-task .btn { color: var(--dim); }
+.ask-body.sent { align-items: center; justify-content: center; gap: 8px; color: var(--write-ink); font-weight: 600; flex-direction: row; }
+.sketches { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-bottom: 6px; }
+.sketches img { width: 160px; max-height: 120px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); background: #fff; display: block; }
+.sketch-page { max-height: none; margin: 0 auto; }
+.ask-box { padding-left: 6px; }
+.ask-body.chat .sketch { margin: 0 12px 8px; flex-shrink: 0; --sketch-max-h: 30vh; }
+.ask-scroll { min-height: 90px; }
+.ask-body.chat .ask-task { margin: -4px 12px 8px; }

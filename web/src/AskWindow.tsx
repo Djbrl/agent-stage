@@ -1,15 +1,18 @@
-// Side questions from anywhere. Select text in an agent message, a step, a diff or a code block (or hover a message
-// and press "?", or ⌘K) and a floating window opens with that part quoted. It runs a temporary, read-only side session
+// Scratchpad: side questions and sketches from anywhere. Select text in an agent message, a step, a diff or a code
+// block (or hover a message and press "?", or ⌘K, or the Scratchpad button) and a floating window opens with that
+// part quoted. You can draw in it, or mark up a screenshot, and send the sketch with your question. It runs a temporary, read-only side session
 // (POST /ask-thread) next to the main one, so the main agent keeps working. Close discards it; Save to notes keeps it.
 // One window is open at a time; up to 3 more wait as small pills at the bottom of the screen.
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { useAgent, type State } from './useAgent';
+import { SketchPad, emptySketch, isBlank, sketchToPng, sketchFromImage, type Sketch } from './Sketch';
 import { Icon } from './icons';
 import { Markdown } from './Markdown';
 import { useApp } from './useSettings';
 import { useT, serverText, useLang } from './i18n';
 
-type Win = { key: string; quote: string; code: boolean; sideId: string | null; shrunk: boolean; title: string; kept: boolean; error?: string };
+type Win = { key: string; quote: string; code: boolean; sideId: string | null; shrunk: boolean; title: string; kept: boolean; error?: string;
+  sketch: Sketch; drawing: boolean; sending?: boolean; sent?: boolean };
 type Geo = { x: number; y: number; w: number; h: number };
 
 // Where a selection may start an ask: agent messages, step detail, diffs and code. Never inputs or the window itself.
@@ -45,9 +48,9 @@ function askableSelection(): { text: string; code: boolean; rect: DOMRect } | nu
 }
 
 const loadGeo = (): Geo => {
-  const w = 400, h = 480;
+  const w = 480, h = 620;
   const fallback = { x: Math.max(16, window.innerWidth - w - 24), y: Math.max(16, window.innerHeight - h - 80), w, h };
-  try { const g = JSON.parse(localStorage.getItem('askWin') ?? 'null'); if (g && [g.x, g.y, g.w, g.h].every(Number.isFinite)) return clampGeo(g); } catch { /* private mode */ }
+  try { const g = JSON.parse(localStorage.getItem('scratchWin') ?? 'null'); if (g && [g.x, g.y, g.w, g.h].every(Number.isFinite)) return clampGeo(g); } catch { /* private mode */ }
   return fallback;
 };
 const clampGeo = (g: Geo): Geo => {
@@ -64,22 +67,53 @@ export function useAsk(threadId: string) {
   const patch = (key: string, p: Partial<Win>) => setWins((ws) => ws.map((w) => (w.key === key ? { ...w, ...p } : w)));
   const discard = (w: Win) => { if (w.sideId && !w.kept) fetch(`/api/threads/${w.sideId}`, { method: 'DELETE' }).catch(() => {}); };
 
-  const send = (key: string, quote: string, question: string) => {
+  // The window's sketch as an uploaded PNG (none when the page is blank or closed), then a fresh page.
+  const pack = async (key: string): Promise<string[]> => {
+    const w = winsRef.current.find((x) => x.key === key);
+    if (!w || !w.drawing || isBlank(w.sketch)) return [];
+    const r = await fetch('/api/sketches', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data: await sketchToPng(w.sketch) }) }).then((x) => x.json());
+    if (!r.name) throw new Error(r.error ?? 'Could not save the sketch');
+    return [r.name];
+  };
+  const post = (url: string, body: object) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
+  const fail = (key: string) => (e: Error) => patch(key, { sending: false, error: e.message || 'Could not reach the server' });
+
+  const send = async (key: string, quote: string, question: string) => {
     patch(key, { title: question.slice(0, 60), error: undefined, sideId: 'pending' });
-    fetch(`/api/threads/${threadId}/ask-thread`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: askPrompt(quote, question) }) })
-      .then((r) => r.json())
-      .then((j) => patch(key, j.id ? { sideId: j.id } : { sideId: null, error: j.error ?? 'Could not reach the server' }))
-      .catch(() => patch(key, { sideId: null, error: 'Could not reach the server' }));
+    try {
+      const images = await pack(key);
+      const j = await post(`/api/threads/${threadId}/ask-thread`, { question: askPrompt(quote, question), images });
+      patch(key, j.id ? { sideId: j.id, sketch: emptySketch(), drawing: false } : { sideId: null, error: j.error ?? 'Could not reach the server' });
+    } catch (e: any) { patch(key, { sideId: null, error: e.message || 'Could not reach the server' }); }
+  };
+  // A follow-up in the side session, with a new sketch if there is one.
+  const follow = async (key: string, sideId: string, question: string) => {
+    patch(key, { sending: true, error: undefined });
+    try {
+      const images = await pack(key);
+      const j = await post(`/api/threads/${sideId}/task`, { task: question, images });
+      patch(key, j.error ? { sending: false, error: j.error } : { sending: false, sketch: emptySketch(), drawing: false });
+    } catch (e: any) { fail(key)(e); }
+  };
+  // Make it a task: the note (and sketch) goes to the main session as a real request.
+  const toTask = async (key: string, quote: string, question: string) => {
+    patch(key, { sending: true, error: undefined });
+    try {
+      const images = await pack(key);
+      const j = await post(`/api/threads/${threadId}/task`, { task: askPrompt(quote, question), images });
+      if (j.error) patch(key, { sending: false, error: j.error });
+      else { patch(key, { sending: false, sent: true }); setTimeout(() => close(key), 900); }
+    } catch (e: any) { fail(key)(e); }
   };
 
   // A new window becomes the open one; the one that was open shrinks to a pill. Past 3 pills, the oldest goes.
-  const open = ({ quote = '', code = false, question }: { quote?: string; code?: boolean; question?: string }) => {
+  const open = ({ quote = '', code = false, question, draw = false }: { quote?: string; code?: boolean; question?: string; draw?: boolean }) => {
     const key = crypto.randomUUID();
     const q = trimQuote(quote);
     setWins((ws) => {
       let next = ws.map((w) => ({ ...w, shrunk: true }));
       while (next.length >= MAX_PILLS + 1) { discard(next[0]); next = next.slice(1); }
-      return [...next, { key, quote: q, code, sideId: null, shrunk: false, title: question?.slice(0, 60) || q.slice(0, 60), kept: false }];
+      return [...next, { key, quote: q, code, sideId: null, shrunk: false, title: question?.slice(0, 60) || q.slice(0, 60), kept: false, sketch: emptySketch(), drawing: draw }];
     });
     if (question) send(key, q, question);
     window.getSelection()?.removeAllRanges();
@@ -129,14 +163,15 @@ export function useAsk(threadId: string) {
         </button>
       )}
       {wins.map((w) => (
-        <AskWindow key={w.key} win={w} onSend={(q) => send(w.key, w.quote, q)} onClose={() => close(w.key)} onSave={() => save(w)}
-          onShrink={() => patch(w.key, { shrunk: true })} />
+        <AskWindow key={w.key} win={w} onSend={(q) => send(w.key, w.quote, q)} onFollow={(q) => w.sideId && follow(w.key, w.sideId, q)}
+          onTask={(q) => toTask(w.key, w.quote, q)} onSketch={(sk) => patch(w.key, { sketch: sk })} onDraw={(on) => patch(w.key, { drawing: on })}
+          onClose={() => close(w.key)} onSave={() => save(w)} onShrink={() => patch(w.key, { shrunk: true })} />
       ))}
       {pills.length > 0 && (
         <div className="ask-pills">
           {pills.map((w) => (
             <button key={w.key} className="ask-pill" onClick={() => restore(w.key)} title={t('Open this question again', 'Rouvrir cette question')}>
-              <Icon name="quiz" size={11} /><span>{w.title || t('Side question', 'Question à part')}</span>
+              <Icon name="write" size={11} /><span>{w.title || t('Scratchpad', 'Brouillon')}</span>
             </button>
           ))}
         </div>
@@ -146,9 +181,9 @@ export function useAsk(threadId: string) {
   return { open, layer };
 }
 
-function AskWindow({ win, onSend, onClose, onSave, onShrink }: {
-  win: Win; onSend: (question: string) => void; onClose: () => void; onSave: () => void; onShrink: () => void;
-}) {
+type WinProps = { win: Win; onSend: (q: string) => void; onFollow: (q: string) => void; onTask: (q: string) => void;
+  onSketch: (s: Sketch) => void; onDraw: (on: boolean) => void; onClose: () => void; onSave: () => void; onShrink: () => void };
+function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, onSave, onShrink }: WinProps) {
   const t = useT();
   const fr = useLang() === 'fr';
   const [geo, setGeo] = useState<Geo>(loadGeo);
@@ -158,7 +193,7 @@ function AskWindow({ win, onSend, onClose, onSave, onShrink }: {
     window.addEventListener('resize', r);
     return () => window.removeEventListener('resize', r);
   }, []);
-  useEffect(() => { try { localStorage.setItem('askWin', JSON.stringify(geo)); } catch { /* private mode */ } }, [geo]);
+  useEffect(() => { try { localStorage.setItem('scratchWin', JSON.stringify(geo)); } catch { /* private mode */ } }, [geo]);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { if (!win.shrunk) box.current?.querySelector('textarea')?.focus(); }, [win.shrunk, win.sideId]);
 
@@ -174,6 +209,21 @@ function AskWindow({ win, onSend, onClose, onSave, onShrink }: {
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, [win.shrunk]);
+
+  // Paste a screenshot: it becomes the page to draw on (only when you're in this window, or nowhere in particular).
+  useEffect(() => {
+    if (win.shrunk) return;
+    const paste = (e: ClipboardEvent) => {
+      const a = document.activeElement;
+      if (a && a !== document.body && !box.current?.contains(a)) return;
+      const f = [...(e.clipboardData?.files ?? [])].find((x) => x.type.startsWith('image/'));
+      if (!f) return;
+      e.preventDefault();
+      void sketchFromImage(f, win.sketch).then((sk) => { onSketch(sk); onDraw(true); });
+    };
+    window.addEventListener('paste', paste);
+    return () => window.removeEventListener('paste', paste);
+  }, [win.shrunk, win.sketch]);
 
   // Drag by the header, resize by the corner (pointer capture keeps it smooth over the map).
   const drag = useRef<{ x: number; y: number; g: Geo; mode: 'move' | 'size' } | null>(null);
@@ -193,16 +243,18 @@ function AskWindow({ win, onSend, onClose, onSave, onShrink }: {
 
   const asked = win.sideId && win.sideId !== 'pending';
   return (
-    <div ref={box} className={`ask-win ${phone ? 'sheet-mode' : ''}`} hidden={win.shrunk} role="dialog" aria-label={t('Side question', 'Question à part')}
+    <div ref={box} className={`ask-win ${phone ? 'sheet-mode' : ''}`} hidden={win.shrunk} role="dialog" aria-label={t('Scratchpad', 'Brouillon')}
       style={phone ? undefined : { left: geo.x, top: geo.y, width: geo.w, height: geo.h }}>
       <div className="ask-head" onPointerDown={down('move')} onPointerMove={move} onPointerUp={up}>
-        <span className="ask-title">{t('Side question', 'Question à part')}</span>
+        <span className="ask-title"><Icon name="write" size={13} />{t('Scratchpad', 'Brouillon')}</span>
         <span className="muted ask-sub">{t('the main agent keeps working', 'l’agent principal continue')}</span>
         <span className="spacer" />
         <button className="icon-btn" onClick={onShrink} title={t('Shrink', 'Réduire')} aria-label={t('Shrink', 'Réduire')}><Icon name="minus" size={13} /></button>
         <button className="icon-btn" onClick={onClose} title={t('Close and discard (Esc)', 'Fermer et effacer (Échap)')} aria-label={t('Close', 'Fermer')}><Icon name="x" size={13} /></button>
       </div>
-      {asked ? <AskChat sideId={win.sideId!} code={win.code} /> : <AskFirst win={win} onSend={onSend} />}
+      {win.sent ? <div className="ask-body sent"><Icon name="check" size={18} /><span>{t('Sent to your session', 'Envoyé à ta session')}</span></div>
+        : asked ? <AskChat sideId={win.sideId!} code={win.code} win={win} onFollow={onFollow} onTask={onTask} onSketch={onSketch} onDraw={onDraw} />
+        : <AskFirst win={win} onSend={onSend} onTask={onTask} onSketch={onSketch} onDraw={onDraw} />}
       {win.error && <div className="ask-error">{serverText(win.error, fr)}</div>}
       {asked && (
         <div className="ask-foot">
@@ -219,34 +271,56 @@ function Quote({ text, code }: { text: string; code: boolean }) {
   return <blockquote className={`ask-quote ${code ? 'code' : ''}`}>{text}</blockquote>;
 }
 
-// Before the first question: the quote, three quick questions and a box for your own.
-function AskFirst({ win, onSend }: { win: Win; onSend: (q: string) => void }) {
+// Before the first question: the quote, three quick questions, the page to draw on, and a box for your own.
+function AskFirst({ win, onSend, onTask, onSketch, onDraw }: Pick<WinProps, 'win' | 'onSend' | 'onTask' | 'onSketch' | 'onDraw'>) {
   const t = useT();
   const [text, setText] = useState('');
-  const pending = win.sideId === 'pending';
+  const pending = win.sideId === 'pending' || Boolean(win.sending);
+  const sketched = win.drawing && !isBlank(win.sketch);
   const chips = [t('Explain it simpler', 'Explique plus simplement'), t('Why this way?', 'Pourquoi comme ça ?'), t('Show me an example', 'Montre-moi un exemple')];
-  const go = (q: string) => { if (q.trim() && !pending) onSend(q.trim()); };
+  const fallback = t('Here’s my sketch. What do you make of it?', 'Voici mon croquis. Qu’en penses-tu ?');
+  const go = (q: string) => { if ((q.trim() || sketched) && !pending) onSend(q.trim() || fallback); };
   return (
     <div className="ask-body">
-      {win.quote ? <Quote text={win.quote} code={win.code} /> : <div className="muted">{t('Ask anything about the project or what the agent is doing. It reads, but changes nothing.', 'Pose une question sur le projet ou sur ce que fait l’agent. Il lit, mais ne change rien.')}</div>}
-      {win.quote && (
+      {win.quote ? <Quote text={win.quote} code={win.code} />
+        : !win.drawing && <div className="muted">{t('Ask anything about the project or what the agent is doing, or sketch what you mean. It reads, but changes nothing, and the main agent keeps working.', 'Pose une question sur le projet ou sur ce que fait l’agent, ou dessine ce que tu veux dire. Il lit mais ne change rien, et l’agent principal continue.')}</div>}
+      {win.quote && !win.drawing && (
         <div className="ask-chips">
           {chips.map((c) => <button key={c} className="btn ghost sm" disabled={pending} onClick={() => go(c)}>{c}</button>)}
         </div>
       )}
+      {win.drawing && <SketchPad value={win.sketch} onChange={onSketch} />}
       <span className="spacer" />
-      <AskBox value={text} onChange={setText} onSend={() => go(text)} busy={pending} placeholder={win.quote ? t('Or ask your own question…', 'Ou pose ta propre question…') : t('Ask your question…', 'Pose ta question…')} />
+      <AskBox value={text} onChange={setText} onSend={() => go(text)} busy={pending} canSend={sketched} drawing={win.drawing} onDraw={onDraw}
+        placeholder={win.drawing ? t('Say what your sketch is about…', 'Dis de quoi parle ton croquis…') : win.quote ? t('Or ask your own question…', 'Ou pose ta propre question…') : t('Ask your question…', 'Pose ta question…')} />
+      <TaskButton disabled={pending || (!text.trim() && !sketched)} onClick={() => onTask(text.trim() || fallback)} />
     </div>
   );
 }
 
-function AskBox({ value, onChange, onSend, busy, placeholder }: { value: string; onChange: (s: string) => void; onSend: () => void; busy: boolean; placeholder: string }) {
+// Make it a task: what you wrote (and drew) goes to the main session as a real request.
+function TaskButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
+  const t = useT();
+  return (
+    <div className="ask-task">
+      <button className="btn ghost sm" disabled={disabled} onClick={onClick}
+        title={t('Send this to the main session as a real request, sketch included', 'Envoyer à la session principale comme vraie demande, croquis compris')}>
+        {t('Make it a task instead', 'En faire une tâche')} <Icon name="arrow" size={11} />
+      </button>
+    </div>
+  );
+}
+
+function AskBox({ value, onChange, onSend, busy, placeholder, canSend = false, drawing, onDraw }: { value: string; onChange: (s: string) => void; onSend: () => void; busy: boolean; placeholder: string;
+  canSend?: boolean; drawing: boolean; onDraw: (on: boolean) => void }) {
   const t = useT();
   return (
     <div className="ask-box">
+      <button className={`icon-btn ask-draw ${drawing ? 'on' : ''}`} onClick={() => onDraw(!drawing)} aria-pressed={drawing}
+        title={drawing ? t('Hide the drawing page', 'Masquer la page de dessin') : t('Draw, or mark up a screenshot', 'Dessiner, ou annoter une capture')}><Icon name="write" size={16} /></button>
       <textarea rows={2} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!busy) onSend(); } }} />
-      <button className="btn primary round" disabled={busy || !value.trim()} onClick={onSend} title={t('Send', 'Envoyer')} aria-label={t('Send', 'Envoyer')}>
+      <button className="btn primary round" disabled={busy || (!value.trim() && !canSend)} onClick={onSend} title={t('Send', 'Envoyer')} aria-label={t('Send', 'Envoyer')}>
         {busy ? <span className="spin" /> : <Icon name="arrow" size={14} />}
       </button>
     </div>
@@ -254,14 +328,16 @@ function AskBox({ value, onChange, onSend, busy, placeholder }: { value: string;
 }
 
 // The side session's conversation, in a lighter view than the main chat, with follow-ups.
-function AskChat({ sideId, code }: { sideId: string; code: boolean }) {
-  const { state, run } = useAgent(sideId);
+function AskChat({ sideId, code, win, onFollow, onTask, onSketch, onDraw }: { sideId: string; code: boolean } & Pick<WinProps, 'win' | 'onFollow' | 'onTask' | 'onSketch' | 'onDraw'>) {
+  const { state } = useAgent(sideId);
   const t = useT();
   const fr = useLang() === 'fr';
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [state.timeline.length, state.running]);
-  const send = () => { if (!text.trim() || state.running) return; run(text.trim()); setText(''); };
+  const sketched = win.drawing && !isBlank(win.sketch);
+  const busy = state.running || Boolean(win.sending);
+  const send = () => { if ((!text.trim() && !sketched) || busy) return; onFollow(text.trim() || t('Here’s my sketch.', 'Voici mon croquis.')); setText(''); };
   return (
     <div className="ask-body chat">
       <div className="ask-scroll">
@@ -269,7 +345,9 @@ function AskChat({ sideId, code }: { sideId: string; code: boolean }) {
         {state.running && <div className="ask-thinking muted"><span className="spin" /> {t('Thinking', 'Réflexion')}</div>}
         <div ref={end} />
       </div>
-      <AskBox value={text} onChange={setText} onSend={send} busy={state.running} placeholder={t('Ask a follow-up…', 'Pose une autre question…')} />
+      {win.drawing && <SketchPad value={win.sketch} onChange={onSketch} />}
+      <AskBox value={text} onChange={setText} onSend={send} busy={busy} canSend={sketched} drawing={win.drawing} onDraw={onDraw} placeholder={t('Ask a follow-up…', 'Pose une autre question…')} />
+      {(text.trim() || sketched) && <TaskButton disabled={busy} onClick={() => { onTask(text.trim() || t('Here’s my sketch.', 'Voici mon croquis.')); setText(''); }} />}
     </div>
   );
 }
@@ -277,7 +355,7 @@ function AskChat({ sideId, code }: { sideId: string; code: boolean }) {
 function AskEntry({ e, state, fr, code }: { e: State['timeline'][number]; state: State; fr: boolean; code: boolean }) {
   if (e.kind === 'user') {
     const { quote, question } = parseAsk(e.text);
-    return <div className="ask-you">{quote && <Quote text={quote} code={code} />}{question && <div className="bubble-user">{question}</div>}</div>;
+    return <div className="ask-you">{quote && <Quote text={quote} code={code} />}<Sketches names={e.images} />{question && <div className="bubble-user">{question}</div>}</div>;
   }
   if (e.kind === 'thought') return <div className="thought"><Markdown text={e.text} /></div>;
   if (e.kind === 'done') return <div className="final"><Markdown text={serverText(e.text, fr)} /></div>;
@@ -288,4 +366,10 @@ function AskEntry({ e, state, fr, code }: { e: State['timeline'][number]; state:
     return <div className="ask-looked muted"><Icon name="read" size={11} /> {fr ? `A regardé le projet (${n} étape${n > 1 ? 's' : ''})` : `Looked at the project (${n} step${n > 1 ? 's' : ''})`}</div>;
   }
   return null;
+}
+
+// Sketches sent with a message, as thumbnails that open full size.
+export function Sketches({ names }: { names?: string[] }) {
+  if (!names?.length) return null;
+  return <div className="sketches">{names.map((n) => <a key={n} href={`/api/shots/${n}`} target="_blank" rel="noreferrer"><img src={`/api/shots/${n}`} alt="" /></a>)}</div>;
 }

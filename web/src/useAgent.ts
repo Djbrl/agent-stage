@@ -11,7 +11,7 @@ export type AgentEvent = Base & (
   | { type: 'file_change'; path: string; before: string; after: string }
   | { type: 'checkpoint'; id: string; kind: 'design' | 'implementation'; title: string; summary: string; additions?: { detail: string; proposal: string; why: string }[]; files?: string[] }
   | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss' | 'skip'; text?: string }
-  | { type: 'user'; text: string }
+  | { type: 'user'; text: string; images?: string[] }
   | { type: 'question'; id: string; text: string }
   | { type: 'answer'; id: string; text: string }
   | { type: 'label'; stepId: string; label: string; why: string }
@@ -39,7 +39,7 @@ export type Step = {
   startedAt: number; endedAt?: number; ok?: boolean; output?: string; change?: Change; label?: string; why?: string;
 };
 export type Entry =
-  | { kind: 'user' | 'thought'; text: string; at: number }
+  | { kind: 'user' | 'thought'; text: string; at: number; images?: string[] }
   | { kind: 'done' | 'error'; text: string; at: number; ref?: string } // ref: git checkpoint taken before this task
   | { kind: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string; at: number }
   | { kind: 'restored'; files: { status: string; path: string }[]; at: number }
@@ -94,7 +94,7 @@ function reduce(s: State, a: Action): State {
   switch (e.type) {
     case 'user':
       if (e.text === '— new session —') return { ...initial, files: Object.fromEntries(Object.keys(s.files).map((f) => [f, 'idle'])) };
-      return { ...s, running: true, startedAt: s.running ? s.startedAt : e.at, timeline: [...s.timeline, { kind: 'user', text: e.text, at: e.at }] };
+      return { ...s, running: true, startedAt: s.running ? s.startedAt : e.at, timeline: [...s.timeline, { kind: 'user', text: e.text, at: e.at, ...(e.images?.length ? { images: e.images } : {}) }] };
     case 'label':
       return { ...s, steps: s.steps.map((x) => (x.id === e.stepId ? { ...x, label: e.label, why: e.why } : x)) };
     case 'checkpoint':

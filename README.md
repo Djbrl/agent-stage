@@ -83,7 +83,7 @@ and understands.
 - *(to verify)* **Contextual tips** where you need them, instead of a tour.
 - *(to verify)* **"What you learned" card** after each task, with a **"Try it yourself"** exercise.
 - *(to verify)* **A progressive interface**: controls appear as you need them.
-- **Side questions from anywhere**: select any part of the agent's work and ask about it in a floating window, while the agent keeps working. Close it to discard, or save it to your notes.
+- **Scratchpad**: ask a side question, or sketch what you mean, while the agent keeps working. Draw with the mouse, or drop in a screenshot and circle what should change; Claude and Claude Code see the drawing. Select any part of the agent's work to ask about it, save the answer to your notes, or turn the note and sketch into a real task.
 
 ![Mid-run, dark theme: the agent marker on the file it is editing](docs/screenshots/studio-dark.png)
 
