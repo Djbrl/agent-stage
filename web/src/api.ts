@@ -43,6 +43,13 @@ export function ago(t: number, fr = false) {
 export const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
 export const shortPath =(p: string, home?: string) => (home && p.startsWith(home) ? `~${p.slice(home.length)}` : p);
 
+// Online demo: leave it. The demo manager deletes the sandbox and sends the visitor back to the landing page.
+export function leaveDemo() {
+  const f = Object.assign(document.createElement('form'), { method: 'POST', action: '/__leave' });
+  document.body.append(f);
+  f.submit();
+}
+
 export type Engine = 'native' | 'claude-code';
 export const engineOf = (p: Provider): Engine => (p.kind === 'claude-code' ? 'claude-code' : 'native');
 // Which agent runs the model: ours, or Claude Code (through the Agent SDK).

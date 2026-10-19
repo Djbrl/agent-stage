@@ -14,6 +14,7 @@ import { DATA_DIR } from '../store.ts';
 const PORT = Number(process.env.PORT ?? 8080);
 const INVITE = process.env.INVITE ?? ''; // public.sh sets one by default; empty (INVITE=off) = anyone with the link
 const MAX = Number(process.env.MAX_SESSIONS ?? 5);
+const LANDING = process.env.LANDING_URL ?? 'https://agent-stage-eta.vercel.app'; // where Leave demo sends the visitor
 const IDLE_MIN = Number(process.env.IDLE_MIN ?? 20);
 const BUDGET = Number(process.env.TOKEN_BUDGET ?? 400_000); // model tokens per sandbox
 const DEMO_USD = Number(process.env.DEMO_USD ?? 5); // Claude spend allowed per sandbox
@@ -204,6 +205,12 @@ const server = createServer(async (req, res) => {
       const n = await startSession({ ip: String(req.headers['cf-connecting-ip'] ?? req.socket.remoteAddress ?? ''), country: String(req.headers['cf-ipcountry'] ?? ''), agent: String(req.headers['user-agent'] ?? '').slice(0, 160) });
       console.log(`+ sandbox ${n.id} for ${n.who.ip} ${n.who.country} (${sessions.size}/${MAX})`);
       res.writeHead(303, { location: '/', 'set-cookie': `agst=${n.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400` });
+      return res.end();
+    }
+    // Leave demo: delete this visitor's sandbox, forget the cookie, back to the landing page.
+    if (req.method === 'POST' && req.url === '/__leave') {
+      if (s) { console.log(`- sandbox ${s.id} left by its visitor`); void stopSession(s); }
+      res.writeHead(303, { location: LANDING, 'set-cookie': 'agst=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' });
       return res.end();
     }
     if (s) return proxy(req, res, s);

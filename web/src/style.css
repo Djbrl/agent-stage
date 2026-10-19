@@ -1375,3 +1375,18 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 @media (max-width: 560px) { .start-choices { grid-template-columns: 1fr; } }
 .modal.start-modal { width: min(640px, calc(100vw - 32px)); } .start-modal .modal-body { padding: 20px; }
 .start-modal .folder-row { width: 100%; } .start-modal .recent-name { flex-shrink: 0; } .start-modal .recent-path { flex: 1; min-width: 0; text-align: right; color: var(--faint); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* live demo welcome: three short steps with a drawing each */
+.welcome-demo.stepped { width: min(440px, calc(100vw - 32px)); overflow: hidden; }
+.wd-art { background: var(--frame); display: grid; place-items: center; padding: 22px 0 14px; border-bottom: 1px solid var(--line-soft); }
+.wd-art svg { width: 220px; height: 120px; }
+.welcome-demo.stepped .modal-body { padding: 20px 24px 8px; }
+.welcome-demo.stepped h2 { font-size: 22px; margin: 0 0 8px; }
+.wd-text { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--text-2); min-height: 3em; }
+.wd-limits { margin-top: 12px; font-size: 13px; color: var(--dim); }
+.wd-limits summary { cursor: pointer; }
+.wd-limits ul { margin: 6px 0 0; padding-left: 18px; }
+.welcome-demo.stepped .modal-foot { border-top: 0; padding: 12px 24px 20px; align-items: center; }
+.welcome-demo.stepped .modal-foot .btn { height: 34px; padding: 0 16px; }
+.wd-dots { display: flex; gap: 6px; }
+.wd-dots button { width: 8px; height: 8px; border-radius: 50%; border: 0; padding: 0; background: var(--line-strong); cursor: pointer; }
+.wd-dots button.on { background: var(--text); width: 20px; border-radius: 99px; }
