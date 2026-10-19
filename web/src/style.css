@@ -1285,3 +1285,6 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 :root[data-theme="dark"] .composer .icon-btn.mic, :root[data-theme="dark"] .app-head-btn.head-settings { color: var(--text-2); }
 /* the ? sits on the message's bottom-right corner */
 .ask-msg { top: auto; bottom: -6px; right: -4px; }
+/* hovering or focusing the ? outlines the block its side question would be about */
+.askable { border-radius: 12px; transition: outline-color .15s; outline: 1.5px solid transparent; outline-offset: 6px; }
+.askable:has(> .ask-msg:hover), .askable:has(> .ask-msg:focus-visible) { outline-color: var(--line); }
