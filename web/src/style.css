@@ -1247,11 +1247,11 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .spark-btn { width: 38px; height: 38px; border: 0; border-radius: 50%; display: grid; place-items: center; background: #2f45e8; color: #fff; cursor: pointer; transition: transform .15s, background .15s; }
 .spark-btn:hover:not(:disabled) { background: #2336c4; transform: rotate(15deg); } .spark-btn:disabled { opacity: .5; cursor: default; }
 .composer .btn.round { width: 40px; height: 40px; }
-:root .composer .send-btn, :root .composer .btn.primary.round { background: #16a34a; color: #fff; border: 0; }
-.composer .send-btn:hover:not(:disabled) { background: #15803d; }
-.composer .send-btn:disabled { background: #16a34a; opacity: .5; }
-.composer .stop-btn { background: #141414; color: #4ade80; border: 0; }
-.composer .stop-btn .icon path { fill: #4ade80; stroke: #4ade80; }
+:root .composer .send-btn, :root .composer .btn.primary.round { background: #c8f169; color: #141414; border: 0; }
+.composer .send-btn:hover:not(:disabled) { background: #b5e34f; }
+.composer .send-btn:disabled { background: #c8f169; opacity: .5; }
+.composer .stop-btn { background: #141414; border: 0; }
+.stop-sq { display: block; width: 15px; height: 15px; border-radius: 4px; background: #c8f169; }
 .composer .stop-btn:hover { background: #2a2a28; }
 .composer-bar { gap: 8px; padding: 8px 10px 10px 10px; }
 .composer .icon-btn.mic { width: 38px; height: 38px; border-radius: 50%; place-items: center; }

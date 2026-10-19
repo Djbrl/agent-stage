@@ -263,7 +263,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
               title={voice.error || (voice.listening ? t('Listening… click to stop', 'J’écoute… clique pour arrêter') : t('Speak your prompt', 'Dicte ta demande'))}><Icon name="mic" size={20} /></button>
           )}
           {state.running && !side
-            ? <button className="btn round stop-btn" onClick={onStop} title={t('Stop', 'Arrêter')} aria-label={t('Stop the agent', 'Arrêter l’agent')}><Icon name="stop" size={12} /></button>
+            ? <button className="btn round stop-btn" onClick={onStop} title={t('Stop', 'Arrêter')} aria-label={t('Stop the agent', 'Arrêter l’agent')}><span className="stop-sq" aria-hidden="true" /></button>
             : <button className="btn primary round send-btn" onClick={() => submit()} disabled={!text.trim()} title={state.running ? t('Steer', 'Guider') : t('Send', 'Envoyer')} aria-label={state.running ? t('Steer', 'Guider') : t('Send', 'Envoyer')}><Icon name="arrow" size={14} /></button>}
           {state.running && !side && text.trim() && <button className="btn primary round" onClick={() => submit()} title={t('Steer: the agent reads this before its next step', 'Guider : l’agent lit ceci avant sa prochaine étape')} aria-label={t('Steer', 'Guider')}><Icon name="arrow" size={14} /></button>}
         </div>
