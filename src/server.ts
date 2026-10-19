@@ -15,7 +15,7 @@ import { closeBrowser, SHOTS } from './browser.ts';
 import { stopBackground, within, relPath } from './tools.ts';
 import { checkGpu, checkModel, type Health } from './health.ts';
 import { buildMap, isGenerated } from './mapdata.ts';
-import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMessage, summarizeThread } from './insight.ts';
+import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMessage, summarizeThread, learnedFromTask } from './insight.ts';
 import { GpuManager } from './gpu.ts';
 import { ClaudeCodeAgent } from './claudecode.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread, DATA_DIR,
@@ -324,13 +324,32 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
 // Every task starts from a git checkpoint (when the folder is a repo), so it can be undone.
 // It also ends with one (however it ended: done, stopped, step limit), so Undo knows which files were this task's.
 async function runTask(l: Live, task: string) {
+  const from = l.thread.events.length;
   const ref = await checkpoint(l.thread.folder, l.thread.id, task).catch(() => null);
   if (ref) l.emit({ type: 'snapshot', ref });
   await l.agent.run(task, settings.maxSteps).finally(() => l.emit({ type: 'idle' }));
-  if (!ref) return;
-  const after = await checkpoint(l.thread.folder, l.thread.id, `after: ${task}`).catch(() => null);
-  const files = after ? await changedBetween(l.thread.folder, ref, after).catch(() => []) : [];
-  if (after) l.emit({ type: 'task_end', ref, after, files: files.length });
+  if (ref) {
+    const after = await checkpoint(l.thread.folder, l.thread.id, `after: ${task}`).catch(() => null);
+    const files = after ? await changedBetween(l.thread.folder, ref, after).catch(() => []) : [];
+    if (after) l.emit({ type: 'task_end', ref, after, files: files.length });
+  }
+  learnAfter(l, task, l.thread.events.slice(from));
+}
+// "What you learned": one queued call after a task that finished and actually did something (changed files or
+// ran commands). Always in Learn mode; in Build mode only when teaching helpers are on. Failure = no card.
+function learnAfter(l: Live, task: string, events: AgentEvent[]) {
+  const end = events.findLast((e) => e.type === 'done' || e.type === 'error');
+  if (end?.type !== 'done' || readOnly(l)) return;
+  const p = provider(l.thread.providerId);
+  if ((l.thread.mode ?? 'build') !== 'learn' && !insightsOn(settings, p)) return;
+  const files = [...new Set(events.flatMap((e) => (e.type === 'file_change' ? [e.path] : [])))];
+  const commands = events.flatMap((e) => (e.type === 'tool_start' && e.name === 'run_command' && e.args?.command ? [String(e.args.command)] : []));
+  if (!files.length && !commands.length) return;
+  const cfg = toConfig(p);
+  enqueue(async () => {
+    const r = await learnedFromTask(cfg, settings, { task, files, commands, result: end.text });
+    if (r) l.emit({ type: 'learned', ...r });
+  });
 }
 // The files this task (and this thread's later tasks, which Undo also takes back) changed. Anything else in the
 // folder, like the user's own edits or another thread's work, is left alone. Null for threads from before task_end.

@@ -23,10 +23,12 @@ export type AgentEvent = Base & (
   | { type: 'context'; action: 'clear' | 'compact'; summary?: string }
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'kept'; ref: string; commit: string; message: string }
+  | { type: 'learned'; concepts: Concept[]; exercise: string }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
 );
 
+export type Concept = { name: string; line: string };
 export type FileStatus = 'idle' | 'read' | 'written' | 'error';
 export type Change = { before: string; after: string };
 export type Step = {
@@ -41,7 +43,8 @@ export type Entry =
   | { kind: 'context'; action: 'clear' | 'compact'; summary?: string; at: number }
   | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
   | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss' | 'skip'; text?: string }; at: number }
-  | { kind: 'actions'; steps: string[]; at: number };
+  | { kind: 'actions'; steps: string[]; at: number }
+  | { kind: 'learned'; concepts: Concept[]; exercise: string; at: number };
 
 export type State = {
   files: Record<string, FileStatus>;
@@ -58,11 +61,12 @@ export type State = {
   undone: string[]; // checkpoints already restored
   changed: Record<string, number>; // checkpoint → files its task changed (no Undo for a task that changed nothing)
   tokens: { context: number; total: number; cost: number };
+  concepts: Concept[]; // every concept met in this thread, deduped by name (newest line wins)
   kept: Record<string, { commit: string; message: string }>; // checkpoint → the commit it was kept as // context = size of the last request; total = all tokens this thread
 };
 
 export const initial: State = {
-  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null, snapshot: null, undone: [], changed: {}, tokens: { context: 0, total: 0, cost: 0 }, kept: {},
+  files: {}, changes: {}, marker: null, trail: [], steps: [], timeline: [], approval: null, planned: [], running: false, startedAt: null, snapshot: null, undone: [], changed: {}, tokens: { context: 0, total: 0, cost: 0 }, kept: {}, concepts: [],
 };
 
 export function targetOf(name: string, args: any): string {
@@ -148,6 +152,11 @@ function reduce(s: State, a: Action): State {
       return { ...s, kept: { ...s.kept, [e.ref]: { commit: e.commit, message: e.message } } };
     case 'context':
       return { ...s, tokens: { ...s.tokens, context: 0 }, timeline: [...s.timeline, { kind: 'context', action: e.action, summary: e.summary, at: e.at }] };
+    case 'learned': {
+      const seen = new Map(s.concepts.map((c) => [c.name.toLowerCase(), c]));
+      for (const c of e.concepts) seen.set(c.name.toLowerCase(), c);
+      return { ...s, concepts: [...seen.values()], timeline: [...s.timeline, { kind: 'learned', concepts: e.concepts, exercise: e.exercise, at: e.at }] };
+    }
     case 'idle':
       return { ...s, running: false, approval: null };
     case 'task_end':
@@ -169,7 +178,7 @@ function reduce(s: State, a: Action): State {
 }
 
 // Replay: rebuild the state as it was after moment k. A moment ends at a finished step, a message, or the end.
-const isMoment = (e: AgentEvent) => e.type === 'tool_end' || e.type === 'user' || e.type === 'done' || e.type === 'error' || e.type === 'checkpoint' || (e.type === 'verify' && e.state !== 'running');
+const isMoment = (e: AgentEvent) => e.type === 'learned' || e.type === 'tool_end' || e.type === 'user' || e.type === 'done' || e.type === 'error' || e.type === 'checkpoint' || (e.type === 'verify' && e.state !== 'running');
 // Pace like Rundown: quick for reads, a beat longer for edits and messages.
 function paceFor(e: AgentEvent | undefined) {
   if (!e) return 400;
