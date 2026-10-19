@@ -24,6 +24,7 @@ export type AgentEvent =
   | { type: 'snapshot'; ref: string }
   | { type: 'task_end'; ref: string; after: string; files: number }
   | { type: 'context'; action: 'clear' | 'compact'; summary?: string } // the user cleared or compacted the model's memory of the thread
+  | { type: 'model'; name: string; from?: string; carried?: boolean } // the session switched model (it keeps the conversation)
   | { type: 'idle' } // the agent has really finished (sent after done/error, once it no longer counts as running)
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'kept'; ref: string; commit: string; message: string }

@@ -90,6 +90,34 @@ const saveSoon = new Map<string, NodeJS.Timeout>();
 const SAFE = /^(ls|cat|pwd|echo|head|tail|wc|grep|rg|find|tree|which|node -v|node --version|npm -v|git (status|diff|log|show|branch))\b/;
 const isSafe = (cmd: string) => SAFE.test(cmd.trim()) && !/[;&|><`$]/.test(cmd);
 
+// A thread always runs on the currently selected model, switched between tasks. Same engine: the new model reads
+// the same transcript. Other engine (our agent ↔ Claude Code, which keep separate memories): the session gets a
+// fresh agent of that engine, handed the conversation so far. Either way the chat gets a line saying so.
+function followModel(l: Live) {
+  if (l.agent.running || l.approvals.size || l.checkpoints.size) return; // never mid-task
+  const p = provider(), engine = engineOf(p), from = l.thread.providerId;
+  const switching = engine !== (l.thread.engine ?? 'native');
+  if (switching && l.thread.mode === 'ask') return; // a Scratchpad note stays where it started
+  const talked = l.thread.events.some((e: any) => e.type === 'user');
+  l.thread.providerId = settings.activeProvider;
+  if (switching) {
+    if (talked) l.thread.carry = carryOver(l);
+    Object.assign(l.thread, { engine, sessionId: undefined, fork: undefined, messages: [] });
+    l.agent = makeAgent(l);
+  } else l.agent.setConfig(toConfig(p));
+  if (from !== settings.activeProvider && l.thread.mode !== 'ask' && talked) {
+    l.emit({ type: 'model', name: p.name, from: settings.providers.find((x) => x.id === from)?.name, ...(switching ? { carried: true } : {}) });
+    persist(l);
+  }
+}
+// What a new agent needs to pick up a session another agent started: the conversation, newest last, without the
+// tool details (the files themselves are in the folder, as the last agent left them).
+function carryOver(l: Live) {
+  const lines = (l.thread.events as any[]).flatMap((e) => e.type === 'user' ? [`User: ${e.text}`] : e.type === 'done' || e.type === 'error' ? [`Agent: ${e.text ?? e.message}`] : []);
+  let text = '';
+  for (const line of lines.reverse()) { if (text.length + line.length > 8000) break; text = `${line.slice(0, 2000)}\n\n${text}`; }
+  return `This session started with another agent. The conversation so far (tool steps left out; the files in the folder are as it left them):\n\n${text.trim()}`;
+}
 function persist(l: Live) {
   if (l.agent instanceof ClaudeCodeAgent) { l.thread.sessionId = l.agent.sessionId; l.thread.fork = l.agent.fork; }
   else l.thread.messages = l.agent.messages;
@@ -106,6 +134,30 @@ function open(id: string): Promise<Live | null> {
   if (existing) return Promise.resolve(existing);
   if (!opening.has(id)) opening.set(id, load(id).finally(() => opening.delete(id)));
   return opening.get(id)!;
+}
+
+// The agent behind a session: ours or Claude Code, as the session's engine says. Rebuilt when the engine changes.
+function makeAgent(l: Live) {
+  const Engine = l.thread.engine === 'claude-code' ? ClaudeCodeAgent : Agent;
+  const agent = new Engine(toConfig(provider(l.thread.providerId)), {
+    root: l.thread.folder,
+    approve: (command, kind) => {
+      if (settings.approval === 'safe' && isSafe(command)) return Promise.resolve(true);
+      return new Promise((ok) => {
+        const aid = crypto.randomUUID();
+        l.approvals.set(aid, ok);
+        l.emit({ type: 'approval', id: aid, command, ...(kind === 'check' ? { check: true } : {}) });
+      });
+    },
+  }, l.emit, {
+    mode: l.thread.mode ?? 'build', learn: settings.learn,
+    checkpoint: (cp) => new Promise((ok) => l.checkpoints.set(cp.id, ok)),
+  });
+  if (agent instanceof ClaudeCodeAgent) { agent.sessionId = l.thread.sessionId; agent.fork = Boolean(l.thread.fork); }
+  else if (l.thread.messages.length) agent.messages = l.thread.messages;
+  if (l.thread.carry) agent.notes.push(l.thread.carry);
+  agent.setOptions({}); // refresh the system prompt for the current mode/prefs
+  return agent;
 }
 
 async function load(id: string): Promise<Live | null> {
@@ -128,6 +180,7 @@ async function load(id: string): Promise<Live | null> {
       if (event.costUsd) u.costUsd = (u.costUsd ?? 0) + event.costUsd;
     }
     if (event.type === 'user' && thread.title === 'New thread') thread.title = event.text.slice(0, 60);
+    if (event.type === 'user') delete thread.carry; // the new agent has it now
     const e = { ...event, at: Date.now() };
     thread.events.push(e);
     // Teaching labels: ask the same model to describe each finished step (queued, never blocks the agent).
@@ -145,24 +198,7 @@ async function load(id: string): Promise<Live | null> {
     persist(l);
   };
   l.emit = emit;
-  const Engine = thread.engine === 'claude-code' ? ClaudeCodeAgent : Agent;
-  l.agent = new Engine(toConfig(provider(thread.providerId)), {
-    root: thread.folder,
-    approve: (command, kind) => {
-      if (settings.approval === 'safe' && isSafe(command)) return Promise.resolve(true);
-      return new Promise((ok) => {
-        const aid = crypto.randomUUID();
-        l.approvals.set(aid, ok);
-        emit({ type: 'approval', id: aid, command, ...(kind === 'check' ? { check: true } : {}) });
-      });
-    },
-  }, emit, {
-    mode: thread.mode ?? 'build', learn: settings.learn,
-    checkpoint: (cp) => new Promise((ok) => l.checkpoints.set(cp.id, ok)),
-  });
-  if (l.agent instanceof ClaudeCodeAgent) { l.agent.sessionId = thread.sessionId; l.agent.fork = Boolean(thread.fork); }
-  else if (thread.messages.length) l.agent.messages = thread.messages;
-  l.agent.setOptions({}); // refresh the system prompt for the current mode/prefs
+  l.agent = makeAgent(l);
   live.set(id, l);
   return l;
 }
@@ -325,10 +361,7 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
   if (readOnly(l) && !c.req.path.endsWith('/explain')) return c.json({ error: READ_ONLY }, 403); // "Explain this change" only reads the diff
   const body = await c.req.json().catch(() => ({}));
   gpu.touch(); // any interaction keeps an auto-stopping GPU alive
-  // A thread always runs on the currently selected model.
-  if (!l.agent.running && engineOf(provider()) === (l.thread.engine ?? 'native')) {
-    l.thread.providerId = settings.activeProvider; l.agent.setConfig(toConfig(provider()));
-  }
+  followModel(l);
   if (!l.agent.running) {
     l.agent.setOptions({ mode: l.thread.mode ?? 'build', learn: settings.learn });
   }
@@ -544,6 +577,20 @@ app.get(`${T}/scratch-notes`, async (c) => {
     sketch: (t.events.find((e: any) => e.type === 'user' && e.images?.length) as any)?.images?.[0] ?? null,
   })));
 });
+// A note made from something on screen (a "What you learned" card): it opens in Scratchpad like any other note.
+app.post(`${T}/scratch-notes`, async (c) => {
+  const l = await open(c.req.param('id'));
+  if (!l) return c.json({ error: 'not found' }, 404);
+  if (readOnly(l)) return c.json({ error: READ_ONLY }, 403);
+  const { title, text } = await c.req.json().catch(() => ({}));
+  if (typeof text !== 'string' || !text.trim()) return c.json({ error: 'empty note' }, 400);
+  const t = await newThread(l.thread.folder, 'ask', l.thread.id, true);
+  const at = Date.now();
+  Object.assign(t, { temp: false, engine: l.thread.engine, providerId: l.thread.providerId, title: String(title || 'Note').slice(0, 60),
+    events: [{ type: 'user', text: String(title || 'Note'), at }, { type: 'done', text: text.slice(0, 8000), at }, { type: 'idle', at }] });
+  await saveThread(t);
+  return c.json({ id: t.id });
+});
 app.post(`${T}/keep`, withThread((l) => { l.thread.temp = false; persist(l); }));
 app.post(`${T}/checkpoint`, withThread((l, { id, choice, text }) => {
   l.checkpoints.get(id)?.({ choice: choice === 'confirm' || choice === 'skip' ? choice : 'discuss', text });
@@ -595,7 +642,7 @@ app.put('/api/settings', async (c) => {
   settings = { ...settings, ...next, providers };
   if (!settings.providers.some((p) => p.id === settings.activeProvider)) settings.activeProvider = settings.providers[0].id;
   await saveSettings(settings);
-  for (const l of live.values()) if (!l.agent.running) l.agent.setConfig(toConfig(provider()));
+  for (const l of live.values()) followModel(l);
   const p = provider();
   if (prevActive !== settings.activeProvider || tunnel.state().host !== p.tunnelHost) retunnel();
   void refreshHealth();

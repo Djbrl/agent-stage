@@ -19,6 +19,7 @@ export type AgentEvent = Base & (
   | { type: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string }
   | { type: 'snapshot'; ref: string }
   | { type: 'task_end'; ref: string; after: string; files: number }
+  | { type: 'model'; name: string; from?: string; carried?: boolean }
   | { type: 'idle' }
   | { type: 'context'; action: 'clear' | 'compact'; summary?: string }
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
@@ -43,6 +44,7 @@ export type Entry =
   | { kind: 'done' | 'error'; text: string; at: number; ref?: string } // ref: git checkpoint taken before this task
   | { kind: 'verify'; id: string; state: 'running' | 'pass' | 'fail' | 'nudge' | 'declined' | 'unavailable'; command?: string; output?: string; at: number }
   | { kind: 'restored'; files: { status: string; path: string }[]; at: number }
+  | { kind: 'model'; name: string; from?: string; carried?: boolean; at: number }
   | { kind: 'context'; action: 'clear' | 'compact'; summary?: string; at: number }
   | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
   | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss' | 'skip'; text?: string }; at: number }
@@ -160,6 +162,8 @@ function reduce(s: State, a: Action): State {
       for (const c of e.concepts) seen.set(conceptKey(c.name), c);
       return { ...s, concepts: [...seen.values()], timeline: [...s.timeline, { kind: 'learned', concepts: e.concepts, exercise: e.exercise, at: e.at }] };
     }
+    case 'model':
+      return { ...s, timeline: [...s.timeline, { kind: 'model', name: e.name, from: e.from, carried: e.carried, at: e.at }] };
     case 'idle':
       return { ...s, running: false, approval: null, steps: closeOpen(s.steps, e.at) };
     case 'task_end':
@@ -193,6 +197,8 @@ function paceFor(e: AgentEvent | undefined) {
 export type Replay = {
   active: boolean; playing: boolean; index: number; total: number; stepIndex: number; stepTotal: number; at?: number;
   play: () => void; pause: () => void; step: (d: number) => void; seek: (i: number) => void; live: () => void;
+  steps: Step[]; // every step so far (the Steps list shows them all, also while the map replays)
+  seekStep: (id: string) => void; // put the map back to just after this step
 };
 
 // onMissing: the server has no such thread (deleted, or a fresh data folder while the browser remembers the id).
@@ -283,6 +289,14 @@ export function useAgent(threadId: string, onMissing?: () => void) {
     step: (d) => { setPlaying(false); setCursor((c) => Math.max(0, Math.min(total - 1, (c ?? total - 1) + d))); },
     seek: (i) => { setPlaying(false); setCursor(Math.max(0, Math.min(total - 1, i))); },
     live: () => { setPlaying(false); setCursor(null); },
+    steps: liveState.steps,
+    seekStep: (id) => {
+      const i = moments.findIndex((m) => { const e = events.current[m] as any; return e?.type === 'tool_end' && e.id === id; });
+      if (i < 0) return;
+      setPlaying(false);
+      // The newest step is "now": back to live instead of a replay frozen at the end.
+      setCursor(i >= total - 1 || liveState.steps.at(-1)?.id === id && !liveState.running ? null : i);
+    },
   };
 
   const post = (path: string, body?: object) =>

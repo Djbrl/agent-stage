@@ -60,6 +60,7 @@ export type ThreadUsage = { promptTokens: number; completionTokens: number; mode
 export type Thread = {
   id: string; title: string; folder: string; providerId: string; mode?: 'build' | 'learn' | 'ask'; parent?: string; temp?: boolean;
   engine?: Engine; sessionId?: string; fork?: boolean; // claude-code: the SDK session to resume (fork = side thread)
+  carry?: string; // after switching engine: the conversation so far, handed to the new agent with the next message
   createdAt: number; updatedAt: number;
   messages: Message[]; events: any[]; usage: ThreadUsage;
   shared?: { project: string; exportedAt: number; map: MapData }; // imported from a session file: replay only
