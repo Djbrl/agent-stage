@@ -11,6 +11,7 @@ import { Onboarding } from './Onboarding';
 import { Resizer, storedNumber, store } from './Resizer';
 import { useT } from './i18n';
 import { leaveDemo } from './api';
+import { ConfirmHost, confirmAsk } from './Confirm';
 import { Icon } from './icons';
 
 const guided = (id: string) => { try { return localStorage.getItem(`guide:${id}`) === '1'; } catch { return false; } };
@@ -74,6 +75,7 @@ function Shell() {
         </AboveComposer>
       )}
       {welcome}
+      <ConfirmHost />
     </>
   );
   if (!threadsLoaded && !active && !me?.public) return <div className="ob" />; // a blank frame until we know if this is a first run
@@ -111,7 +113,7 @@ function AppHeader({ onNew, onSettings }: { onNew: () => void; onSettings: () =>
       <span className="app-brand"><span className="logo" /><b>codetandem</b></span>
       <span className="spacer" />
       <button className="app-head-btn primary" onClick={onNew}><Icon name="plus" size={14} />{t('New session', 'Nouvelle session')}</button>
-      {me?.public && <button className="app-head-btn" onClick={() => confirm(t('Leave the demo? Your sandbox and its files are deleted.', 'Quitter la démo ? Ton bac à sable et ses fichiers sont supprimés.')) && leaveDemo()}>{t('Leave demo', 'Quitter la démo')}</button>}
+      {me?.public && <button className="app-head-btn" onClick={() => confirmAsk({ title: t('Leave the demo?', 'Quitter la démo ?'), body: t('Your sandbox and its files are deleted.', 'Ton bac à sable et ses fichiers sont supprimés.'), ok: t('Leave', 'Quitter'), danger: true }).then((yes) => yes && leaveDemo())}>{t('Leave demo', 'Quitter la démo')}</button>}
       {!me?.public && <button className="app-head-btn head-settings" onClick={onSettings} aria-label={t('Settings', 'Réglages')}><Icon name="gear" size={18} /><span>{t('Settings', 'Réglages')}</span></button>}
     </header>
   );

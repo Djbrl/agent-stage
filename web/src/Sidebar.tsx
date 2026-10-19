@@ -2,6 +2,7 @@
 import { useApp } from './useSettings';
 import { ago, shortPath, baseName, leaveDemo } from './api';
 import { Icon } from './icons';
+import { confirmAsk } from './Confirm';
 import { useT, useLang } from './i18n';
 
 export type Nav = { active: string | null; onSelect: (id: string) => void; onNew: () => void; onSettings: () => void };
@@ -51,7 +52,7 @@ export function Sidebar({ active, onSelect, onNew, onSettings, railed, onToggle,
         <div className="side-account">
           <span className="avatar">{(me?.name ?? '?').slice(0, 1).toUpperCase()}</span>
           <div className="who"><div>{me?.name ?? '…'}</div><div className="muted">{me?.public ? t('Online demo · private sandbox', 'Démo en ligne · bac à sable privé') : t('Local · this computer', 'Local · cet ordinateur')}</div></div>
-          {me?.public && <button className="btn ghost sm" onClick={() => confirm(t('Leave the demo? Your sandbox and its files are deleted.', 'Quitter la démo ? Ton bac à sable et ses fichiers sont supprimés.')) && leaveDemo()}>{t('Leave', 'Quitter')}</button>}
+          {me?.public && <button className="btn ghost sm" onClick={() => confirmAsk({ title: t('Leave the demo?', 'Quitter la démo ?'), body: t('Your sandbox and its files are deleted.', 'Ton bac à sable et ses fichiers sont supprimés.'), ok: t('Leave', 'Quitter'), danger: true }).then((yes) => yes && leaveDemo())}>{t('Leave', 'Quitter')}</button>}
           {!me?.public && !embedded && <button className="icon-btn" onClick={onSettings} title={t('Settings', 'Réglages')} aria-label={t('Settings', 'Réglages')}><Icon name="gear" size={15} /></button>}
         </div>
       </div>
