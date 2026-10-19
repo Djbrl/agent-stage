@@ -47,6 +47,9 @@ function Shell() {
     if (threads.length && !active) select(threads[0].id);
   }, [threads]);
 
+  // The server doesn't have the open thread (its file is gone): forget it quietly, open another or the welcome screen.
+  const forget = () => select(threads.find((x) => x.id !== active)?.id ?? null);
+
   const created = (id: string) => { landOnChat(); select(id); if (!defaultsNoted()) setNoting(true); };
   const nav = { active, onSelect: select, onNew: () => setModal('new'), onSettings: () => setModal('settings') };
   const modals = (
@@ -64,7 +67,7 @@ function Shell() {
   );
   if (layout === 'studio' && active) return (
     <div className="shell studio-shell">
-      <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} layout="studio" nav={nav} onLayout={setLayout} />
+      <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} onMissing={forget} layout="studio" nav={nav} onLayout={setLayout} />
       {modals}
     </div>
   );
@@ -73,7 +76,7 @@ function Shell() {
     <div className="shell" style={{ gridTemplateColumns: railed || narrow ? '52px minmax(0, 1fr)' : `${sideW}px 0 minmax(0, 1fr)` }}>
       <Sidebar {...nav} railed={railed || narrow} onToggle={() => setRailed(!railed)} onLayout={() => setLayout('studio')} />
       {!railed && !narrow && <Resizer onDrag={(dx) => setSideW((w) => Math.max(200, Math.min(360, w + dx)))} onReset={() => setSideW(248)} title={t('Drag to resize', 'Glisse pour redimensionner')} />}
-      {active ? <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} /> : (
+      {active ? <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} onMissing={forget} /> : (
         <Welcome onCreated={created} onBrowse={() => setModal('new')} />
       )}
       {modals}
