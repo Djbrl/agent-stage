@@ -209,7 +209,7 @@ export class ClaudeCodeAgent {
             const notYet = this.opts.mode === 'build' && run.wrote ? await doneCheck(this.ctx, this.emit as any, run, this.checkApproved) : null;
             if (notYet) { this.inbox.push(notYet); continue; }
             this.emit({ type: 'done', text: (m.result ?? lastText) + gaveUpNote(run) });
-          } else this.emit({ type: 'error', message: this.stopping ? 'Stopped by you' : m.subtype === 'error_max_turns' ? `Stopped: reached the step limit (${maxSteps} steps)`
+          } else this.emit({ type: 'error', message: this.stopping ? 'Stopped by you' : m.subtype === 'error_max_turns' ? `Stopped: reached the step limit (${maxSteps} steps). Send “continue” to keep going.`
             : 'Claude Code ran into an error and stopped. Send your message again to retry.' });
           ended = true;
           this.inbox.close();

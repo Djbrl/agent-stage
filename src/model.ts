@@ -111,7 +111,7 @@ async function mockChat(messages: Message[], tools: unknown[]): Promise<Message>
     const q = (messages.at(-1)?.content ?? '').split('\n\n').pop();
     return { role: 'assistant', content: `(mock answer) You asked: "${q}". A real model would answer from everything it has seen so far in this run.` };
   }
-  if (tools.some((t: any) => t.function?.name === 'checkpoint')) return mockLearn(messages);
+  if (tools.some((t: any) => t.function?.name === 'checkpoint')) return mockLearn(messages, /in French/.test(String(messages[0]?.content ?? '')));
   if (!tools.some((t: any) => t.function?.name === 'write_file')) {
     // read-only side thread: peek at a file once, then answer
     const q = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
@@ -140,7 +140,9 @@ async function mockChat(messages: Message[], tools: unknown[]): Promise<Message>
 }
 
 // Learn mode demo: explore, ask the learner first, then an implementation checkpoint, then build + report.
-function mockLearn(messages: Message[]): Message {
+// In French when the learner picked French (the system prompt says so), like a real model would.
+function mockLearn(messages: Message[], fr = false): Message {
+  const t = (en: string, frText: string) => (fr ? frText : en);
   const users = messages.filter((m) => m.role === 'user').length;
   const sinceUser = messages.slice(messages.findLastIndex((m) => m.role === 'user') + 1);
   const toolsSince = sinceUser.filter((m) => m.role === 'tool');
@@ -148,26 +150,30 @@ function mockLearn(messages: Message[]): Message {
     ({ role: 'assistant', content, tool_calls: [{ id: `mock-${Math.random().toString(36).slice(2, 8)}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] });
   // "Quiz me": three questions, one per turn, each answer gets feedback.
   const quiz = messages.findLastIndex((m) => m.role === 'user' && String(m.content).includes(QUIZ_START));
+  const Q = fr ? MOCK_QUIZ_FR : MOCK_QUIZ, F = fr ? MOCK_QUIZ_FEEDBACK_FR : MOCK_QUIZ_FEEDBACK;
   if (quiz >= 0) {
     const answered = messages.slice(quiz + 1).filter((m) => m.role === 'user').length;
-    if (answered < MOCK_QUIZ.length) return { role: 'assistant', content: `${answered ? MOCK_QUIZ_FEEDBACK[answered - 1] + '\n\n' : ''}**Question ${answered + 1} of 3.** ${MOCK_QUIZ[answered]}` };
-    return { role: 'assistant', content: `${MOCK_QUIZ_FEEDBACK[2]}\n\n**Score: 3 / 3** for effort: a real model checks each answer against what we built.\n\n✦ What you learned:\n- A module is a file other files import from\n- Keeping logic apart from printing makes it testable` };
+    if (answered < Q.length) return { role: 'assistant', content: `${answered ? F[answered - 1] + '\n\n' : ''}**${t(`Question ${answered + 1} of 3.`, `Question ${answered + 1} sur 3.`)}** ${Q[answered]}` };
+    return { role: 'assistant', content: `${F[2]}\n\n${t('**Score: 3 / 3** for effort: a real model checks each answer against what we built.\n\n✦ What you learned:\n- A module is a file other files import from\n- Keeping logic apart from printing makes it testable',
+      '**Score : 3 / 3** pour l’effort : un vrai modèle vérifie chaque réponse par rapport à ce qu’on a construit.\n\n✦ What you learned:\n- Un module est un fichier dont d’autres fichiers importent du code\n- Séparer la logique de l’affichage la rend testable')}` };
   }
   if (users === 1) {
-    if (!toolsSince.length) return call('list_files', {}, 'Let me look at the project first.');
-    return { role: 'assistant', content: '✦ Build checkpoint: where the greeting logic lives\n\nBefore I write anything: how would **you** split this up? For example, would the greeting text be built in the same file that prints it, or somewhere else?\n\n✦ Concept: module\n\nA module is a file that exports functions other files can import. Splitting code into modules lets you reuse and test pieces separately.' };
+    if (!toolsSince.length) return call('list_files', {}, t('Let me look at the project first.', 'Je regarde d’abord le projet.'));
+    return { role: 'assistant', content: t('✦ Build checkpoint: where the greeting logic lives\n\nBefore I write anything: how would **you** split this up? For example, would the greeting text be built in the same file that prints it, or somewhere else?\n\n✦ Concept: module\n\nA module is a file that exports functions other files can import. Splitting code into modules lets you reuse and test pieces separately.',
+      '✦ Build checkpoint: où vit la logique du message\n\nAvant d’écrire quoi que ce soit : comment **tu** découperais ça ? Par exemple, le texte du message serait-il construit dans le même fichier que celui qui l’affiche, ou ailleurs ?\n\n✦ Concept: module\n\nUn module est un fichier qui exporte des fonctions que d’autres fichiers peuvent importer. Découper le code en modules permet de réutiliser et de tester chaque morceau séparément.') };
   }
   const last = toolsSince.at(-1)?.content ?? '';
   if (!toolsSince.length) return call('checkpoint', {
-    kind: 'implementation', title: 'Greeting module + entry point',
-    summary: 'Following your idea: `src/greet.js` builds the text, `index.js` only prints it. That keeps the logic testable on its own.',
-    additions: [{ detail: 'Empty name', proposal: 'Fall back to "stranger"', why: 'Avoids printing "Hello, !" when no name is given' }],
+    kind: 'implementation', title: t('Greeting module + entry point', 'Module de salutation + point d’entrée'),
+    summary: t('Following your idea: `src/greet.js` builds the text, `index.js` only prints it. That keeps the logic testable on its own.', 'Selon ton idée : `src/greet.js` construit le texte, `index.js` ne fait que l’afficher. La logique reste testable toute seule.'),
+    additions: [{ detail: t('Empty name', 'Nom vide'), proposal: t('Fall back to "stranger"', 'Utiliser « stranger » par défaut'), why: t('Avoids printing "Hello, !" when no name is given', 'Évite d’afficher « Hello, ! » quand aucun nom n’est donné') }],
     files: ['src/greet.js', 'index.js'],
-  }, '✦ Why this matters: separation\n\nIf printing and building the text stay apart, you can change one without breaking the other.');
-  if (/discuss/i.test(last)) return { role: 'assistant', content: 'Good question. Ask me anything about the plan, and when you are ready, tell me to continue.' };
+  }, t('✦ Why this matters: separation\n\nIf printing and building the text stay apart, you can change one without breaking the other.', '✦ Why this matters: la séparation\n\nSi l’affichage et la construction du texte restent séparés, tu peux changer l’un sans casser l’autre.'));
+  if (/discuss/i.test(last)) return { role: 'assistant', content: t('Good question. Ask me anything about the plan, and when you are ready, tell me to continue.', 'Bonne question. Demande-moi ce que tu veux sur le plan, et quand tu es prêt, dis-moi de continuer.') };
   if (toolsSince.length === 1) return call('write_file', { path: 'src/greet.js', content: "export function greet(name) {\n  if (!name) return 'Hello, stranger!';\n  return `Hello, ${name}!`;\n}\n" });
   if (toolsSince.length === 2) return call('write_file', { path: 'index.js', content: "import { greet } from './src/greet.js';\n\nconsole.log(greet(process.argv[2]));\n" });
-  return { role: 'assistant', content: '✦ Implementation report\n\n- **`src/greet.js`** exports `greet(name)`, with the empty-name fallback we agreed.\n- **`index.js`** imports it and prints the result for the name passed on the command line.\n\nI did not run anything yet. Try `node index.js Dakar`.\n\n✦ What you learned:\n- A module exports functions that other files import\n- A fallback value handles input you did not expect' };
+  return { role: 'assistant', content: t('✦ Implementation report\n\n- **`src/greet.js`** exports `greet(name)`, with the empty-name fallback we agreed.\n- **`index.js`** imports it and prints the result for the name passed on the command line.\n\nI did not run anything yet. Try `node index.js Dakar`.\n\n✦ What you learned:\n- A module exports functions that other files import\n- A fallback value handles input you did not expect',
+    '✦ Implementation report\n\n- **`src/greet.js`** exporte `greet(name)`, avec la valeur par défaut pour un nom vide qu’on a choisie.\n- **`index.js`** l’importe et affiche le résultat pour le nom passé en ligne de commande.\n\nJe n’ai encore rien lancé. Essaie `node index.js Dakar`.\n\n✦ What you learned:\n- Un module exporte des fonctions que d’autres fichiers importent\n- Une valeur par défaut gère une entrée inattendue') };
 }
 
 // Sent by the "Quiz me" button (web/src/AgentPanel.tsx sends the same text).
@@ -181,4 +187,14 @@ const MOCK_QUIZ_FEEDBACK = [
   '(demo) A real model would check your answer here. The idea: keeping the logic in its own module lets other files and tests reuse it.',
   '(demo) It returns *Hello, stranger!*: the fallback avoids printing *Hello, !* when no name is given.',
   '(demo) `src/greet.js`: the module that holds the logic, so a test can call it directly.',
+];
+const MOCK_QUIZ_FR = [
+  'Pourquoi `greet()` est dans `src/greet.js` plutôt que dans `index.js` ?',
+  'Que renvoie `greet(\'\')`, et pourquoi a-t-on ajouté ce cas ?',
+  'Pour tester `greet()` sans rien afficher, quel fichier importerais-tu ?',
+];
+const MOCK_QUIZ_FEEDBACK_FR = [
+  '(démo) Un vrai modèle vérifierait ta réponse ici. L’idée : garder la logique dans son propre module permet à d’autres fichiers et aux tests de la réutiliser.',
+  '(démo) Elle renvoie *Hello, stranger!* : la valeur par défaut évite d’afficher *Hello, !* quand aucun nom n’est donné.',
+  '(démo) `src/greet.js` : le module qui contient la logique, pour qu’un test puisse l’appeler directement.',
 ];

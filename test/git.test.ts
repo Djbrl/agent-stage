@@ -80,7 +80,7 @@ test('Keep commits only the task files, and the user\'s staged work stays staged
   assert.equal(git(dir, 'log', '-1', '--format=%s'), 'Add c and update a');
   assert.deepEqual(git(dir, 'show', '--name-only', '--format=', 'HEAD').split('\n').sort(), ['a.txt', 'c.txt']);
   assert.equal(git(dir, 'status', '--porcelain'), 'M  b.txt');
-  await assert.rejects(commitFiles(dir, ['a.txt'], 'again'), /Nothing to keep/);
+  await assert.rejects(commitFiles(dir, ['a.txt'], 'again'), /Nothing to save/);
 });
 
 test('no checkpoint outside a repo, until version history is turned on', async (t) => {

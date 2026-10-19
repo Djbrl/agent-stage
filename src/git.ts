@@ -61,7 +61,7 @@ export async function diffSince(dir: string, id: string, paths: string[]) {
 
 // Keep: commit just these files on the user's current branch. Their own staged work on other files stays staged.
 export async function commitFiles(dir: string, paths: string[], message: string) {
-  if (!(await git(dir, ['status', '--porcelain', '--', ...paths]))) throw new Error('Nothing to keep: these changes are already committed.');
+  if (!(await git(dir, ['status', '--porcelain', '--', ...paths]))) throw new Error('Nothing to save: this version is already saved.');
   await git(dir, ['add', '-A', '--', ...paths]);
   const args = ['commit', '-q', '-m', message, '--', ...paths];
   await git(dir, args).catch((e) => {

@@ -55,7 +55,9 @@ export async function summarizeFile(cfg: ModelConfig, s: Settings, root: string,
   if (cached) return cached;
   const code = (await readFile(full, 'utf8')).split('\n').slice(0, 200).join('\n');
   const summary = cfg.kind === 'mock' || cfg.apiKey === 'mock'
-    ? `${path.split('/').pop()}: ${code.split('\n').length} lines. ${/export/.test(code) ? 'Defines code other files import.' : 'Standalone file.'}`
+    ? (s.learn.language === 'fr'
+      ? `${path.split('/').pop()} : ${code.split('\n').length} lignes. ${/export/.test(code) ? 'Définit du code que d’autres fichiers importent.' : 'Fichier autonome.'}`
+      : `${path.split('/').pop()}: ${code.split('\n').length} lines. ${/export/.test(code) ? 'Defines code other files import.' : 'Standalone file.'}`)
     : await ask(cfg, `Summarize what a source file is FOR in one sentence (max 25 words), for a learner. ${level(s)}${lang(s)}`, `File: ${path}\n\n${code}`);
   await writeFile(join(CACHE, `${key}.txt`), summary);
   return summary;
@@ -63,7 +65,10 @@ export async function summarizeFile(cfg: ModelConfig, s: Settings, root: string,
 
 export async function explainChange(cfg: ModelConfig, s: Settings, path: string, before: string, after: string) {
   if (cfg.kind === 'mock' || cfg.apiKey === 'mock') {
-    return `✦ Concept: what changed\n\nThe agent changed **${path}**: ${after.split('\n').length - before.split('\n').length} net lines. A real model would walk through each change here and the idea behind it.`;
+    const n = after.split('\n').length - before.split('\n').length;
+    return s.learn.language === 'fr'
+      ? `✦ Concept: ce qui a changé\n\nL’agent a modifié **${path}** : ${n} lignes de plus au total. Un vrai modèle expliquerait ici chaque changement et l’idée derrière.`
+      : `✦ Concept: what changed\n\nThe agent changed **${path}**: ${n} net lines. A real model would walk through each change here and the idea behind it.`;
   }
   return ask(cfg,
     `You explain a code change to a learner. ${level(s)} Use short paragraphs. Start with what the change does, then walk through the important lines, then name the main concept as a paragraph starting "✦ Concept: <name>". Max 180 words.${lang(s)}`,

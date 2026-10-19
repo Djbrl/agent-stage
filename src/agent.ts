@@ -211,7 +211,7 @@ export class Agent {
           this.recent = [];
         }
       }
-      this.emit({ type: 'error', message: `Stopped: reached the step limit (${maxSteps} steps)` });
+      this.emit({ type: 'error', message: `Stopped: reached the step limit (${maxSteps} steps). Send “continue” to keep going.` });
     } catch (e: any) {
       this.emit({ type: 'error', message: this.abort.signal.aborted ? 'Stopped by you' : e.message });
     } finally {

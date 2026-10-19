@@ -223,7 +223,7 @@ app.post('/api/threads/import', async (c) => {
   await saveThread(t);
   return c.json({ id: t.id });
 });
-const READ_ONLY = 'This is a shared session: you can replay it, not run it. Start a new thread to work on your own project.';
+const READ_ONLY = 'This is a shared session: you can replay it, not run it. Start a new session to work on your own project.';
 const readOnly = (l: Live) => Boolean(l.thread.shared);
 app.post('/api/threads', async (c) => {
   const { folder: picked, mode, providerId, scratch, guide } = await c.req.json().catch(() => ({}));
@@ -362,7 +362,7 @@ async function filesOfTasksFrom(l: Live, ref: string): Promise<Set<string> | nul
   return paths;
 }
 app.post(`${T}/task`, withThread((l, { task }) => {
-  if (l.agent.running) return { error: 'agent is busy' };
+  if (l.agent.running) return { error: 'The agent is already working. Wait for it to finish, or stop it.' };
   void runTask(l, task);
 }));
 app.post(`${T}/undo`, async (c) => {
@@ -476,7 +476,7 @@ app.post(`${T}/context`, withThread(async (l, { action }) => {
     const ev = l.thread.events as any[];
     const transcript = ev.map((e) => e.type === 'user' ? `User: ${e.text}` : e.type === 'done' ? `Agent: ${e.text}` : e.type === 'label' ? `  step: ${e.label}` : e.type === 'context' && e.summary ? `Earlier summary:\n${e.summary}` : '').filter(Boolean).join('\n');
     summary = await summarizeThread(toConfig(provider(l.thread.providerId)), transcript).catch(() => undefined);
-    if (!summary) return { error: 'Could not write the summary. Try again, or clear instead.' };
+    if (!summary) return { error: 'Could not write the summary. Try again, or start fresh instead.' };
   }
   if (l.agent instanceof ClaudeCodeAgent) { l.agent.sessionId = undefined; l.agent.fork = false; l.thread.sessionId = undefined; }
   else l.agent.messages = l.agent.messages.slice(0, 1); // keep the system prompt
@@ -489,7 +489,7 @@ app.post(`${T}/checkpoint`, withThread((l, { id, choice, text }) => {
   l.checkpoints.delete(id);
 }));
 app.post(`${T}/mode`, withThread((l, { mode }) => {
-  if (l.agent.running) return { error: 'agent is busy' };
+  if (l.agent.running) return { error: 'The agent is already working. Wait for it to finish, or stop it.' };
   l.thread.mode = mode === 'learn' ? 'learn' : 'build';
   l.agent.setOptions({ mode: l.thread.mode });
   persist(l);
