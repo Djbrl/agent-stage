@@ -1,4 +1,7 @@
-# agent-stage *(temporary name)*
+# Codetandem
+
+*You steer. It pedals.* Formerly called agent-stage; the repository, the data folder `~/.agent-stage` and the npm
+package still use the old name.
 
 [![CI](https://github.com/Djbrl/agent-stage/actions/workflows/ci.yml/badge.svg)](https://github.com/Djbrl/agent-stage/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Djbrl/agent-stage)](https://github.com/Djbrl/agent-stage/releases/latest)
@@ -15,7 +18,7 @@ offline or classroom use with no API bill) or on **Claude**.
 > Open Source × AI Hackathon 2026 (Galsen Dev): track **Éducation & apprentissage**.
 
 **En bref.** De plus en plus de développeurs et d'étudiants livrent du code écrit par une IA qu'ils ne savent ni lire,
-ni expliquer, ni corriger : l'IA fait le travail et ils n'apprennent rien. agent-stage garde l'humain dans la boucle.
+ni expliquer, ni corriger : l'IA fait le travail et ils n'apprennent rien. Codetandem garde l'humain dans la boucle.
 L'agent se déplace sur une carte de votre projet, le mode Apprendre (par défaut) l'arrête pour vous demander votre avis
 avant d'écrire du code, chaque étape est expliquée en mots simples, et vous pouvez demander « pourquoi », rejouer et
 annuler. Il fonctionne avec des modèles ouverts (Qwen3-Coder sur notre GPU, Ollama hors ligne, sans facture d'API) ou
@@ -34,7 +37,7 @@ diff at the end, so it is hard to see *where* the agent is, why it chose what it
 code. And most of them are tied to one paid, proprietary model, which keeps them out of many classrooms.
 
 ## The solution
-agent-stage makes the agent's work **visible, interruptible and teachable**, so the learner stays the one who decides
+Codetandem makes the agent's work **visible, interruptible and teachable**, so the learner stays the one who decides
 and understands.
 
 **Learn while it builds**
@@ -48,7 +51,7 @@ and understands.
 - **Lesson notes.** Download any thread as a study sheet: what you asked, the decisions you made, the ideas explained,
   what you learned, the quiz, the files changed and the checks run. It is built from the session itself, so it costs
   nothing and invents nothing.
-- **Share a session.** Export a thread as a file; anyone can open it in agent-stage and replay it step by step on the
+- **Share a session.** Export a thread as a file; anyone can open it in Codetandem and replay it step by step on the
   map, read-only. A teacher can show how a feature was built, and a student can show how they got there.
 
 **See it work**
@@ -149,7 +152,7 @@ for Keep, and the summary when you compact a thread. On your own GPU all of that
 
 **Why open-weight models first.** A learner or a school should be able to run the whole thing on hardware they control:
 Ollama on a laptop or a lab machine, or one GPU shared by a class, with no per-token bill and no code leaving the
-building. Claude is supported for the strongest results, but nothing in agent-stage depends on it.
+building. Claude is supported for the strongest results, but nothing in Codetandem depends on it.
 
 AI tools used to build it (Claude Code, Mobbin MCP) are listed in
 [docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md).
