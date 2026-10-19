@@ -814,3 +814,25 @@ input[type=radio], input[type=checkbox] { accent-color: var(--accent); }
 .composer.shared-note { padding: 12px; font-size: 12.5px; color: var(--dim); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .composer.shared-note .btn { white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
 .btn.disabled { opacity: .4; pointer-events: none; }
+
+/* ── tips & disclosure ── */
+.tip { position: fixed; z-index: 55; width: 260px; display: flex; flex-direction: column; gap: 8px; padding: 11px 12px 9px; border-radius: 10px; cursor: default;
+  background: var(--raised); border: 1px solid var(--line); color: var(--text); font-size: 12.5px; line-height: 1.5;
+  box-shadow: 0 12px 36px rgb(0 0 0 / calc(0.55 * var(--shadow-k))); animation: tip-in .22s ease-out both; }
+.tip-ok { align-self: flex-end; height: 24px; color: var(--accent-ink); }
+.tip::before { content: ''; position: absolute; width: 10px; height: 10px; background: var(--raised); border: 1px solid var(--line); transform: rotate(45deg); }
+.tip-below::before { top: -6px; left: calc(var(--arrow) - 5px); border-right: 0; border-bottom: 0; }
+.tip-above::before { bottom: -6px; left: calc(var(--arrow) - 5px); border-left: 0; border-top: 0; }
+.tip-right::before { left: -6px; top: calc(var(--arrow) - 5px); border-right: 0; border-top: 0; }
+.tip-left::before { right: -6px; top: calc(var(--arrow) - 5px); border-left: 0; border-bottom: 0; }
+@keyframes tip-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.tools-in { animation: tools-in .35s ease-out both; }
+@keyframes tools-in { from { opacity: 0; } to { opacity: 1; } }
+.studio-tabs button { animation: tools-in .3s ease-out both; }
+.studio-mini { margin-left: 0; }
+.map-empty { padding: 0 24px; text-align: center; }
+.token-meter { transition: opacity .2s; }
+.token-meter.quiet { opacity: 0; }
+.composer:hover .token-meter.quiet, .composer:focus-within .token-meter.quiet { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .tip, .tools-in, .studio-tabs button { animation: none; } }
+/* ── /tips & disclosure ── */

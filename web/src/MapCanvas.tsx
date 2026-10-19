@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { hierarchy, pack, type HierarchyCircularNode } from 'd3-hierarchy';
 import type { State } from './useAgent';
 import { boxOfPts, camToView, isCut, shouldMove, viewFor, viewToCam, DIRECTOR, type Safe } from './director';
+import { useT } from './i18n';
 
 type MapFile = { path: string; lines: number; mtime: number };
 type MapData = { files: MapFile[]; edges: { from: string; to: string }[] };
@@ -104,20 +105,22 @@ function layout(files: MapFile[]) {
 }
 
 // ── component ───────────────────────────────────────────────────────────────
-export type MapApi = { fit: () => void; follow: () => void };
+export type MapApi = { fit: () => void; follow: () => void; marker: () => DOMRect | null };
 
 export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap, following, onFollowChange, api, lit = [] }: {
   state: State; onSelect: (path: string) => void; selected: string | null; mapUrl: string;
   insets: { right: number; bottom: number; top: number; left?: number }; readmap: boolean;
   following: boolean; onFollowChange: (f: boolean) => void; api?: { current: MapApi | null }; lit?: string[];
 }) {
+  const t = useT();
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const mini = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<MapData>({ files: [], edges: [] });
   const setFollowing = onFollowChange;
-  const live = useRef({ state, selected, following, data, onSelect, insets, lit });
-  live.current = { state, selected, following, data, onSelect, insets, lit };
+  const names: Record<string, string> = { $workspace: t('scan & search', 'exploration'), $terminal: t('terminal', 'terminal'), $browser: t('browser', 'navigateur') };
+  const live = useRef({ state, selected, following, data, onSelect, insets, lit, names });
+  live.current = { state, selected, following, data, onSelect, insets, lit, names };
 
   // Re-read the map whenever the agent finishes a step, or an Undo puts files back.
   const doneSteps = state.steps.filter((s) => s.endedAt).length;
@@ -192,7 +195,16 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
     const moveTo = (to: Cam) => { v.camAnim = { from: { ...v.cam }, to, t0: performance.now() }; };
     v.fitAll = () => { if (Object.keys(v.lay.files).length) moveTo(fit(v.lay.bounds)); };
     v.fitNow = () => { if (v.w) { v.camAnim = null; v.cam = fit(v.lay.bounds); v.fitted = true; } };
-    if (api) api.current = { fit: () => { takeOver(); v.fitAll(); }, follow: () => { v.userAt = 0; setFollowing(true); lastDirect = 0; outSince = 1; } };
+    if (api) api.current = { fit: () => { takeOver(); v.fitAll(); }, follow: () => { v.userAt = 0; setFollowing(true); lastDirect = 0; outSince = 1; },
+      // Where the agent's dot is on screen (for the tip that introduces it), or null when it's out of view.
+      marker: () => {
+        const at = v.target ? where(v.target) : undefined;
+        const p = v.marker ? markerPos(v.marker, performance.now()) : at;
+        if (!p) return null;
+        const r = cv.getBoundingClientRect();
+        const x = r.left + p.x * v.cam.k + v.cam.x, y = r.top + p.y * v.cam.k + v.cam.y;
+        return x < r.left || x > r.right || y < r.top || y > r.bottom ? null : new DOMRect(x - 9, y - 9, 18, 18);
+      } };
     const ro = new ResizeObserver(resize);
     ro.observe(wrap.current!);
     resize();
@@ -277,10 +289,12 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
 
       // islands
       for (const [key, is] of Object.entries(lay.islands)) {
+        // Only the kinds of tool this thread has actually used (or where the agent stands now).
+        if (v.marker?.target !== key && !st.steps.some((s) => s.target === key)) continue;
         ctx.beginPath(); ctx.arc(is.x, is.y, is.r, 0, Math.PI * 2);
         ctx.setLineDash([2 * px, 3 * px]); ctx.strokeStyle = rgba(C.line, C.hub); ctx.lineWidth = px; ctx.stroke(); ctx.setLineDash([]);
         const on = v.marker?.target === key;
-        label(ctx, is.label, is.x + is.r + 7 * px, is.y + 3.5 * px, px, 10.5, on ? C.ink : rgba(C.text, C.hubLabel), 'left', 500);
+        label(ctx, live.current.names[key] ?? is.label, is.x + is.r + 7 * px, is.y + 3.5 * px, px, 10.5, on ? C.ink : rgba(C.text, C.hubLabel), 'left', 500);
       }
 
       // import lines, only for the hovered/selected file
@@ -531,7 +545,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
   return (
     <div className="map-wrap" ref={wrap}>
       <canvas ref={canvas} />
-      {data.files.length === 0 && !state.planned.length && <div className="map-empty">Empty workspace. Give the agent a task to start.</div>}
+      {data.files.length === 0 && !state.planned.length && <div className="map-empty" style={{ left: insets.left ?? 0, top: insets.top }}>{t('Empty folder. The map draws itself as the agent works.', 'Dossier vide. La carte se dessine pendant que l’agent travaille.')}</div>}
       {readmap && Object.keys(lay.files).length > 0 && (
         <div className="readmap" title="Lit by what the agent reads. The box is your view.">
           <div className="rm-head"><span>Reads</span><span className="rm-count mono" /></div>
