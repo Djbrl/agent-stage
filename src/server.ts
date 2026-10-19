@@ -111,6 +111,15 @@ function open(id: string): Promise<Live | null> {
 async function load(id: string): Promise<Live | null> {
   const thread = await loadThread(id);
   if (!thread) return null;
+  // A restart in the middle of a task leaves steps that never ended: close them, so nothing spins forever.
+  const ended = new Set(thread.events.filter((e: any) => e.type === 'tool_end').map((e: any) => e.id));
+  const dangling = thread.events.filter((e: any) => e.type === 'tool_start' && !ended.has(e.id)) as any[];
+  if (dangling.length) {
+    const at = Date.now();
+    for (const d of dangling) thread.events.push({ type: 'tool_end', id: d.id, name: d.name, ok: false, output: 'Stopped: Codetandem restarted before this step finished.', at } as any);
+    thread.events.push({ type: 'idle', at } as any);
+    await saveThread(thread);
+  }
   const l: Live = { thread, agent: null!, emit: null!, listeners: new Set(), approvals: new Map(), checkpoints: new Map() };
   const emit = (event: AgentEvent) => {
     if (event.type === 'usage') {

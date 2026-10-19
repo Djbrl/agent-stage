@@ -161,7 +161,7 @@ function reduce(s: State, a: Action): State {
       return { ...s, concepts: [...seen.values()], timeline: [...s.timeline, { kind: 'learned', concepts: e.concepts, exercise: e.exercise, at: e.at }] };
     }
     case 'idle':
-      return { ...s, running: false, approval: null };
+      return { ...s, running: false, approval: null, steps: closeOpen(s.steps, e.at) };
     case 'task_end':
       return { ...s, changed: { ...s.changed, [e.ref]: e.files } };
     case 'restored': {
@@ -171,9 +171,9 @@ function reduce(s: State, a: Action): State {
       return { ...s, files, changes, undone: [...s.undone, e.ref], timeline: [...s.timeline, { kind: 'restored', files: e.files, at: e.at }] };
     }
     case 'done':
-      return { ...s, running: false, approval: null, planned: [], snapshot: null, timeline: [...s.timeline, { kind: 'done', text: e.text, at: e.at, ref: s.snapshot ?? undefined }] };
+      return { ...s, running: false, approval: null, planned: [], snapshot: null, steps: closeOpen(s.steps, e.at), timeline: [...s.timeline, { kind: 'done', text: e.text, at: e.at, ref: s.snapshot ?? undefined }] };
     case 'error': // stopped or out of steps: its changes stay, so it gets an Undo too
-      return { ...s, running: false, approval: null, planned: [], snapshot: null, timeline: [...s.timeline, { kind: 'error', text: e.message, at: e.at, ref: s.snapshot ?? undefined }] };
+      return { ...s, running: false, approval: null, planned: [], snapshot: null, steps: closeOpen(s.steps, e.at), timeline: [...s.timeline, { kind: 'error', text: e.message, at: e.at, ref: s.snapshot ?? undefined }] };
     default:
       // usage and any event a newer server sends: nothing to draw. Never return undefined (that blanks the app).
       return s;
@@ -304,4 +304,10 @@ export function useAgent(threadId: string, onMissing?: () => void) {
     resetContext: (action: 'clear' | 'compact') => post('context', { action }).then((r) => r.json()).then((j) => (j.error as string | undefined) ?? null, () => 'Could not reach the server'), // shown through serverText
     setMode: (mode: 'build' | 'learn') => post('mode', { mode }).then(() => setMeta({ ...meta, mode })),
   };
+}
+
+// Once a task is over (done, stopped, or the session went idle), a step that never reported back didn't finish:
+// show it as stopped instead of spinning forever.
+function closeOpen(steps: Step[], at: number): Step[] {
+  return steps.some((x) => x.ok === undefined) ? steps.map((x) => (x.ok === undefined ? { ...x, ok: false, endedAt: at, output: x.output ?? 'Stopped before it finished.' } : x)) : steps;
 }
