@@ -293,19 +293,26 @@ function Notes({ threadId, onOpen }: { threadId: string; onOpen: (id: string, ti
   const [notes, setNotes] = useState<Note[] | null>(null);
   const load = () => fetch(`/api/threads/${threadId}/scratch-notes`).then((r) => r.json()).then((n) => setNotes(Array.isArray(n) ? n.sort((a, b) => b.updatedAt - a.updatedAt) : [])).catch(() => setNotes([]));
   useEffect(() => { void load(); }, [threadId]);
-  const remove = (n: Note) => { if (!confirm(t(`Delete the note “${n.title}”?`, `Supprimer la note « ${n.title} » ?`))) return; fetch(`/api/threads/${n.id}`, { method: 'DELETE' }).then(load); };
+  const [asking, setAsking] = useState<string | null>(null); // the note whose × was pressed: it asks inline
+  const remove = (n: Note) => { setAsking(null); fetch(`/api/threads/${n.id}`, { method: 'DELETE' }).then(load); };
   if (!notes?.length) return null;
   return (
     <div className="sp-notes">
       <div className="sp-notes-head">{t('Your notes', 'Tes notes')}</div>
       {notes.map((n) => (
-        <div key={n.id} className="sp-note">
+        asking === n.id ? (
+          <div key={n.id} className="sp-note asking">
+            <span className="sp-note-q">{t('Delete this note?', 'Supprimer cette note ?')}</span>
+            <button className="btn ghost sm" onClick={() => setAsking(null)}>{t('Keep', 'Garder')}</button>
+            <button className="btn sm danger-solid" onClick={() => remove(n)}>{t('Delete', 'Supprimer')}</button>
+          </div>
+        ) : <div key={n.id} className="sp-note">
           <button className="sp-note-open" onClick={() => onOpen(n.id, n.title)}>
             {n.sketch ? <img src={`/api/shots/${n.sketch}`} alt="" /> : <span className="sp-note-icon"><Icon name="write" size={13} /></span>}
             <span className="sp-note-title">{n.title || t('Note', 'Note')}</span>
             <span className="muted sp-note-when">{ago(n.updatedAt, fr)}</span>
           </button>
-          <button className="icon-btn sp-note-del" onClick={() => remove(n)} title={t('Delete this note', 'Supprimer cette note')} aria-label={t('Delete', 'Supprimer')}><Icon name="x" size={12} /></button>
+          <button className="icon-btn sp-note-del" onClick={() => setAsking(n.id)} title={t('Delete this note', 'Supprimer cette note')} aria-label={t('Delete', 'Supprimer')}><Icon name="x" size={12} /></button>
         </div>
       ))}
     </div>

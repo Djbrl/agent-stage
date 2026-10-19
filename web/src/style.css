@@ -1467,14 +1467,9 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .gs-big > span { display: flex; flex-direction: column; gap: 4px; }
 .gs-big .muted { font-size: 12.5px; }
 .git-setup .check a { color: var(--accent-ink); }
-/* the ✦: colour by model family, grey when the model can't answer */
+/* the ✦: blue when ready, grey when the model can't answer */
 .spark-btn:disabled { opacity: 1; }
-.spark-btn.fam-claude { background: #ff5a1f; color: #fff; } .spark-btn.fam-claude:hover:not(:disabled) { background: #e84d14; }
-.spark-btn.fam-open { background: #2f45e8; color: #fff; }
-.spark-btn.fam-demo { background: #c8f169; color: #141414; } .spark-btn.fam-demo:hover:not(:disabled) { background: #b5e34f; }
 .spark-btn.off, .spark-btn.off:hover:not(:disabled) { background: var(--line-strong); color: var(--surface); }
-.fam-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.fam-dot.fam-claude { background: #ff5a1f; } .fam-dot.fam-open { background: #2f45e8; } .fam-dot.fam-demo { background: #9ccc3c; }
 .picker-gpu { border-top: 1px solid var(--line-soft); margin-top: 4px; padding: 8px 4px 2px; }
 /* Scratchpad: notes list, tips under the drawing, the Notes button */
 .sp-back { position: absolute; top: 10px; left: 12px; z-index: 2; height: 28px; gap: 6px; color: var(--dim); }
@@ -1490,3 +1485,64 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .sp-note-when { font-size: 12px; flex-shrink: 0; }
 .sp-note-del { margin: 0 6px 0 0; opacity: 0; }
 .sp-note:hover .sp-note-del, .sp-note-del:focus-visible { opacity: 1; }
+/* the app's own confirm dialog, and the inline one for deleting a note */
+.confirm-modal { width: min(400px, calc(100vw - 32px)); }
+.confirm-modal .modal-body { padding: 20px 20px 8px; }
+.confirm-modal .modal-foot { border-top: 0; padding: 12px 20px 18px; }
+.confirm-modal .modal-foot .btn { height: 34px; padding: 0 16px; }
+.cf-title { font-weight: 600; font-size: 15.5px; line-height: 1.4; }
+.cf-body { margin: 6px 0 0; color: var(--dim); font-size: 13.5px; line-height: 1.5; }
+.btn.danger-solid { background: var(--error); color: #fff; border-color: transparent; }
+.btn.danger-solid:hover:not(:disabled) { background: var(--error-ink); }
+.sp-note.asking { padding: 6px 6px 6px 12px; gap: 6px; background: var(--hover); }
+.sp-note-q { flex: 1; font-size: 13.5px; font-weight: 500; }
+.sp-note.asking .btn { height: 28px; }
+/* a system line in the chat (the model changed) */
+.sys-note { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 12.5px; color: var(--text-2); text-align: center; }
+.sys-note .sys-line { flex: 1; height: 1px; background: var(--line); min-width: 16px; }
+.sys-note > span:not(.sys-line) { max-width: 80%; }
+/* Steps list: the step the map shows, later steps faded, a hint at the end */
+.srow.later { opacity: .45; }
+.srow.now { background: var(--hover); font-weight: 600; }
+.srow-hint { font-size: 12px; text-align: center; padding: 10px 8px 4px; }
+/* What you learned, v2: a white card with a lime header, numbered ideas, and the exercise in its own block */
+.learned, :root[data-theme="light"] .learned { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 0; gap: 0; overflow: hidden; font-size: 14px; }
+.learned-head, :root[data-theme="light"] .learned-head { background: var(--lime); color: #141414; padding: 10px 16px; font-size: 15px; }
+:root[data-theme="light"] .learned-head .icon, .learned-head .icon { color: #141414; }
+.learned-list { padding: 12px 16px 4px; gap: 10px; }
+.learned-list li { flex-direction: row; gap: 10px; align-items: flex-start; }
+.learned-list li > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.learned-n { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; background: var(--hover); color: var(--text); font-weight: 700; font-size: 12px; }
+.learned-list b { font-weight: 600; color: var(--text); }
+.learned-list span, :root[data-theme="light"] .learned-list span { color: var(--text-2); line-height: 1.5; }
+.learned-list .learned-n { color: var(--text); }
+.learned-try, :root[data-theme="light"] .learned-try { display: flex; flex-direction: column; gap: 6px; margin: 10px 12px 12px; padding: 12px 14px; border: 0; border-radius: 14px; background: color-mix(in srgb, var(--lime) 28%, var(--surface)); color: var(--text); }
+.learned-try p { margin: 0; line-height: 1.5; }
+.learned-try.done p { color: var(--dim); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text) 30%, transparent); }
+.learned-label, :root[data-theme="light"] .learned-label { color: #141414; font-weight: 700; font-size: 12.5px; margin: 0; }
+:root[data-theme="dark"] .learned-label { color: var(--text); }
+.learned-try-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.learned-check { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 8px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); font: 600 12.5px var(--sans); cursor: pointer; }
+.learned-check .box { width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--line-strong); display: grid; place-items: center; }
+.learned-check.on { background: var(--text); color: var(--on-text); border-color: transparent; }
+.learned-check.on .box { border-color: transparent; background: var(--lime); color: #141414; }
+.learned-try-actions .btn { gap: 6px; }
+.learned-sofar { padding: 0 16px 12px; }
+/* What you learned, v3: the landing page's lime card */
+.learned, :root[data-theme="light"] .learned { background: var(--lime); border: 0; border-radius: 22px; padding: 14px 16px 12px; gap: 10px; overflow: visible; font-size: 14px; color: #141414; box-shadow: 0 10px 28px rgb(0 0 0 / calc(.12 * var(--shadow-k))); }
+.learned-head, :root[data-theme="light"] .learned-head { background: none; padding: 0; font: 800 16px var(--display); font-stretch: 108%; color: #141414; }
+.learned-chips2 { display: flex; flex-wrap: wrap; gap: 6px; }
+.learned-chips2 button, .learned-chips2 span { border: 0; background: #fff; color: #141414; border-radius: 999px; padding: 6px 14px; font: 600 14px var(--sans); cursor: pointer; }
+.learned-chips2 button:hover { background: #f4f4ee; }
+.learned-chips2 button.on { background: #141414; color: #fff; }
+.learned-chips2.small span { font-size: 12.5px; padding: 4px 10px; cursor: default; }
+.learned-line { margin: 0; background: #fff; border-radius: 14px; padding: 10px 14px; line-height: 1.5; color: #141414; }
+.learned-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; line-height: 1.45; color: #141414; }
+.learned-row b { font-weight: 700; }
+.learned-quiz { border: 0; background: #141414; color: #fff; border-radius: 999px; height: 34px; padding: 0 16px; font: 700 14px var(--sans); cursor: pointer; white-space: nowrap; }
+.learned-quiz:hover { background: #2a2a28; }
+.learned-foot { display: flex; align-items: center; gap: 8px; }
+.learned-foot .learned-more, :root[data-theme="light"] .learned-foot .learned-more { color: #3a3a36; }
+.learned-save { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: rgba(20,20,20,.08); color: #141414; font: 600 12.5px var(--sans); cursor: pointer; }
+.learned-save:hover:not(:disabled) { background: rgba(20,20,20,.14); }
+.learned-save:disabled { cursor: default; }

@@ -440,7 +440,7 @@ function Learning() {
   const ins = settings.insights ?? 'auto';
   return (
     <>
-      <p className="set-intro">{t('How Guide me teaches you. Changes apply to your next message.', 'Comment Guide-moi t’apprend. Les changements s’appliquent à ton prochain message.')}</p>
+      <p className="set-intro">{t('How Tandem mode teaches you. Changes apply to your next message.', 'Comment le mode Tandem t’apprend. Les changements s’appliquent à ton prochain message.')}</p>
       <Section title={t('About you', 'Toi')}>
         <Row label={t('Your level', 'Ton niveau')} desc={{ beginner: t('It defines terms the first time they come up.', 'Il définit les termes la première fois qu’ils apparaissent.'), intermediate: t('It focuses on how the parts fit together.', 'Il se concentre sur comment les parties s’assemblent.'), advanced: t('It digs into assumptions, edge cases and what can break.', 'Il creuse les hypothèses, les cas limites et ce qui peut casser.') }[l.level]}>
           <Seg value={l.level} onChange={(v) => setL({ level: v })} options={[['beginner', t('Beginner', 'Débutant')], ['intermediate', t('Some basics', 'Les bases')], ['advanced', t('Experienced', 'Expérimenté')]]} />
@@ -453,7 +453,7 @@ function Learning() {
         </Row>
       </Section>
       <Section title={t('While it works', 'Pendant qu’il travaille')}>
-        <Row label={t('How often it stops for you', 'Il s’arrête pour toi')} desc={t('In Guide me, how often it pauses to check you follow or let you decide.', 'En Guide-moi, à quelle fréquence il fait une pause pour vérifier que tu suis ou te laisser décider.')}>
+        <Row label={t('How often it stops for you', 'Il s’arrête pour toi')} desc={t('In Tandem, how often it pauses to check you follow or let you decide.', 'En Tandem, à quelle fréquence il fait une pause pour vérifier que tu suis ou te laisser décider.')}>
           <Seg value={l.frequency} onChange={(v) => setL({ frequency: v })} options={[['light', t('Rarely', 'Peu')], ['normal', t('Normal', 'Normal')], ['frequent', t('Often', 'Souvent')]]} />
         </Row>
         <Row label={t('Plain-words step names', 'Étapes en mots simples')} desc={ins === 'on' ? t('Always on. One small extra model call per step on paid APIs.', 'Toujours. Un petit appel au modèle en plus par étape, sur les API payantes.') : ins === 'off' ? t('Steps show the raw tool names.', 'Les étapes montrent le nom brut des outils.') : t('Names steps like “Reads the login page”. On when the model is free to run.', 'Nomme les étapes comme « Lit la page de connexion ». Actif quand le modèle est gratuit.')}>
@@ -518,7 +518,7 @@ function About() {
       </Section>
       <Section title={t('Credits', 'Crédits')}>
         <Row label={t('Licence', 'Licence')}><span className="muted">MIT</span></Row>
-        <Row label={t('Guide me', 'Guide-moi')} desc={t('Its teaching prompts are adapted from VibeWise.', 'Ses consignes d’enseignement sont adaptées de VibeWise.')}><span className="muted">VibeWise (MIT)</span></Row>
+        <Row label={t('Tandem mode', 'Mode Tandem')} desc={t('Its teaching prompts are adapted from VibeWise.', 'Ses consignes d’enseignement sont adaptées de VibeWise.')}><span className="muted">VibeWise (MIT)</span></Row>
       </Section>
     </>
   );

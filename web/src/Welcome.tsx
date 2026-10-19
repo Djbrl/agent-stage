@@ -1,7 +1,7 @@
 // The start screen when no session is open (open a project or try the guided demo); the first run gets the full-screen
 // Onboarding in Onboarding.tsx instead. Also the two small
 // things that sit above the composer of a new thread: starter ideas for the guided demo and a one-time note
-// about the defaults (Guide me, the active model).
+// about the defaults (Tandem mode, the active model).
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { get, send, baseName, shortPath } from './api';
 import { useApp } from './useSettings';
@@ -116,8 +116,8 @@ export function StarterIdeas({ id }: { id: string }) {
         })}
       </div>
       <div className="idea-legend">
-        <span><i className="lg-word learn">{t('Learn', 'Apprendre')}</i>{t('it asks before it writes', 'il demande avant d’écrire')}</span>
-        <span><i className="lg-word build">{t('Build', 'Construire')}</i>{t('it just does it', 'il le fait')}</span>
+        <span><i className="lg-word learn">Tandem</i>{t('it asks before it writes', 'il demande avant d’écrire')}</span>
+        <span><i className="lg-word build">Solo</i>{t('it just does it', 'il le fait')}</span>
         <span><i className="lg spark">✦</i>{t('The engine', 'Le moteur')}</span>
       </div>
       <button className="icon-btn idea-x" onClick={done} aria-label={t('Hide', 'Masquer')}><Icon name="x" size={12} /></button>

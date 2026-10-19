@@ -46,7 +46,7 @@ test('callouts accepts a concept written on one line, in bold', () => {
 test('lesson notes gather the session into a study sheet', () => {
   const md = lessonNotes(thread(EVENTS));
   assert.match(md, /^# Greeting module\n/);
-  assert.match(md, /Learn mode · project `greeter`/);
+  assert.match(md, /Tandem mode · project `greeter`/);
   assert.match(md, /## What you asked\n\n> Build a greeter/);
   assert.match(md, /## Decisions\n\n- \*\*Implementation: Greeting module\*\*: Put greet\(\) in src\/greet\.js\. \*\(you approved it\)\*/);
   assert.match(md, /### module\n\nA module is a file that exports functions\.\nOther files import them\./);

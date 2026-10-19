@@ -29,13 +29,13 @@ const PAL: Record<'dark' | 'light', Pal> = {
     hot: '#ff5b1f', warm: '#ffa66e', red: '#f2555a', amber: '#f5b84a', accent: '#7b8cff', ink: '#e8e9ec', halo: 'rgba(15,16,17,0.88)',
     importOut: 'rgba(95,168,255,0.75)', importIn: 'rgba(62,207,142,0.75)', read: '#6b8fc4', ripple: '#ff8c50', markerRing: '#0f1011', markerIdle: '#8a8f98',
     shadow: 'rgba(0,0,0,0.5)', line: '255,255,255', text: '232,233,236', accentRgb: '123,140,255', readRgb: '95,168,255',
-    folderFill: 0.014, folderStroke: 0.075, folderLabel: 0.32, hub: 0.16, hubLabel: 0.3, fileFill: 0.07, fileStroke: 0.16, labelMid: 0.78, labelLow: 0.45,
+    folderFill: 0.03, folderStroke: 0.075, folderLabel: 0.32, hub: 0.05, hubLabel: 0.3, fileFill: 0.13, fileStroke: 0.16, labelMid: 0.78, labelLow: 0.45,
   },
   light: { // the Codetandem look
     hot: '#ff5a1f', warm: '#ffa66e', red: '#d0422a', amber: '#a35f00', accent: '#2f45e8', ink: '#141414', halo: 'rgba(246,246,240,0.92)',
     importOut: 'rgba(47,69,232,0.7)', importIn: 'rgba(31,157,104,0.7)', read: '#2f45e8', ripple: '#ff8c50', markerRing: '#ffffff', markerIdle: '#9a9a90',
     shadow: 'rgba(20,20,20,0.18)', line: '20,20,20', text: '20,20,20', accentRgb: '47,69,232', readRgb: '47,69,232',
-    folderFill: 0.03, folderStroke: 0.1, folderLabel: 0.62, hub: 0.22, hubLabel: 0.6, fileFill: 0.1, fileStroke: 0.16, labelMid: 0.8, labelLow: 0.64,
+    folderFill: 0.045, folderStroke: 0.1, folderLabel: 0.62, hub: 0.06, hubLabel: 0.6, fileFill: 0.16, fileStroke: 0.16, labelMid: 0.8, labelLow: 0.64,
   },
 };
 let C: Pal = PAL.dark;
@@ -288,8 +288,8 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
       // folders
       for (const f of lay.folders) {
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-        if (f.depth <= 2) { ctx.fillStyle = rgba(C.line, C.folderFill); ctx.fill(); }
-        ctx.strokeStyle = rgba(C.line, C.folderStroke); ctx.lineWidth = px; ctx.stroke();
+        // Flat shapes, no outlines: each folder is a soft disc (nested ones read darker).
+        ctx.fillStyle = rgba(C.line, C.folderFill); ctx.fill();
         if (f.r * k > 46) label(ctx, f.name, f.x, f.y - f.r + 15 * px, px, 10.5, rgba(C.text, C.folderLabel), 'center', 600);
       }
 
@@ -298,7 +298,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         // Only the kinds of tool this thread has actually used (or where the agent stands now).
         if (v.marker?.target !== key && !st.steps.some((s) => s.target === key)) continue;
         ctx.beginPath(); ctx.arc(is.x, is.y, is.r, 0, Math.PI * 2);
-        ctx.setLineDash([2 * px, 3 * px]); ctx.strokeStyle = rgba(C.line, C.hub); ctx.lineWidth = px; ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = rgba(C.line, C.hub); ctx.fill();
         const on = v.marker?.target === key;
         label(ctx, live.current.names[key] ?? is.label, is.x + is.r + 7 * px, is.y + 3.5 * px, px, 10.5, on ? C.ink : rgba(C.text, C.hubLabel), 'left', 500);
       }
@@ -353,7 +353,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
         } else if (status === 'read') col = C.read;
         ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
         if (col) { ctx.fillStyle = col; ctx.fill(); }
-        else { ctx.fillStyle = rgba(C.line, C.fileFill); ctx.fill(); ctx.strokeStyle = rgba(C.line, C.fileStroke); ctx.lineWidth = px; ctx.stroke(); }
+        else { ctx.fillStyle = rgba(C.line, C.fileFill); ctx.fill(); }
         if (path === sel || path === v.hover) { ctx.strokeStyle = C.ink; ctx.lineWidth = (path === sel ? 1.6 : 1.1) * px; ctx.stroke(); }
         if (live.current.lit.includes(path)) {
           const t = (now % 1200) / 1200;

@@ -35,7 +35,7 @@ const fmtDate = (t: number) => { const d = new Date(t); const p = (n: number) =>
 export function lessonNotes(t: Pick<Thread, 'title' | 'mode' | 'folder' | 'createdAt' | 'events'>): string {
   const ev = t.events as Ev[];
   const project = String(t.folder).split(/[\\/]/).filter(Boolean).pop() ?? '';
-  const lines: string[] = [`# ${t.title || 'Session'}`, '', `${fmtDate(t.createdAt)} · ${t.mode === 'learn' ? 'Learn mode' : 'Build mode'}${project ? ` · project \`${project}\`` : ''}`, ''];
+  const lines: string[] = [`# ${t.title || 'Session'}`, '', `${fmtDate(t.createdAt)} · ${t.mode === 'learn' ? 'Tandem mode' : 'Solo mode'}${project ? ` · project \`${project}\`` : ''}`, ''];
   const section = (title: string, body: string[]) => { if (body.length) lines.push(`## ${title}`, '', ...body, ''); };
 
   // "Quiz me" (and the answers that follow, up to the tutor's score) gets its own section instead of counting as requests.

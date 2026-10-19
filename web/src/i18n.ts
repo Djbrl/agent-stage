@@ -10,7 +10,8 @@ export function useT() {
 }
 
 // The two modes. Internal values stay 'learn' | 'build'.
-export const modeName = (m: 'learn' | 'build', fr: boolean) => (m === 'learn' ? (fr ? 'Guide-moi' : 'Guide me') : (fr ? 'Fais-le' : 'Just build it'));
+// The two modes, named after riding: Tandem (you ride together: it explains and asks you) and Solo (it rides alone).
+export const modeName = (m: 'learn' | 'build', _fr?: boolean) => (m === 'learn' ? 'Tandem' : 'Solo');
 
 // The server's own messages (stopped, errors from Undo / Save this version, etc.) are written in English and saved
 // in the thread; they're put into the reader's language when shown.

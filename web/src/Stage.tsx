@@ -31,6 +31,8 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
   useDismiss(legend, () => setLegend(false), legendRef, legendBtn);
   const api = useRef<MapApi | null>(null);
   useEffect(() => { setAnchor('agent', () => api.current?.marker() ?? null); return () => setAnchor('agent', null); }, []);
+  // Moving through the steps (scroll or click in the Steps list): the camera goes back to following the agent.
+  useEffect(() => { const f = () => api.current?.follow(); window.addEventListener('map-follow', f); return () => window.removeEventListener('map-follow', f); }, []);
   // The sheet never takes more than half the stage, so the map always stays visible.
   const box = useRef<HTMLElement>(null);
   const [stageW, setStageW] = useState(900);

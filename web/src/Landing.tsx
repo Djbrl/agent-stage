@@ -247,7 +247,7 @@ function MapMock({ t }: { t: T }) {
 
 function LearnMock({ t }: { t: T }) {
   return (
-    <Window title={t('Guide me · weather-app', 'Guide-moi · weather-app')}>
+    <Window title={t('Tandem · weather-app', 'Tandem · weather-app')}>
       <div className="mk-chat">
         <div className="mk-user">{t('Show the weather for my city', 'Affiche la météo de ma ville')}</div>
         <div className="mk-step done">✓ {t('Read 3 files', 'A lu 3 fichiers')}</div>

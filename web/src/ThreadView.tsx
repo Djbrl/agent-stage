@@ -18,6 +18,7 @@ import { Tips } from './Tips';
 import { useT, useLang, serverText } from './i18n';
 import { useAsk } from './AskWindow';
 import { GitSetup } from './GitSetup';
+import { notice } from './Confirm';
 
 export type Layout = 'studio' | 'classic';
 type Tab = 'chat' | 'steps' | 'threads';
@@ -70,11 +71,13 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   useEffect(() => { fetch(`/api/threads/${id}/git`).then((r) => r.json()).then((j) => setRepo(Boolean(j.repo))).catch(() => {}); }, [id]);
   // A session someone shared: replay only (no Undo, Keep, version history or composer).
   const shared = meta.shared ? { project: String(meta.workspace ?? ''), onPlay: () => { setStageOpen(true); replay.play(); } } : undefined;
+  // Save to notes: a "What you learned" card becomes a note in Scratchpad.
+  const saveNote = (title: string, text: string) => fetch(`/api/threads/${id}/scratch-notes`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title, text }) }).then((r) => r.ok);
   const [gitSetup, setGitSetup] = useState(false);
   const git = repo === null || shared ? null : { repo, onInit: () => setGitSetup(true) };
   const gitModal = gitSetup && <GitSetup threadId={id} onDone={() => { setRepo(true); setGitSetup(false); }} onClose={() => setGitSetup(false)} />;
   const undo = (ref: string) => fetch(`/api/threads/${id}/undo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
-    .then((r) => r.json()).then((j) => j.error && alert(serverText(j.error, fr)));
+    .then((r) => r.json()).then((j) => j.error && notice(t('Couldn’t undo', 'Annulation impossible'), serverText(j.error, fr)));
   const keep = (ref: string): Promise<string | null> => fetch(`/api/threads/${id}/keep-task`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
     .then((r) => r.json()).then((j) => j.error ?? null, () => t('Could not reach the server. Check that Codetandem is still running.', 'Impossible de joindre le serveur. Vérifie qu’agent-stage tourne encore.'));
 
@@ -114,7 +117,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   if (layout === 'studio') {
     const agentPanel = (
       <AgentPanel visible={tab === 'chat'} threadProvider={meta.providerId} state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
-        health={health} serverDown={serverDown} gpu={gpuCtl}
+        health={health} serverDown={serverDown} gpu={gpuCtl} onSaveNote={saveNote}
         engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
         problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
         banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null}
@@ -174,7 +177,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
     <div className={`thread ${showStage ? 'split' : 'solo'}`} style={showStage ? { gridTemplateColumns: `${chatW}px 0 minmax(0, 1fr)` } : undefined}>
       <div className="chat-col">
         <AgentPanel threadProvider={meta.providerId} state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
-          health={health} serverDown={serverDown} gpu={gpuCtl}
+          health={health} serverDown={serverDown} gpu={gpuCtl} onSaveNote={saveNote}
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
           banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null} replaying={replay.active} header={header} centered={!showStage}

@@ -35,8 +35,8 @@ export function StepsSheet({ state, selected, onSelect, onClose, threadId, repla
     <aside className={embedded ? 'sheet embedded' : 'sheet'}>
       <div className="sheet-head">
         {selected ? <button className="icon-btn" onClick={() => onSelect(null)} title={t('Back to steps', 'Retour aux étapes')} aria-label={t('Back to steps', 'Retour aux étapes')}><Icon name="chevron" size={13} className="flip" /></button> : null}
-        <span className="sheet-title">{selected ? (step ? stepText(step, fr) : filePath?.split('/').pop()) : `${state.steps.length} ${t(state.steps.length === 1 ? 'step' : 'steps', state.steps.length === 1 ? 'étape' : 'étapes')}`}</span>
-        {!selected && state.steps.length > 1 && (replay.active
+        <span className="sheet-title">{selected ? (step ? stepText(step, fr) : filePath?.split('/').pop()) : `${replay.steps.length || state.steps.length} ${t((replay.steps.length || state.steps.length) === 1 ? 'step' : 'steps', (replay.steps.length || state.steps.length) === 1 ? 'étape' : 'étapes')}`}</span>
+        {!selected && replay.steps.length > 1 && (replay.active
           ? <button className="btn ghost sm live" onClick={replay.live}>● {t('Live', 'En direct')}</button>
           : <button className="btn ghost sm" onClick={replay.play} title={t('Watch the agent do it again on the map (Space)', 'Revoir le travail de l’agent sur la carte (Espace)')}><Icon name="play" size={11} /> {t('Replay', 'Revoir')}</button>)}
         {!embedded && <button className="icon-btn" onClick={onClose} title={t('Close', 'Fermer')} aria-label={t('Close', 'Fermer')}><Icon name="x" size={12} /></button>}
@@ -46,20 +46,60 @@ export function StepsSheet({ state, selected, onSelect, onClose, threadId, repla
   );
 }
 
+// Every step, also while the map replays: the step the map shows is "now", later ones are faded.
+// The mouse wheel (or trackpad, or ↑ ↓) over the list moves the map through the steps one at a time: up rewinds,
+// down goes forward, past the last step is live again. Clicking a step puts the map there and the camera on it.
 function List({ state, onSelect, replay }: { state: State; onSelect: (k: string) => void; replay: Replay }) {
   const t = useT();
   const fr = useLang() === 'fr';
+  const box = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }); }, [state.steps.length]);
+  const steps = replay.steps.length ? replay.steps : state.steps;
+  const nowId = replay.active ? state.steps.at(-1)?.id : undefined;
+  const nowAt = nowId ? steps.findIndex((s) => s.id === nowId) : steps.length - 1;
+  // New steps while live: keep the newest in view. While replaying: keep the step the map shows in view.
+  useEffect(() => { if (!replay.active) end.current?.scrollIntoView({ block: 'nearest' }); }, [steps.length]);
+  useEffect(() => { if (nowId) box.current?.querySelector(`[data-step="${CSS.escape(nowId)}"]`)?.scrollIntoView({ block: 'nearest' }); }, [nowId]);
+  const go = (i: number) => {
+    const target = steps[i];
+    if (!target) return;
+    if (i >= steps.length - 1) replay.live(); else replay.seekStep(target.id);
+    window.dispatchEvent(new Event('map-follow'));
+  };
+  const at = useRef({ nowAt, go });
+  at.current = { nowAt, go };
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    let acc = 0;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      acc += e.deltaY;
+      const n = Math.trunc(acc / 60);
+      if (!n) return;
+      acc -= n * 60;
+      const { nowAt: i, go: move } = at.current;
+      move(Math.max(0, Math.min(steps.length - 1, i + n)));
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, [steps.length]);
+  const key = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    go(Math.max(0, Math.min(steps.length - 1, nowAt + (e.key === 'ArrowUp' ? -1 : 1))));
+  };
   return (
-    <div className="sheet-list">
-      {state.steps.map((s, i) => (
-        <button key={s.id} className={`srow ${s.ok === false ? 'bad' : ''} ${replay.active && i === state.steps.length - 1 ? 'now' : ''}`} onClick={() => onSelect(s.id)}>
+    <div className="sheet-list" ref={box} tabIndex={0} onKeyDown={key}>
+      {steps.map((s, i) => (
+        <button key={s.id} data-step={s.id} className={`srow ${s.ok === false ? 'bad' : ''} ${replay.active && s.id === nowId ? 'now' : ''} ${replay.active && i > nowAt ? 'later' : ''}`}
+          onClick={() => { go(i); onSelect(s.id); }}>
           <span className="srow-icon">{s.ok === undefined ? <span className="spin" /> : <Icon name={TOOL_ICON[s.name] ?? 'spark'} size={12} />}</span>
           <span className="srow-text"><span>{stepText(s, fr)}</span>{s.why && <span className="srow-why">{s.why}</span>}</span>
         </button>
       ))}
-      {!state.steps.length && <div className="muted pad">{t('No steps yet.', 'Pas encore d’étapes.')}</div>}
+      {!steps.length && <div className="muted pad">{t('No steps yet.', 'Pas encore d’étapes.')}</div>}
+      {steps.length > 2 && <div className="srow-hint muted">{replay.active ? t('Scroll to move through the steps on the map. Scroll past the last one to go back to live.', 'Fais défiler pour parcourir les étapes sur la carte. Dépasse la dernière pour revenir en direct.') : t('Scroll up over the steps to rewind the map.', 'Fais défiler vers le haut sur les étapes pour revoir la carte.')}</div>}
       <div ref={end} />
     </div>
   );

@@ -10,7 +10,7 @@ package still use the old name.
 [![Node ≥ 22.18](https://img.shields.io/badge/node-%E2%89%A5%2022.18-brightgreen)](https://nodejs.org)
 
 **The coding-agent harness for learners.** For people who already write some code and use AI agents, but want to
-stay in the loop and actually learn. You watch the agent move across a map of your project, **Learn mode** (the default)
+stay in the loop and actually learn. You watch the agent move across a map of your project, **Tandem mode** (the default; you ride together)
 makes it stop for your call before it writes code, every step is labelled in plain words, and you can ask "why",
 replay and undo. It runs on **open-weight models** (Qwen3-Coder on our own GPU, or Ollama on your own computer for
 offline or classroom use with no API bill) or on **Claude**.
@@ -19,7 +19,7 @@ offline or classroom use with no API bill) or on **Claude**.
 
 **En bref.** De plus en plus de développeurs et d'étudiants livrent du code écrit par une IA qu'ils ne savent ni lire,
 ni expliquer, ni corriger : l'IA fait le travail et ils n'apprennent rien. Codetandem garde l'humain dans la boucle.
-L'agent se déplace sur une carte de votre projet, le mode Apprendre (par défaut) l'arrête pour vous demander votre avis
+L'agent se déplace sur une carte de votre projet, le mode Tandem (par défaut) l'arrête pour vous demander votre avis
 avant d'écrire du code, chaque étape est expliquée en mots simples, et vous pouvez demander « pourquoi », rejouer et
 annuler. Il fonctionne avec des modèles ouverts (Qwen3-Coder sur notre GPU, Ollama hors ligne, sans facture d'API) ou
 avec Claude. Licence MIT.
@@ -41,10 +41,10 @@ Codetandem makes the agent's work **visible, interruptible and teachable**, so t
 and understands.
 
 **Learn while it builds**
-- **Learn mode, on by default: you design, the agent teaches.**
+- **Tandem mode, on by default: you design, the agent teaches.** (Solo mode lets the agent just build.)
   - It asks how *you* would do it, pushes back on a flawed choice, and gives hints before full code.
   - It explains each new term in plain words and ends with "What you learned".
-  - The harness blocks file writes until you approve the step. You can also skip a step. Learn mode is inspired by
+  - The harness blocks file writes until you approve the step. You can also skip a step. Tandem mode is inspired by
     [VibeWise](https://github.com/nykooi1/vibe-wise) (MIT).
 - **Quiz me.** After a step, the tutor asks three short questions about what you just built, one at a time, and tells
   you what you got right.
@@ -71,7 +71,7 @@ and understands.
 
 **Practical**
 - **Any model.** Our own GPU (one-click Brev + vLLM, auto-stop), Ollama on your own computer, NVIDIA, OpenRouter, the
-  Claude API, or the Claude Code engine. The map, Learn mode and approvals work the same on all of them.
+  Claude API, or the Claude Code engine. The map, Tandem mode and approvals work the same on all of them.
 - **Costs in view.** Tokens per thread, spend estimates, GPU time, and compact or clear a thread's context on demand.
 - **Computer use.** The agent drives your Chrome as text (page text plus numbered controls), so open models can test
   the web apps they build.
@@ -79,7 +79,7 @@ and understands.
 - **Live online demo.** Each visitor gets a private, sealed Docker sandbox ([docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)).
 
 **New in v0.1** <!-- OWNER: being built on 19 10 2026 by other agents; verify each item works before submitting, delete any that didn't land. -->
-- *(to verify)* **First-launch questions**: your level and your language, so Learn mode starts at the right pace.
+- *(to verify)* **First-launch questions**: your level and your language, so Tandem mode starts at the right pace.
 - *(to verify)* **Contextual tips** where you need them, instead of a tour.
 - *(to verify)* **"What you learned" card** after each task, with a **"Try it yourself"** exercise.
 - *(to verify)* **A progressive interface**: controls appear as you need them.

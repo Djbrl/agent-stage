@@ -6,11 +6,12 @@ import { useVoice, voiceSupported } from './voice';
 import { useDismiss } from './dismiss';
 import type { State, Step, Entry } from './useAgent';
 import { Icon } from './icons';
+import { confirmAsk } from './Confirm';
 import { stepText } from './StepsSheet';
 import { Markdown } from './Markdown';
 import { useApp } from './useSettings';
 import { useHighlight } from './highlight';
-import { engineOf, agentName, isReady, recipeOf, type Engine, type Provider } from './api';
+import { engineOf, agentName, isReady, type Engine } from './api';
 import type { HealthView } from './useHealth';
 import { GpuPanel, type GpuView } from './useGpu';
 import { Learned } from './Learned';
@@ -45,7 +46,7 @@ function summarize(steps: Step[], fr: boolean) {
 // "Quiz me" (Learn mode). The mock model recognises the first words (QUIZ_START in src/model.ts).
 const QUIZ = "Quiz me on what we just did: ask me 3 short questions about the ideas and the code from this session, one at a time. Wait for my answer before the next question, tell me in one or two sentences whether I'm right and why, and finish with my score and what to review. Don't change any files.";
 
-export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onAskAbout, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git, shared, health, serverDown, gpu }: {
+export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onAskAbout, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git, shared, health, serverDown, gpu, onSaveNote }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
@@ -56,6 +57,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
   onUndo?: (ref: string) => void; onKeep?: (ref: string) => Promise<string | null>; git?: { repo: boolean; onInit: () => void } | null;
   shared?: { project: string; onPlay: () => void }; // a session someone shared: replay only, no composer
+  onSaveNote?: (title: string, text: string) => Promise<boolean>; // a card or answer kept in Scratchpad's notes
   health?: HealthView | null; serverDown?: boolean; gpu?: { gpu: GpuView | null; start: () => void; stop: () => void }; // the ✦ shows the model's state
 }) {
   const [text, setText] = useState('');
@@ -148,7 +150,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
             }
             if (e.kind === 'thought') return <div key={i} className="thought askable">{typed(e)}{askMsg(e.text)}</div>;
             if (e.kind === 'checkpoint') return <CheckpointCard key={i} entry={e} onAnswer={onCheckpoint} fr={fr} />;
-            if (e.kind === 'learned') return <Learned key={i} entry={e} all={state.concepts} latest={!state.timeline.slice(i + 1).some((x) => x.kind === 'learned')} onTry={side || shared ? undefined : (x) => { setText(x); box.current?.focus(); }} />;
+            if (e.kind === 'learned') return <Learned key={i} entry={e} all={state.concepts} latest={!state.timeline.slice(i + 1).some((x) => x.kind === 'learned')} onQuiz={side || shared || state.running ? undefined : () => onRun(QUIZ)} onSave={side || shared ? undefined : onSaveNote} />;
             if (e.kind === 'qa') return (
               <div key={i} className="qa">
                 <div className="qa-q"><span className="qa-tag">{t('Why?', 'Pourquoi ?')}</span>{e.question}</div>
@@ -168,7 +170,8 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
                     {onKeep && !later && <KeepButton disabled={state.running} onKeep={() => onKeep(e.ref!)} fr={fr} />}
                     <button className="btn ghost sm" disabled={state.running}
                       title={later ? t('Puts back the files this task and the later ones changed', 'Remet les fichiers changés par cette tâche et les suivantes') : t('Puts back the files this task changed', 'Remet les fichiers changés par cette tâche')}
-                      onClick={() => confirm(later ? t('Undo this task and every task after it? The files they changed go back to how they were before.', 'Annuler cette tâche et toutes les suivantes ? Les fichiers qu’elles ont changés reviennent comme avant.') : t('Undo this task? The files it changed go back to how they were before.', 'Annuler cette tâche ? Les fichiers qu’elle a changés reviennent comme avant.')) && onUndo!(e.ref!)}>
+                      onClick={() => confirmAsk(later ? { title: t('Undo this task and every task after it?', 'Annuler cette tâche et toutes les suivantes ?'), body: t('The files they changed go back to how they were before.', 'Les fichiers qu’elles ont changés reviennent comme avant.'), ok: t('Undo them', 'Les annuler') }
+                        : { title: t('Undo this task?', 'Annuler cette tâche ?'), body: t('The files it changed go back to how they were before.', 'Les fichiers qu’elle a changés reviennent comme avant.'), ok: t('Undo it', 'L’annuler') }).then((yes) => yes && onUndo!(e.ref!))}>
                       <Icon name="undo" size={12} /> {t('Undo', 'Annuler')}
                     </button>
                   </>)}
@@ -186,6 +189,11 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
                 <summary>{e.action === 'compact' ? t('Chat summarized: the agent goes on from a short summary', 'Conversation résumée : l’agent continue à partir d’un court résumé') : t('Fresh start: the agent forgets the chat before this point', 'Nouveau départ : l’agent oublie la conversation avant ce point')}</summary>
                 {e.summary && <Markdown text={e.summary} />}
               </details>
+            );
+            if (e.kind === 'model') return (
+              <div key={i} className="sys-note"><span className="sys-line" />
+                <span>{t(`Now using ${e.name}`, `Maintenant avec ${e.name}`)}<span className="muted"> · {e.carried ? t('it picks up the conversation so far', 'il reprend la conversation jusqu’ici') : t('it sees the whole conversation so far', 'il voit toute la conversation jusqu’ici')}</span></span>
+                <span className="sys-line" /></div>
             );
             if (e.kind === 'restored') return (
               <div key={i} className="restored muted">
@@ -267,18 +275,19 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
               {(['learn', 'build'] as const).map((m) => (
                 <button key={m} className={`mode-icon ${m} ${mode === m ? 'on' : ''}`} disabled={state.running} onClick={() => onMode(m)} aria-pressed={mode === m} aria-label={modeName(m, fr)}
                   title={state.running ? t('You can switch once the agent is done', 'Tu pourras changer quand l’agent aura fini')
-                    : m === 'learn' ? t('Guide me: you decide, it explains and only writes code once you say yes', 'Guide-moi : tu décides, il explique et n’écrit du code qu’après ton accord')
-                    : t('Just build it: the agent does the work', 'Fais-le : l’agent fait le travail')}>
-                  {m === 'learn' ? t('Learn', 'Apprendre') : t('Build', 'Construire')}
+                    : m === 'learn' ? t('Tandem: you ride together. You decide, it explains, and it only writes code once you say yes.', 'Tandem : vous roulez ensemble. Tu décides, il explique, et il n’écrit du code qu’après ton accord.')
+                    : t('Solo: the agent rides alone and does the work.', 'Solo : l’agent roule seul et fait le travail.')}>
+                  {m === 'learn' ? 'Tandem' : 'Solo'}
                 </button>
               ))}
             </div>
           )}
           {!side && !shared && <button className="scratch-btn" onClick={() => onAsk('')} title={t('Ask a side question or sketch an idea. The agent keeps working.', 'Pose une question à part ou dessine une idée. L’agent continue.')}>
-            {t('Scratchpad', 'Brouillon')}</button>}
+            <Icon name="write" size={14} />{t('Scratchpad', 'Brouillon')}</button>}
           {status}
           {!side && <TokenMeter tokens={state.tokens} engine={engine} />}
-          <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} health={health ?? null} serverDown={Boolean(serverDown)} gpu={gpu} />
+          <span className="spacer" />
+          <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} health={health ?? null} serverDown={Boolean(serverDown)} gpu={gpu} />
         </div>
       </div>}
     </aside>
@@ -375,10 +384,9 @@ function TokenMeter({ tokens, engine }: { tokens: State['tokens']; engine?: Engi
 
 // The model chip: "engine · model". Grouped by engine; once a thread has history only its own engine's models
 // are switchable (each engine keeps its own memory of the conversation).
-// Its colour says which family of model is on (Claude: orange, open models: blue, the demo: lime) and turns grey
-// when that model can't answer right now (no key, server or GPU off). The tooltip says which and why.
-const familyOf = (p: Provider) => { const r = recipeOf(p); return r === 'demo' ? 'demo' : r === 'claude' || r === 'claude-code' ? 'claude' : 'open'; };
-function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider, health, serverDown, gpu }: { disabled: boolean; onOpenSettings: () => void; lockedTo?: Engine; threadProvider?: string;
+// The ✦ is blue when the model is ready, grey when it can't answer right now (no key, server or GPU off).
+// The tooltip says which model and why.
+function ModelPicker({ disabled, onOpenSettings, health, serverDown, gpu }: { disabled: boolean; onOpenSettings: () => void;
   health: HealthView | null; serverDown: boolean; gpu?: { gpu: GpuView | null; start: () => void; stop: () => void } }) {
   const { settings, save, me } = useApp();
   const t = useT();
@@ -389,21 +397,19 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider, healt
   if (!settings) return null;
   // One usable model: nothing to pick here, so the ✦ opens Settings, where models are added.
   const few = settings.providers.filter((p) => p.id === settings.activeProvider || isReady(p)).length <= 1;
-  const selected = settings.providers.find((p) => p.id === settings.activeProvider);
-  // A thread locked to the other engine keeps running on its own model, so that's the one to show.
-  const active = lockedTo && selected && engineOf(selected) !== lockedTo ? settings.providers.find((p) => p.id === threadProvider) ?? selected : selected;
+  // Any model that's set up can take over between tasks, even on the other engine (the session carries over).
+  const active = settings.providers.find((p) => p.id === settings.activeProvider);
   const groups: Engine[] = ['native', 'claude-code'];
-  // Health is checked for the selected model; another one (a thread on the other engine) only needs to be set up.
-  const m = active?.id === settings.activeProvider ? health?.model : undefined;
+  const m = health?.model;
   const why = serverDown ? t('Codetandem’s server isn’t answering', 'Le serveur de Codetandem ne répond pas')
     : !active || !isReady(active) ? t('not set up yet', 'pas encore configuré')
     : !m || m.state === 'ok' || m.state === 'mock' || m.state === 'checking' ? ''
     : ({ auth: t('key refused', 'clé refusée'), missing: t('model not found', 'modèle introuvable'), unreachable: t('can’t reach it', 'injoignable') } as Record<string, string>)[m.state] ?? t('not answering', 'ne répond pas');
-  const name = active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : t('no model', 'aucun modèle');
+  const name = active ? (engineOf(active) === 'claude-code' && !active.name.startsWith('Claude Code') ? `Claude Code · ${active.name}` : active.name) : t('no model', 'aucun modèle');
   const g = gpu?.gpu?.managed ? gpu.gpu : null;
   return (
     <div className="picker" ref={wrap}>
-      <button className={`spark-btn fam-${active ? familyOf(active) : 'demo'} ${why ? 'off' : ''}`} disabled={disabled} onClick={() => (few ? onOpenSettings() : setOpen(!open))}
+      <button className={`spark-btn ${why ? 'off' : ''}`} disabled={disabled} onClick={() => (few ? onOpenSettings() : setOpen(!open))}
         aria-label={`${t('Model', 'Modèle')}: ${name}${why ? ` (${why})` : ''}`}
         title={`${name}${why ? ` · ${why}` : ` · ${t('ready', 'prêt')}`}${disabled ? `\n${t('You can switch models once the agent is done', 'Tu pourras changer de modèle quand l’agent aura fini')}` : ''}`}>
         <span className="sparkle" aria-hidden="true">✦</span>
@@ -413,13 +419,12 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider, healt
           {groups.map((g) => {
             const list = settings.providers.filter((p) => engineOf(p) === g && (isReady(p) || p.id === settings.activeProvider));
             if (!list.length) return null;
-            const locked = lockedTo && lockedTo !== g;
             return (
-              <div key={g} className={`picker-group ${locked ? 'locked' : ''}`}>
-                <div className="picker-head">{agentName(g, fr)}{locked && <span className="muted"> · {t('in a new session', 'dans une nouvelle session')}</span>}</div>
+              <div key={g} className="picker-group">
+                <div className="picker-head">{agentName(g, fr)}</div>
                 {list.map((p) => (
-                  <button key={p.id} disabled={locked} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }).catch(() => {}); setOpen(false); }}>
-                    <span className={`fam-dot fam-${familyOf(p)}`} /><span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? t('demo', 'démo') : p.model}</span>
+                  <button key={p.id} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }).catch(() => {}); setOpen(false); }}>
+                    <span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? t('demo', 'démo') : p.model}</span>
                   </button>
                 ))}
               </div>
