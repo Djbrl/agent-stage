@@ -29,6 +29,9 @@ export type AgentEvent = Base & (
 );
 
 export type Concept = { name: string; line: string };
+// "La récursion", "recursion" and "Récursion " are one concept: ignore case, accents, punctuation and a leading article.
+export const conceptKey = (name: string) => name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ').trim().replace(/^(the|a|an|les?|la|l|des|un|une) /, '') || name.trim().toLowerCase();
 export type FileStatus = 'idle' | 'read' | 'written' | 'error';
 export type Change = { before: string; after: string };
 export type Step = {
@@ -61,7 +64,7 @@ export type State = {
   undone: string[]; // checkpoints already restored
   changed: Record<string, number>; // checkpoint → files its task changed (no Undo for a task that changed nothing)
   tokens: { context: number; total: number; cost: number };
-  concepts: Concept[]; // every concept met in this thread, deduped by name (newest line wins)
+  concepts: Concept[]; // every concept met in this thread, deduped by conceptKey (newest line wins)
   kept: Record<string, { commit: string; message: string }>; // checkpoint → the commit it was kept as // context = size of the last request; total = all tokens this thread
 };
 
@@ -153,8 +156,8 @@ function reduce(s: State, a: Action): State {
     case 'context':
       return { ...s, tokens: { ...s.tokens, context: 0 }, timeline: [...s.timeline, { kind: 'context', action: e.action, summary: e.summary, at: e.at }] };
     case 'learned': {
-      const seen = new Map(s.concepts.map((c) => [c.name.toLowerCase(), c]));
-      for (const c of e.concepts) seen.set(c.name.toLowerCase(), c);
+      const seen = new Map(s.concepts.map((c) => [conceptKey(c.name), c]));
+      for (const c of e.concepts) seen.set(conceptKey(c.name), c);
       return { ...s, concepts: [...seen.values()], timeline: [...s.timeline, { kind: 'learned', concepts: e.concepts, exercise: e.exercise, at: e.at }] };
     }
     case 'idle':
@@ -291,7 +294,7 @@ export function useAgent(threadId: string) {
       return post('approve', { id, ok });
     },
     answerCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => post('checkpoint', { id, choice, text }),
-    resetContext: (action: 'clear' | 'compact') => post('context', { action }).then((r) => r.json()).then((j) => (j.error as string | undefined) ?? null, () => 'Could not reach the server'),
+    resetContext: (action: 'clear' | 'compact') => post('context', { action }).then((r) => r.json()).then((j) => (j.error as string | undefined) ?? null, () => 'Could not reach the server'), // shown through serverText
     setMode: (mode: 'build' | 'learn') => post('mode', { mode }).then(() => setMeta({ ...meta, mode })),
   };
 }
