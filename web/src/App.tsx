@@ -7,15 +7,19 @@ import { SettingsModal } from './SettingsModal';
 import { Welcome, AboveComposer, StarterIdeas, DefaultsNote, defaultsNoted } from './Welcome';
 import { PublicWelcome } from './PublicWelcome';
 import { Landing, landed, markLanded } from './Landing';
+import { Onboarding } from './Onboarding';
 import { Resizer, storedNumber, store } from './Resizer';
 import { useT } from './i18n';
+import { Icon } from './icons';
+
+const guided = (id: string) => { try { return localStorage.getItem(`guide:${id}`) === '1'; } catch { return false; } };
 
 export function App() {
   return <AppProvider><Shell /></AppProvider>;
 }
 
 function Shell() {
-  const { threads, me } = useApp();
+  const { threads, threadsLoaded, me } = useApp();
   const t = useT();
   // Online demo: say where the visitor is before anything else (once per sandbox).
   const [welcomed, setWelcomed] = useState(() => { try { return localStorage.getItem('demoWelcomed') === '1'; } catch { return false; } });
@@ -53,7 +57,8 @@ function Shell() {
   // The server doesn't have the open thread (its file is gone): forget it quietly, open another or the welcome screen.
   const forget = () => select(threads.find((x) => x.id !== active)?.id ?? null);
 
-  const created = (id: string) => { landOnChat(); select(id); if (!defaultsNoted()) setNoting(true); };
+  // The guided demo's tip already says where the mode and model are, so the defaults note is only for real projects.
+  const created = (id: string) => { landOnChat(); select(id); if (!defaultsNoted() && !guided(id)) setNoting(true); };
   const nav = { active, onSelect: select, onNew: () => setModal('new'), onSettings: () => setModal('settings') };
   const modals = (
     <>
@@ -68,9 +73,14 @@ function Shell() {
       {welcome}
     </>
   );
-  if (showLanding && !me?.public && !active && threads.length === 0) return <Landing onStart={() => { markLanded(); setShowLanding(false); }} />;
+  if (!threadsLoaded && !active && !me?.public) return <div className="ob" />; // a blank frame until we know if this is a first run
+  const firstRun = threadsLoaded && !me?.public && !active && threads.length === 0;
+  if (firstRun && showLanding) return <Landing onStart={() => { markLanded(); setShowLanding(false); }} />;
+  // First run: full screen, one question at a time, then a project or the guided demo.
+  if (firstRun) return <><Onboarding onCreated={created} onBrowse={() => setModal('new')} />{modals}</>;
   if (layout === 'studio' && active) return (
-    <div className="shell studio-shell">
+    <div className="shell studio-shell with-head">
+      <AppHeader onNew={() => setModal('new')} onSettings={() => setModal('settings')} />
       <ThreadView key={active} id={active} onOpenSettings={() => setModal('settings')} onMissing={forget} layout="studio" nav={nav} onLayout={setLayout} />
       {modals}
     </div>
@@ -85,5 +95,18 @@ function Shell() {
       )}
       {modals}
     </div>
+  );
+}
+
+// The bar across the top of a session: where you are, a new session, settings. Keeps the map from feeling closed in.
+function AppHeader({ onNew, onSettings }: { onNew: () => void; onSettings: () => void }) {
+  const t = useT();
+  return (
+    <header className="app-head">
+      <span className="app-brand"><span className="logo" /><b>codetandem</b></span>
+      <span className="spacer" />
+      <button className="app-head-btn primary" onClick={onNew}><Icon name="plus" size={14} />{t('New session', 'Nouvelle session')}</button>
+      <button className="app-head-btn icon" onClick={onSettings} aria-label={t('Settings', 'Réglages')} title={t('Settings', 'Réglages')}><Icon name="gear" size={16} /></button>
+    </header>
   );
 }

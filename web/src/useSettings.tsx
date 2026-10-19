@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { get, send, type Me, type Settings, type ThreadSummary } from './api';
 
 type Ctx = {
-  settings: Settings | null; threads: ThreadSummary[]; me: Me | null;
+  settings: Settings | null; threads: ThreadSummary[]; threadsLoaded: boolean; me: Me | null;
   save: (patch: Partial<Settings>) => Promise<Settings>;
   refreshThreads: () => void;
 };
@@ -13,8 +13,9 @@ export const useApp = () => useContext(C);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [threadsLoaded, setThreadsLoaded] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
-  const refreshThreads = () => { get<ThreadSummary[]>('/api/threads').then(setThreads).catch(() => {}); };
+  const refreshThreads = () => { get<ThreadSummary[]>('/api/threads').then((t) => { setThreads(t); setThreadsLoaded(true); }).catch(() => {}); };
   useEffect(() => {
     get<Settings>('/api/settings').then(setSettings);
     get<Me>('/api/me').then(setMe);
@@ -27,5 +28,5 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSettings(next);
     return next;
   };
-  return <C.Provider value={{ settings, threads, me, save, refreshThreads }}>{children}</C.Provider>;
+  return <C.Provider value={{ settings, threads, threadsLoaded, me, save, refreshThreads }}>{children}</C.Provider>;
 }

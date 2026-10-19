@@ -243,9 +243,14 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
         />
         <div className="composer-bar">
           {!side && (
-            <div className="seg sm" title={state.running ? t('You can switch once the agent is done', 'Tu pourras changer quand l’agent aura fini') : t('Guide me: you decide, it explains and only writes code once you say yes. Just build it: the agent does the work.', 'Guide-moi : tu décides, il explique et n’écrit du code qu’après ton accord. Fais-le : l’agent fait le travail.')}>
-              {(['build', 'learn'] as const).map((m) => (
-                <button key={m} className={mode === m ? 'on' : ''} disabled={state.running} onClick={() => onMode(m)}>{modeName(m, fr)}</button>
+            <div className="mode-icons" role="group" aria-label={t('Mode', 'Mode')}>
+              {(['learn', 'build'] as const).map((m) => (
+                <button key={m} className={`mode-icon ${m} ${mode === m ? 'on' : ''}`} disabled={state.running} onClick={() => onMode(m)} aria-pressed={mode === m} aria-label={modeName(m, fr)}
+                  title={state.running ? t('You can switch once the agent is done', 'Tu pourras changer quand l’agent aura fini')
+                    : m === 'learn' ? t('Guide me: you decide, it explains and only writes code once you say yes', 'Guide-moi : tu décides, il explique et n’écrit du code qu’après ton accord')
+                    : t('Just build it: the agent does the work', 'Fais-le : l’agent fait le travail')}>
+                  <Icon name={m === 'learn' ? 'guide' : 'build'} size={16} />
+                </button>
               ))}
             </div>
           )}
@@ -257,11 +262,9 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
             <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle} aria-label={voice.listening ? t('Stop listening', 'Arrêter l’écoute') : t('Speak your prompt', 'Dicte ta demande')} aria-pressed={voice.listening}
               title={voice.error || (voice.listening ? t('Listening… click to stop', 'J’écoute… clique pour arrêter') : t('Speak your prompt', 'Dicte ta demande'))}><Icon name="mic" size={14} /></button>
           )}
-          {!side && <button className={'btn ghost sm ask-btn'} onClick={() => { if (text.trim()) submit('ask'); else onAsk(''); }}
-            title={t('Ask why it did something, without interrupting it. The answer reads the project but never changes it', 'Demande pourquoi il a fait quelque chose, sans l’interrompre. La réponse lit le projet mais ne le change jamais')}>{t('Ask why', 'Pourquoi ?')}</button>}
           {state.running && !side
-            ? <button className="btn danger round" onClick={onStop} title={t('Stop', 'Arrêter')} aria-label={t('Stop the agent', 'Arrêter l’agent')}><Icon name="stop" size={10} /></button>
-            : <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? t('Steer', 'Guider') : t('Send', 'Envoyer')} aria-label={state.running ? t('Steer', 'Guider') : t('Send', 'Envoyer')}><Icon name="arrow" size={14} /></button>}
+            ? <button className="btn round stop-btn" onClick={onStop} title={t('Stop', 'Arrêter')} aria-label={t('Stop the agent', 'Arrêter l’agent')}><Icon name="stop" size={12} /></button>
+            : <button className="btn primary round send-btn" onClick={() => submit()} disabled={!text.trim()} title={state.running ? t('Steer', 'Guider') : t('Send', 'Envoyer')} aria-label={state.running ? t('Steer', 'Guider') : t('Send', 'Envoyer')}><Icon name="arrow" size={14} /></button>}
           {state.running && !side && text.trim() && <button className="btn primary round" onClick={() => submit()} title={t('Steer: the agent reads this before its next step', 'Guider : l’agent lit ceci avant sa prochaine étape')} aria-label={t('Steer', 'Guider')}><Icon name="arrow" size={14} /></button>}
         </div>
       </div>}
@@ -367,16 +370,18 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
   const wrap = useRef<HTMLDivElement>(null);
   useDismiss(open, () => setOpen(false), wrap);
   if (!settings) return null;
-  // One usable model: nothing to pick (Settings still lists them all).
-  if (settings.providers.filter((p) => p.id === settings.activeProvider || usable(p)).length <= 1) return null;
+  // One usable model: nothing to pick here, so the ✦ opens Settings, where models are added.
+  const few = settings.providers.filter((p) => p.id === settings.activeProvider || usable(p)).length <= 1;
   const selected = settings.providers.find((p) => p.id === settings.activeProvider);
   // A thread locked to the other engine keeps running on its own model, so that's the one to show.
   const active = lockedTo && selected && engineOf(selected) !== lockedTo ? settings.providers.find((p) => p.id === threadProvider) ?? selected : selected;
   const groups: Engine[] = ['native', 'claude-code'];
   return (
     <div className="picker" ref={wrap}>
-      <button className="chip" disabled={disabled} onClick={() => setOpen(!open)} title={disabled ? t('You can switch models once the agent is done', 'Tu pourras changer de modèle quand l’agent aura fini') : t('Switch model', 'Changer de modèle')}>
-        {active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : t('Pick a model', 'Choisir un modèle')} <Icon name="chevron" size={10} className="rot" />
+      <button className="spark-btn" disabled={disabled} onClick={() => (few ? onOpenSettings() : setOpen(!open))}
+        aria-label={`${t('Model', 'Modèle')}: ${active ? active.name : t('none', 'aucun')}`}
+        title={disabled ? t('You can switch models once the agent is done', 'Tu pourras changer de modèle quand l’agent aura fini') : `${t('Model', 'Modèle')}: ${active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : t('pick one', 'à choisir')}`}>
+        <Icon name="spark" size={16} />
       </button>
       {open && (
         <div className="picker-menu" onMouseLeave={() => setOpen(false)}>

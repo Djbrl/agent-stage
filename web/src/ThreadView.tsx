@@ -101,7 +101,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   const showSteps = state.steps.length > 0, showThreads = Boolean(nav) && threads.length > 1;
   const tab: Tab = (tabPicked === 'steps' && !showSteps) || (tabPicked === 'threads' && !showThreads) ? 'chat' : tabPicked;
   const tips = <Tips state={state} following={following} replaying={replay.active} shared={Boolean(meta.shared)} />;
-  const [panelW, setPanelW] = useState(() => storedNumber('panelW', 400));
+  const [panelW, setPanelW] = useState(() => storedNumber('panelW', 460));
   const [panelOpen, setPanelOpen] = useState(true);
   const [phone, setPhone] = useState(() => window.innerWidth <= 700);
   useEffect(() => { const r = () => setPhone(window.innerWidth <= 700); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r); }, []);

@@ -77,8 +77,8 @@ export function Tips({ state, following, replaying, shared }: { state: State; fo
       ['.studio-tabs .tab-steps', '.stage-tools .steps', '.work']);
   }, [edited, state.steps.length, tick, tip]);
   useEffect(() => {
-    if (live.current && finished) fire('done', t('Done. Replay it on the map, or ask why it did something.', 'Fini. Revois-le sur la carte, ou demande pourquoi il a fait quelque chose.'),
-      ['.stage-tools .replay-tool', '.ask-btn']);
+    if (live.current && finished) fire('done', t('Done. Replay it on the map, or hover any message and press ? to ask about it.', 'Fini. Revois-le sur la carte, ou survole un message et appuie sur ? pour poser une question.'),
+      ['.stage-tools .replay-tool', '.ask-msg']);
   }, [finished, tick, tip]);
   useEffect(() => {
     if (live.current && !following) fire('follow', t('You have the camera now. Follow gives it back to the agent.', 'Tu as la caméra. « Suivre » la rend à l’agent.'), ['.stage-tools .follow-tool']);
