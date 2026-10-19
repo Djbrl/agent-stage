@@ -118,7 +118,7 @@ export function StarterIdeas({ id }: { id: string }) {
       <div className="idea-legend">
         <span><i className="lg guide"><Icon name="guide" size={13} /></i>{t('Guide me: it asks before it writes', 'Guide-moi : il demande avant d’écrire')}</span>
         <span><i className="lg build"><Icon name="build" size={13} /></i>{t('Just build it', 'Fais-le')}</span>
-        <span><i className="lg spark"><Icon name="spark" size={13} /></i>{t('The model', 'Le modèle')}</span>
+        <span><i className="lg spark">✦</i>{t('The engine', 'Le moteur')}</span>
       </div>
       <button className="icon-btn idea-x" onClick={done} aria-label={t('Hide', 'Masquer')}><Icon name="x" size={12} /></button>
     </div>

@@ -1269,3 +1269,10 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .ask-msg:hover { background: #2336c4; color: #fff; }
 .ask-pick { height: 36px; padding: 0 14px; background: #2f45e8; color: #fff; border: 0; font-weight: 700; font-size: 14px; }
 .ask-pick:hover { background: #2336c4; }
+
+/* the engine button wears the same ✦ as the Idea callouts; the voice button is as big as the others */
+.spark-btn .sparkle { font-size: 19px; line-height: 1; transform: translateY(-1px); }
+.lg.spark { font-size: 12px; font-style: normal; }
+.composer .icon-btn.mic { width: 40px; height: 40px; background: var(--hover); color: var(--text); }
+.composer .icon-btn.mic:hover { background: var(--line); }
+.composer .icon-btn.mic.on { background: #d0422a; color: #fff; }

@@ -260,7 +260,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           <span className="spacer" />
           {voiceSupported && (
             <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle} aria-label={voice.listening ? t('Stop listening', 'Arrêter l’écoute') : t('Speak your prompt', 'Dicte ta demande')} aria-pressed={voice.listening}
-              title={voice.error || (voice.listening ? t('Listening… click to stop', 'J’écoute… clique pour arrêter') : t('Speak your prompt', 'Dicte ta demande'))}><Icon name="mic" size={14} /></button>
+              title={voice.error || (voice.listening ? t('Listening… click to stop', 'J’écoute… clique pour arrêter') : t('Speak your prompt', 'Dicte ta demande'))}><Icon name="mic" size={20} /></button>
           )}
           {state.running && !side
             ? <button className="btn round stop-btn" onClick={onStop} title={t('Stop', 'Arrêter')} aria-label={t('Stop the agent', 'Arrêter l’agent')}><Icon name="stop" size={12} /></button>
@@ -381,7 +381,7 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
       <button className="spark-btn" disabled={disabled} onClick={() => (few ? onOpenSettings() : setOpen(!open))}
         aria-label={`${t('Model', 'Modèle')}: ${active ? active.name : t('none', 'aucun')}`}
         title={disabled ? t('You can switch models once the agent is done', 'Tu pourras changer de modèle quand l’agent aura fini') : `${t('Model', 'Modèle')}: ${active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : t('pick one', 'à choisir')}`}>
-        <Icon name="spark" size={16} />
+        <span className="sparkle" aria-hidden="true">✦</span>
       </button>
       {open && (
         <div className="picker-menu" onMouseLeave={() => setOpen(false)}>
