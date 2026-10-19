@@ -31,10 +31,10 @@ const PAL: Record<'dark' | 'light', Pal> = {
     shadow: 'rgba(0,0,0,0.5)', line: '255,255,255', text: '232,233,236', accentRgb: '123,140,255', readRgb: '95,168,255',
     folderFill: 0.014, folderStroke: 0.075, folderLabel: 0.32, hub: 0.16, hubLabel: 0.3, fileFill: 0.07, fileStroke: 0.16, labelMid: 0.78, labelLow: 0.45,
   },
-  light: {
-    hot: '#ff5b1f', warm: '#ffa66e', red: '#e11d48', amber: '#a35f00', accent: '#2563eb', ink: '#121214', halo: 'rgba(249,249,247,0.92)',
-    importOut: 'rgba(37,99,235,0.7)', importIn: 'rgba(31,157,85,0.7)', read: '#0e8fb0', ripple: '#ff8c50', markerRing: '#ffffff', markerIdle: '#9a9aa3',
-    shadow: 'rgba(18,18,20,0.18)', line: '18,18,20', text: '18,18,20', accentRgb: '37,99,235', readRgb: '14,143,176',
+  light: { // the Codetandem look
+    hot: '#ff5a1f', warm: '#ffa66e', red: '#d0422a', amber: '#a35f00', accent: '#2f45e8', ink: '#141414', halo: 'rgba(246,246,240,0.92)',
+    importOut: 'rgba(47,69,232,0.7)', importIn: 'rgba(31,157,104,0.7)', read: '#2f45e8', ripple: '#ff8c50', markerRing: '#ffffff', markerIdle: '#9a9a90',
+    shadow: 'rgba(20,20,20,0.18)', line: '20,20,20', text: '20,20,20', accentRgb: '47,69,232', readRgb: '47,69,232',
     folderFill: 0.03, folderStroke: 0.1, folderLabel: 0.62, hub: 0.22, hubLabel: 0.6, fileFill: 0.1, fileStroke: 0.16, labelMid: 0.8, labelLow: 0.64,
   },
 };

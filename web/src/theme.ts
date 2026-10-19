@@ -1,4 +1,4 @@
-// Light / dark / follow the system. Saved per browser; applied as <html data-theme="light|dark">, which the
+// Light (the default, the Codetandem look) / dark / follow the system. Saved per browser; applied as <html data-theme="light|dark">, which the
 // stylesheet and the map palette read. index.html applies it before the first paint, so there's no flash.
 import { useEffect, useState } from 'react';
 
@@ -6,7 +6,7 @@ export type ThemePref = 'dark' | 'light' | 'system';
 const media = () => window.matchMedia('(prefers-color-scheme: light)');
 
 export function getPref(): ThemePref {
-  try { const v = localStorage.getItem('theme'); return v === 'light' || v === 'system' ? v : 'dark'; } catch { return 'dark'; }
+  try { const v = localStorage.getItem('theme'); return v === 'dark' || v === 'system' ? v : 'light'; } catch { return 'light'; }
 }
 export function apply(pref = getPref()) {
   const t = pref === 'system' ? (media().matches ? 'light' : 'dark') : pref;
