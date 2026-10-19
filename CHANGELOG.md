@@ -13,6 +13,17 @@ What changed in each release of agent-stage. Dates are day month year.
 - **Share a session**: the same menu exports the thread as a file. *New thread → Open a shared session…* opens it as a
   read-only replay with the map as it was; it can't run the agent, undo or commit, and gets an empty folder of its own.
 
+- **End-to-end smoke test** (`test/smoke.test.ts`): `npm test` now boots the server on the scripted model in a temp
+  home and free port, runs a task through the HTTP API, approves its commands and the done-check, checks the files it
+  wrote and that Undo removes them. CI sets a git identity and runs the typecheck, the UI build and all the tests.
+- **Community files**: a fuller CONTRIBUTING (mock mode, checks, commit style, contributing with AI agents), the Code
+  of Conduct (Contributor Covenant 2.1) with a contact address, bug and idea issue templates, a pull request template,
+  and draft *good first issues* in `docs/ISSUES-DRAFT.md`.
+
+### Changed
+- **Positioning**: agent-stage is now presented as the coding-agent harness for learners (track *Éducation &
+  apprentissage*), with Learn mode as the default. The README leads with the learning features and has a French summary.
+
 ### Fixed
 - **Links can't lead the file tools out of the project.** A symbolic link inside the project that pointed elsewhere let
   `read_file`, `write_file` and `edit_file` reach its target; search no longer follows links either.
