@@ -15,7 +15,7 @@ export type AgentEvent =
   | ({ type: 'checkpoint'; id: string } & Checkpoint)
   | { type: 'checkpoint_answer'; id: string; choice: 'confirm' | 'discuss' | 'skip'; text?: string }
   | { type: 'file_change'; path: string; before: string; after: string }
-  | { type: 'user'; text: string }
+  | { type: 'user'; text: string; images?: string[] }
   | { type: 'question'; id: string; text: string }
   | { type: 'answer'; id: string; text: string }
   | ({ type: 'usage' } & Usage)
@@ -145,10 +145,10 @@ export class Agent {
 
   private checkApproved = new Set<string>();
 
-  async run(task: string, maxSteps = 30) {
+  async run(task: string, maxSteps = 30, images: string[] = []) {
     await this.loadProjectInstructions();
-    this.messages.push({ role: 'user', content: [...this.notes.splice(0), task].join('\n\n') });
-    this.emit({ type: 'user', text: task });
+    this.messages.push({ role: 'user', content: [...this.notes.splice(0), task].join('\n\n'), ...(images.length ? { images } : {}) });
+    this.emit({ type: 'user', text: task, ...(images.length ? { images } : {}) });
     this.unlocked = false;
     const learning = this.opts.mode === 'learn';
     const asking = this.opts.mode === 'ask';

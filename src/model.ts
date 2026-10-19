@@ -6,6 +6,7 @@ export type Message = {
   tool_calls?: ToolCall[];
   tool_call_id?: string;
   raw?: any[]; // provider-native content (Claude blocks), replayed unchanged to the same provider
+  images?: string[]; // Scratchpad sketches on a user message (file names in shots/)
 };
 
 export type ToolCall = {
@@ -54,7 +55,8 @@ function request(cfg: ModelConfig, messages: Message[], tools: unknown[], signal
     headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.apiKey}` },
     body: JSON.stringify({
       model: cfg.model, temperature: 0.2,
-      messages: messages.map(({ raw, ...m }) => m),
+      // Most open coding models can't see images: say a sketch was there instead of sending it.
+      messages: messages.map(({ raw, images, ...m }) => (images?.length ? { ...m, content: `${m.content ?? ''}\n\n[The user attached ${images.length} sketch${images.length > 1 ? 'es' : ''} here, but this model can't see images. Ask them to describe it in words.]` } : m)),
       ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
     }),
   });
@@ -117,6 +119,10 @@ async function mockChat(messages: Message[], tools: unknown[]): Promise<Message>
     const q = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
     if (messages.at(-1)?.role === 'user') return { role: 'assistant', content: 'Let me check the code.', tool_calls: [{ id: 'mock-ask', type: 'function', function: { name: 'list_files', arguments: '{}' } }] };
     const ask = String(q).split('\n\n').pop();
+    const sketched = [...messages].reverse().find((m) => m.role === 'user')?.images?.length;
+    if (sketched) return { role: 'assistant', content: /in French/.test(String(messages[0]?.content ?? ''))
+      ? `(réponse de démo) Je vois ton croquis. Tu demandes : *${ask}*\n\nUn vrai modèle (Claude) lirait le dessin : les boîtes, les flèches et ce que tu as entouré, puis répondrait à partir du projet.`
+      : `(demo answer) I can see your sketch. You asked: *${ask}*\n\nA real model (Claude) would read the drawing, the boxes, arrows and what you circled, and answer from the project.` };
     if (/in French/.test(String(messages[0]?.content ?? ''))) return { role: 'assistant', content: `(réponse de démo) Tu as demandé : *${ask}*\n\n✦ Concept: lire avant d’écrire\n\nCette question à part lit le projet et ce que l’agent a fait, mais ne change rien : ta session principale reste propre.` };
     return { role: 'assistant', content: `(demo answer) You asked: *${ask}*\n\n✦ Concept: reading before writing\n\nThis side question can read the project and everything the agent did, but it can't change anything, so your main session stays clean.` };
   }

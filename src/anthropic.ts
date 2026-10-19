@@ -3,6 +3,7 @@
 // are kept on the assistant message as `raw` and sent back unchanged, as the API requires.
 import Anthropic from '@anthropic-ai/sdk';
 import type { Message, ModelConfig, ToolCall, Usage } from './model.ts';
+import { loadSketch } from './sketch.ts';
 
 const clients = new Map<string, Anthropic>();
 const client = (cfg: ModelConfig) => {
@@ -11,7 +12,7 @@ const client = (cfg: ModelConfig) => {
   return c;
 };
 
-function toAnthropic(messages: Message[]) {
+function toAnthropic(messages: Message[], sketches: Map<string, string>) {
   let system = '';
   const out: any[] = [];
   const push = (role: 'user' | 'assistant', blocks: any[]) => {
@@ -21,7 +22,11 @@ function toAnthropic(messages: Message[]) {
   };
   for (const m of messages) {
     if (m.role === 'system') { system += (system ? '\n\n' : '') + (m.content ?? ''); continue; }
-    if (m.role === 'user') { push('user', [{ type: 'text', text: m.content ?? '' }]); continue; }
+    if (m.role === 'user') {
+      const imgs = (m.images ?? []).flatMap((n) => (sketches.has(n) ? [{ type: 'image', source: { type: 'base64', media_type: 'image/png', data: sketches.get(n) } }] : []));
+      push('user', [...imgs, { type: 'text', text: m.content ?? '' }]);
+      continue;
+    }
     if (m.role === 'tool') { push('user', [{ type: 'tool_result', tool_use_id: m.tool_call_id, content: m.content ?? '' }]); continue; }
     if (m.raw) { push('assistant', m.raw); continue; }
     const blocks: any[] = [];
@@ -51,7 +56,10 @@ const toTools = (tools: any[]) => tools.map((t) => ({
 
 export async function chatAnthropic(cfg: ModelConfig, messages: Message[], tools: unknown[], signal?: AbortSignal, onUsage?: (u: Usage) => void): Promise<Message> {
   const t0 = Date.now();
-  const { system, messages: msgs } = toAnthropic(messages);
+  const names = [...new Set(messages.flatMap((m) => m.images ?? []))];
+  const sketches = new Map(await Promise.all(names.map(async (n) => [n, await loadSketch(n).catch(() => '')] as [string, string])));
+  for (const [n, d] of sketches) if (!d) sketches.delete(n);
+  const { system, messages: msgs } = toAnthropic(messages, sketches);
   const res: any = await client(cfg).beta.messages.create({
     model: cfg.model,
     max_tokens: 16000,

@@ -10,6 +10,7 @@ import type { Message, ModelConfig } from './model.ts';
 import { relPath, type ToolContext } from './tools.ts';
 import { browserSchemas, runBrowserTool } from './browser.ts';
 import { SHOTS } from './browser.ts';
+import { loadSketch } from './sketch.ts';
 import { doneCheck, newRun, gaveUpNote } from './verify.ts';
 import { learnPrompt, languageLine, type Checkpoint } from './learn.ts';
 
@@ -21,8 +22,10 @@ const MCP = 'mcp__agentstage__';
 // A tiny push-able async queue: the prompt stream we feed Claude Code (task first, then any steering).
 class Inbox {
   private items: any[] = []; private waiting?: (v: IteratorResult<any>) => void; private closed = false;
-  push(text: string) {
-    const msg = { type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null };
+  push(text: string, images: string[] = []) {
+    // Sketches go in as image blocks (already loaded as base64 by the caller).
+    const content = images.length ? [...images.map((data) => ({ type: 'image', source: { type: 'base64', media_type: 'image/png', data } })), { type: 'text', text }] : text;
+    const msg = { type: 'user', message: { role: 'user', content }, parent_tool_use_id: null };
     if (this.waiting) { this.waiting({ value: msg, done: false }); this.waiting = undefined; } else this.items.push(msg);
   }
   close() { this.closed = true; this.waiting?.({ value: undefined, done: true }); }
@@ -100,14 +103,15 @@ export class ClaudeCodeAgent {
     return `Learner wants to discuss before deciding${a.text ? `: "${a.text}"` : ''}. Answer them in your reply text, in plain words (they only see what you write, not your thinking). Then end your turn, or offer the checkpoint again after the answer.`;
   }
 
-  async run(task: string, maxSteps = 30) {
+  async run(task: string, maxSteps = 30, images: string[] = []) {
     const learning = this.opts.mode === 'learn', asking = this.opts.mode === 'ask';
     this.unlocked = false;
     this.stopping = false;
     this.running = true;
-    this.emit({ type: 'user', text: task });
+    this.emit({ type: 'user', text: task, ...(images.length ? { images } : {}) });
     this.inbox = new Inbox();
-    this.inbox.push([...this.notes.splice(0), task].join('\n\n'));
+    const pics = (await Promise.all(images.map((n) => loadSketch(n).catch(() => '')))).filter(Boolean);
+    this.inbox.push([...this.notes.splice(0), task].join('\n\n'), pics);
     const append = (learning
       ? `${learnPrompt(this.opts.learn)}\nThe checkpoint tool is named ${CHECKPOINT}.`
       : asking ? 'You are answering a side question. Read and search as needed but do not change anything.' : '') + languageLine(this.opts.learn.language);

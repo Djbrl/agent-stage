@@ -22,6 +22,7 @@ import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThre
   engineOf, recipeOf, keyOf, apiCost, type Provider, type Settings, type Thread } from './store.ts';
 import { lessonNotes, exportSession, parseSession } from './session.ts';
 import { checks, ollamaModels, startPull, pullState, validModel } from './setup.ts';
+import { saveSketch, sketchesFrom } from './sketch.ts';
 
 const sandbox = resolve(process.env.WORKSPACE ?? 'workspace');
 // Public mode: this server runs inside a disposable container for one visitor (see src/public/). The visitor
@@ -326,12 +327,12 @@ const withThread = (fn: (l: Live, body: any) => any) => async (c: any) => {
 // Every task starts from a git checkpoint (when the folder is a repo), so it can be undone.
 // It also ends with one (however it ended: done, stopped, step limit), so Undo knows which files were this task's.
 // A side question (mode 'ask') reads only: no checkpoint, a short step budget, and it never waits on the main thread.
-async function runTask(l: Live, task: string) {
+async function runTask(l: Live, task: string, images: string[] = []) {
   const from = l.thread.events.length;
   const asking = l.thread.mode === 'ask';
   const ref = asking ? null : await checkpoint(l.thread.folder, l.thread.id, task).catch(() => null);
   if (ref) l.emit({ type: 'snapshot', ref });
-  await l.agent.run(task, asking ? 12 : settings.maxSteps).finally(() => l.emit({ type: 'idle' }));
+  await l.agent.run(task, asking ? 12 : settings.maxSteps, images).finally(() => l.emit({ type: 'idle' }));
   if (ref) {
     const after = await checkpoint(l.thread.folder, l.thread.id, `after: ${task}`).catch(() => null);
     const files = after ? await changedBetween(l.thread.folder, ref, after).catch(() => []) : [];
@@ -365,9 +366,9 @@ async function filesOfTasksFrom(l: Live, ref: string): Promise<Set<string> | nul
   for (const e of ends.slice(from)) for (const f of await changedBetween(l.thread.folder, e.ref, e.after)) paths.add(f.path);
   return paths;
 }
-app.post(`${T}/task`, withThread((l, { task }) => {
+app.post(`${T}/task`, withThread(async (l, { task, images }) => {
   if (l.agent.running) return { error: 'The agent is already working. Wait for it to finish, or stop it.' };
-  void runTask(l, task);
+  void runTask(l, task, await sketchesFrom(images));
 }));
 app.post(`${T}/undo`, async (c) => {
   const l = await open(c.req.param('id'));
@@ -467,7 +468,7 @@ const levelNote = (level: 'beginner' | 'intermediate' | 'advanced') => ({
   intermediate: 'The learner is intermediate: focus on how the parts fit together, keep it short.',
   advanced: 'The learner is advanced: be precise and brief, mention trade-offs and failure modes.',
 }[level] ?? '');
-app.post(`${T}/ask-thread`, withThread(async (l, { question }) => {
+app.post(`${T}/ask-thread`, withThread(async (l, { question, images }) => {
   const t = await newThread(l.thread.folder, 'ask', l.thread.id, true);
   // The window sends "About this part:\n> quote\n\nquestion": the title is the question, then the start of the quote.
   const q = String(question), m = q.match(/^About this part:\n([\s\S]*?)\n\n([\s\S]*)$/);
@@ -477,7 +478,7 @@ app.post(`${T}/ask-thread`, withThread(async (l, { question }) => {
   if (!side) return { error: 'could not open side thread' };
   side.agent.notes.push(await briefOf(l), levelNote(settings.learn.level));
   // Its own Live and agent: the main agent keeps running (this route never waits on it or touches its messages).
-  void side.agent.run(String(question), 12).finally(() => side.emit({ type: 'idle' }));
+  void side.agent.run(String(question), 12, await sketchesFrom(images)).finally(() => side.emit({ type: 'idle' }));
   return { id: t.id };
 }));
 // Clear or compact what the model remembers of this thread (the chat on screen stays). Compact keeps a summary.
@@ -517,6 +518,11 @@ app.post(`${T}/approve`, withThread((l, { id, ok }) => {
 
 // settings + providers
 app.get('/api/settings', (c) => c.json(publicSettings()));
+// Scratchpad: a sketch (PNG) to attach to a question or a task.
+app.post('/api/sketches', async (c) => {
+  const { data } = await c.req.json().catch(() => ({}));
+  try { return c.json({ name: await saveSketch(data) }); } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
 // Setting up an agent: requirement checks, and open models downloaded with Ollama.
 app.get('/api/setup/check', async (c) => c.json(await checks(recipeOf({ recipe: c.req.query('recipe') } as Provider))));
 app.get('/api/setup/ollama/models', async (c) => c.json(await ollamaModels()));
