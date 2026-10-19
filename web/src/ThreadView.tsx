@@ -15,6 +15,8 @@ import { useGpu, GpuPanel } from './useGpu';
 import { StepsSheet } from './StepsSheet';
 import { Sidebar, type Nav } from './Sidebar';
 import { ThreadMenu } from './ThreadMenu';
+import { Tips } from './Tips';
+import { useT } from './i18n';
 
 export type Layout = 'studio' | 'classic';
 type Tab = 'chat' | 'steps' | 'threads';
@@ -26,7 +28,9 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
 }) {
   const { state, replay, meta, run, steer, stop, approve, answerCheckpoint, setMode, resetContext } = useAgent(id);
   const { health, serverDown, recheck } = useHealth();
-  const { refreshThreads } = useApp();
+  const { refreshThreads, threads, me } = useApp();
+  const t = useT();
+  const [following, setFollowing] = useState(true);
   const gpuCtl = useGpu();
   const problem = diagnose(health, serverDown);
   const [selected, setSelected] = useState<string | null>(null);
@@ -84,12 +88,16 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
   );
 
   // ── studio: the map fills the window; chat, steps and threads are tabs of one floating panel ──
-  const [tab, setTab] = useState<Tab>(() => {
+  const [tabPicked, setTab] = useState<Tab>(() => {
     const toured = (() => { try { return localStorage.getItem('toured') === '1'; } catch { return true; } })();
     const t = firstOpen && toured ? 'threads' : 'chat'; // the first-visit tour points at the chat
     firstOpen = false;
     return t;
   });
+  // The panel grows with the thread: Steps once there is a step, Threads once there is more than one thread.
+  const showSteps = state.steps.length > 0, showThreads = Boolean(nav) && threads.length > 1;
+  const tab: Tab = (tabPicked === 'steps' && !showSteps) || (tabPicked === 'threads' && !showThreads) ? 'chat' : tabPicked;
+  const tips = <Tips state={state} following={following} replaying={replay.active} shared={Boolean(meta.shared)} />;
   const [panelW, setPanelW] = useState(() => storedNumber('panelW', 400));
   const [panelOpen, setPanelOpen] = useState(true);
   const [phone, setPhone] = useState(() => window.innerWidth <= 700);
@@ -114,16 +122,23 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
       <div className="studio">
         <Stage state={state} replay={replay} threadId={id} workspace={String(meta.workspace)} full left={left}
           selected={selected} onSelect={(k) => { setSelected(k); if (k) openSteps(true); }} sheetOpen={tab === 'steps' && panelOpen} setSheetOpen={openSteps}
-          approve={approve} onCollapse={() => {}} lit={lit} />
+          approve={approve} onCollapse={() => {}} lit={lit} onFollowing={setFollowing} />
         {panelOpen ? (
           <aside className="studio-panel" style={{ width: panelW }}>
             <div className="studio-head">
-              <div className="studio-tabs">
-                <button className={tab === 'threads' ? 'on' : ''} onClick={() => setTab('threads')}>Threads</button>
-                <button className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>Chat{state.running && !replay.active && <span className="live-dot" />}</button>
-                <button className={tab === 'steps' ? 'on' : ''} onClick={() => setTab('steps')}>Steps{state.steps.length ? <span className="count">{state.steps.length}</span> : null}</button>
-              </div>
-              <button className="icon-btn" onClick={() => setPanelOpen(false)} title="Hide the panel: just the map" aria-label="Hide the panel"><Icon name="chevron" size={13} className="flip" /></button>
+              {showSteps || showThreads ? (
+                <div className="studio-tabs">
+                  {showThreads && <button className={`tab-threads ${tab === 'threads' ? 'on' : ''}`} onClick={() => setTab('threads')}>{t('Threads', 'Fils')}</button>}
+                  <button className={`tab-chat ${tab === 'chat' ? 'on' : ''}`} onClick={() => setTab('chat')}>{t('Chat', 'Chat')}{state.running && !replay.active && <span className="live-dot" />}</button>
+                  {showSteps && <button className={`tab-steps ${tab === 'steps' ? 'on' : ''}`} onClick={() => setTab('steps')}>{t('Steps', 'Étapes')}<span className="count">{state.steps.length}</span></button>}
+                </div>
+              ) : <span className="spacer" />}
+              {/* Until there's a Threads tab, a new thread and the settings stay one click away. */}
+              {nav && !showThreads && <>
+                <button className="icon-btn studio-mini" onClick={nav.onNew} title={t('New thread', 'Nouveau fil')} aria-label={t('New thread', 'Nouveau fil')}><Icon name="plus" size={14} /></button>
+                {!me?.public && <button className="icon-btn studio-mini" onClick={nav.onSettings} title={t('Settings', 'Réglages')} aria-label={t('Settings', 'Réglages')}><Icon name="gear" size={14} /></button>}
+              </>}
+              <button className="icon-btn" onClick={() => setPanelOpen(false)} title={t('Hide the panel: just the map', 'Masquer le panneau : juste la carte')} aria-label={t('Hide the panel', 'Masquer le panneau')}><Icon name="chevron" size={13} className="flip" /></button>
             </div>
             <div className="studio-body">
               {/* The chat stays mounted so a half-typed prompt survives a look at the steps. */}
@@ -143,6 +158,7 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
             <Icon name="chevron" size={13} />{state.running && <span className="live-dot" />}<span>{meta.title}</span>
           </button>
         )}
+        {tips}
         {sideId && <div className="studio-side" style={{ left: left || 16 }}><SideThread key={sideId} id={sideId} onClose={() => setSideId(null)} onOpenSettings={onOpenSettings} onSelect={pickStep} /></div>}
       </div>
       </HighlightContext.Provider>
@@ -165,8 +181,9 @@ export function ThreadView({ id, onOpenSettings, layout = 'classic', nav, onLayo
       {showStage && (
         <Stage state={state} replay={replay} threadId={id} workspace={String(meta.workspace)}
           selected={selected} onSelect={setSelected} sheetOpen={sheetOpen} setSheetOpen={setSheetOpen}
-          approve={approve} onCollapse={() => setStageOpen(false)} lit={lit} />
+          approve={approve} onCollapse={() => setStageOpen(false)} lit={lit} onFollowing={setFollowing} />
       )}
+      {tips}
     </div>
     </HighlightContext.Provider>
   );

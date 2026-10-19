@@ -10,8 +10,9 @@ import { stepText } from './StepsSheet';
 import { Markdown } from './Markdown';
 import { useApp } from './useSettings';
 import { useHighlight } from './highlight';
-import { engineOf, ENGINE_LABEL, type Engine } from './api';
+import { engineOf, ENGINE_LABEL, type Engine, type Provider } from './api';
 import { Learned } from './Learned';
+import { useT } from './i18n';
 
 function summarize(steps: Step[]) {
   const c = (n: string[]) => steps.filter((s) => n.includes(s.name) && s.ok !== false).length;
@@ -69,6 +70,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   const lastEnd = state.steps.at(-1)?.endedAt;
   const typed = (e: { text: string; at: number }) => <Typed text={e.text} animate={e.at > mounted.current - 1500} />;
   const hl = useHighlight();
+  const t = useT();
 
   // Enter = run (idle) or steer (running). "Ask" opens a side thread that never touches files.
   // While a checkpoint waits for you, what you type is your reply to it (one input box, never two).
@@ -201,16 +203,16 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
       {problem && !side && <div className="problem"><span className="sdot bad" />{problem}</div>}
       {shared && !replaying ? (
         <div className="composer shared-note">
-          <span>A session shared from <b>{shared.project || 'another computer'}</b>. You can replay it, not run it.</span>
-          <button className="btn primary sm" onClick={shared.onPlay}><Icon name="play" size={10} /> Watch it</button>
+          <span>{t('A session shared from', 'Une session partagée depuis')} <b>{shared.project || t('another computer', 'un autre ordinateur')}</b>. {t('You can replay it, not run it.', 'Tu peux la revoir, pas la lancer.')}</span>
+          <button className="btn primary sm" onClick={shared.onPlay}><Icon name="play" size={10} /> {t('Watch it', 'La regarder')}</button>
         </div>
-      ) : replaying ? <div className="composer replay-note">You're watching a replay. Press <b>● Live</b> (or End) to get back.</div> :
+      ) : replaying ? <div className="composer replay-note">{t('You’re watching a replay. Press', 'Tu regardes une rediffusion. Appuie sur')} <b>● Live</b> {t('(or End) to get back.', '(ou Fin) pour revenir.')}</div> :
       <div className="composer">
-        {waiting && <div className="composer-reply">Replying to <b>{waiting.cp.title || 'the checkpoint'}</b></div>}
+        {waiting && <div className="composer-reply">{t('Replying to', 'Réponse à')} <b>{waiting.cp.title || t('the checkpoint', 'l’étape')}</b></div>}
         {canQuiz && !text.trim() && (
           <div className="composer-suggest">
-            <button className="btn ghost sm" onClick={() => onRun(QUIZ)} title="The tutor asks you 3 short questions about this step, one at a time, and tells you what you got right">
-              <Icon name="quiz" size={12} /> Quiz me
+            <button className="btn ghost sm" onClick={() => onRun(QUIZ)} title={t('The tutor asks you 3 short questions about this step, one at a time, and tells you what you got right', 'Le tuteur te pose 3 questions courtes sur cette étape, une à la fois, et te dit ce que tu as juste')}>
+              <Icon name="quiz" size={12} /> {t('Quiz me', 'Interroge-moi')}
             </button>
           </div>
         )}
@@ -221,31 +223,31 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           rows={centered ? 3 : 2}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } if (e.key === 'Escape') setAsking(false); }}
-          placeholder={side ? 'Ask a follow-up…' : asking ? 'Ask a question. It reads the project and the chat, but changes nothing…' : waiting ? 'Ask about this step, or say what to change…' : state.running ? 'Steer the agent…'
-            : asked ? 'Type your answer…' : mode === 'learn' ? 'What do you want to build?' : 'Describe a task…'}
+          placeholder={side ? t('Ask a follow-up…', 'Pose une autre question…') : asking ? t('Ask why. It reads the project and the chat, but changes nothing…', 'Demande pourquoi. Il lit le projet et le chat, mais ne change rien…') : waiting ? t('Ask about this step, or say what to change…', 'Pose une question sur cette étape, ou dis ce qu’il faut changer…') : state.running ? t('Steer the agent…', 'Guide l’agent…')
+            : asked ? t('Type your answer…', 'Écris ta réponse…') : mode === 'learn' ? t('What do you want to build?', 'Que veux-tu construire ?') : t('Describe a task…', 'Décris une tâche…')}
         />
         <div className="composer-bar">
           {!side && (
-            <div className="seg sm" title={state.running ? 'Switch when idle' : 'Build: the agent does the work. Learn: you design, it teaches and only writes code after you approve.'}>
+            <div className="seg sm" title={state.running ? t('Switch when idle', 'Change quand l’agent est au repos') : t('Build: the agent does the work. Learn: you design, it teaches and only writes code after you approve.', 'Build : l’agent fait le travail. Learn : tu conçois, il t’explique et n’écrit du code qu’après ton accord.')}>
               {(['build', 'learn'] as const).map((m) => (
                 <button key={m} className={mode === m ? 'on' : ''} disabled={state.running} onClick={() => onMode(m)}>{m === 'build' ? 'Build' : 'Learn'}</button>
               ))}
             </div>
           )}
           {status}
-          {!side && <TokenMeter tokens={state.tokens} running={state.running} onContext={onContext} />}
+          {!side && <TokenMeter tokens={state.tokens} running={state.running} onContext={onContext} engine={engine} />}
           <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} />
           <span className="spacer" />
           {voiceSupported && (
-            <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle} aria-label={voice.listening ? 'Stop listening' : 'Speak your prompt'} aria-pressed={voice.listening}
-              title={voice.error || (voice.listening ? 'Listening… click to stop' : 'Speak your prompt')}><Icon name="mic" size={14} /></button>
+            <button className={`icon-btn mic ${voice.listening ? 'on' : ''}`} onClick={voice.toggle} aria-label={voice.listening ? t('Stop listening', 'Arrêter l’écoute') : t('Speak your prompt', 'Dicte ta demande')} aria-pressed={voice.listening}
+              title={voice.error || (voice.listening ? t('Listening… click to stop', 'J’écoute… clique pour arrêter') : t('Speak your prompt', 'Dicte ta demande'))}><Icon name="mic" size={14} /></button>
           )}
           {!side && <button className={`btn ghost sm ask-btn ${asking ? 'on' : ''}`} onClick={() => { if (text.trim()) submit('ask'); else { setAsking(!asking); box.current?.focus(); } }}
-            title="Ask a side question without interrupting the agent. It can read the project but never changes it">Ask</button>}
+            title={t('Ask why it did something, without interrupting it. The answer reads the project but never changes it', 'Demande pourquoi il a fait quelque chose, sans l’interrompre. La réponse lit le projet mais ne le change jamais')}>{t('Ask why', 'Pourquoi ?')}</button>}
           {state.running && !side
-            ? <button className="btn danger round" onClick={onStop} title="Stop" aria-label="Stop the agent"><Icon name="stop" size={10} /></button>
-            : <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? 'Steer' : 'Send'} aria-label={state.running ? 'Steer' : 'Send'}><Icon name="arrow" size={14} /></button>}
-          {state.running && !side && text.trim() && <button className="btn primary round" onClick={() => submit()} title="Steer: the agent reads this before its next step" aria-label="Steer"><Icon name="arrow" size={14} /></button>}
+            ? <button className="btn danger round" onClick={onStop} title={t('Stop', 'Arrêter')} aria-label={t('Stop the agent', 'Arrêter l’agent')}><Icon name="stop" size={10} /></button>
+            : <button className="btn primary round" onClick={() => submit()} disabled={!text.trim()} title={state.running ? t('Steer', 'Guider') : t('Send', 'Envoyer')} aria-label={state.running ? t('Steer', 'Guider') : t('Send', 'Envoyer')}><Icon name="arrow" size={14} /></button>}
+          {state.running && !side && text.trim() && <button className="btn primary round" onClick={() => submit()} title={t('Steer: the agent reads this before its next step', 'Guider : l’agent lit ceci avant sa prochaine étape')} aria-label={t('Steer', 'Guider')}><Icon name="arrow" size={14} /></button>}
         </div>
       </div>}
     </aside>
@@ -321,15 +323,17 @@ function Typed({ text, animate }: { text: string; animate: boolean }) {
 
 // How big the conversation is now (what the model reads on each step) and what this thread has used so far.
 // Click: compact (continue from a summary) or clear (start fresh) what the model remembers of this thread.
-function TokenMeter({ tokens, running, onContext }: { tokens: State['tokens']; running: boolean; onContext?: (a: 'clear' | 'compact') => Promise<string | null> }) {
+function TokenMeter({ tokens, running, onContext, engine }: { tokens: State['tokens']; running: boolean; onContext?: (a: 'clear' | 'compact') => Promise<string | null>; engine?: Engine }) {
   const [open, setOpen] = useState(false), [busy, setBusy] = useState<string | null>(null), [err, setErr] = useState('');
   const wrap = useRef<HTMLSpanElement>(null);
   useDismiss(open, () => setOpen(false), wrap);
   if (!tokens.total) return null;
+  // Rough window size (Claude models read about 200k, open models usually 128k): past 60% it stays in view.
+  const full = tokens.context / (engine === 'claude-code' ? 200_000 : 128_000) > 0.6;
   const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
   const go = async (a: 'clear' | 'compact') => { setBusy(a); setErr(''); const e = await onContext!(a); setBusy(null); if (e) setErr(e); else setOpen(false); };
   return (
-    <span className="token-meter" ref={wrap}>
+    <span className={`token-meter ${full || open ? '' : 'quiet'}`} ref={wrap}>
       <button className="tm-btn" onClick={() => onContext && setOpen(!open)}
         title={`The model reads about ${tokens.context.toLocaleString()} tokens per step; ${tokens.total.toLocaleString()} used in this thread${tokens.cost ? ` (about $${tokens.cost.toFixed(2)})` : ''}.`}>
         {k(tokens.context)}<span className="muted"> / {k(tokens.total)}</span>
@@ -353,6 +357,8 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
   const wrap = useRef<HTMLDivElement>(null);
   useDismiss(open, () => setOpen(false), wrap);
   if (!settings) return null;
+  // One usable model: nothing to pick (Settings still lists them all).
+  if (settings.providers.filter((p) => p.id === settings.activeProvider || usable(p)).length <= 1) return null;
   const selected = settings.providers.find((p) => p.id === settings.activeProvider);
   // A thread locked to the other engine keeps running on its own model, so that's the one to show.
   const active = lockedTo && selected && engineOf(selected) !== lockedTo ? settings.providers.find((p) => p.id === threadProvider) ?? selected : selected;
@@ -388,6 +394,9 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
     </div>
   );
 }
+
+// A model you could switch to right now: the demo, or one with a key (Ollama's placeholder key doesn't count: it may not be running).
+const usable = (p: Provider) => p.kind === 'mock' || (Boolean(p.apiKey) && !/localhost:11434/.test(p.baseUrl));
 
 // The harness checking the agent's work before accepting "done".
 function VerifyLine({ e }: { e: Extract<Entry, { kind: 'verify' }> }) {
