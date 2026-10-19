@@ -125,3 +125,11 @@ test('run_command runs in the workspace and reports failures', async (t) => {
   assert.match(await runTool(ctx(root), 'run_command', { command: 'ls' }), /here\.txt/);
   await assert.rejects(runTool(ctx(root), 'run_command', { command: 'echo broken; exit 3' }), /exit 3\nbroken/);
 });
+
+test('search and read skip binary files (a big .psd once froze the server)', async (t) => {
+  const root = await workspace(t);
+  await writeFile(join(root, 'notes.txt'), 'find the needle here');
+  await writeFile(join(root, 'art.psd'), Buffer.concat([Buffer.from([0, 1, 2, 0]), Buffer.from('needle')]));
+  assert.equal(await runTool(ctx(root), 'search', { text: 'needle' }), 'notes.txt:1: find the needle here');
+  assert.match(await runTool(ctx(root), 'read_file', { path: 'art.psd' }), /binary/);
+});
