@@ -1,17 +1,18 @@
 // Scratchpad: side questions and sketches from anywhere. Select text in an agent message, a step, a diff or a code
 // block (or hover a message and press "?", or ⌘K, or the Scratchpad button) and a floating window opens with that
 // part quoted. You can draw in it, or mark up a screenshot, and send the sketch with your question. It runs a temporary, read-only side session
-// (POST /ask-thread) next to the main one, so the main agent keeps working. Close discards it; Save to notes keeps it.
+// (POST /ask-thread) next to the main one, so the main agent keeps working. Every conversation is kept as a note:
+// an empty Scratchpad lists this session's notes, to reopen or delete.
 // One window is open at a time; up to 3 more wait as small pills at the bottom of the screen.
 import { useEffect, useRef, useState } from 'react';
 import { useAgent, type State } from './useAgent';
 import { SketchPad, emptySketch, isBlank, sketchToPng, sketchFromImage, type Sketch } from './Sketch';
 import { Icon } from './icons';
 import { Markdown } from './Markdown';
-import { useApp } from './useSettings';
+import { ago } from './api';
 import { useT, serverText, useLang } from './i18n';
 
-type Win = { key: string; quote: string; code: boolean; sideId: string | null; shrunk: boolean; title: string; kept: boolean; error?: string;
+type Win = { key: string; quote: string; code: boolean; sideId: string | null; shrunk: boolean; title: string; error?: string;
   sketch: Sketch; drawing: boolean; sending?: boolean; sent?: boolean };
 type Geo = { x: number; y: number; w: number; h: number };
 
@@ -50,7 +51,7 @@ function askableSelection(): { text: string; code: boolean; rect: DOMRect } | nu
 // Scratchpad sits right beside the chat panel, as tall as it: your chat and your scratchpad side by side.
 // (No chat panel on screen, e.g. the panel is folded away: it docks on the right instead.)
 function dockGeo(): Geo {
-  const W = Math.min(540, window.innerWidth - 16);
+  const W = Math.min(440, window.innerWidth - 16);
   const panel = [...document.querySelectorAll<HTMLElement>('.studio-panel, .agent-panel:not(.side)')]
     .map((el) => el.getBoundingClientRect()).find((r) => r.width > 200 && r.height > 200);
   if (!panel) return { x: window.innerWidth - W - 12, y: 64, w: W, h: window.innerHeight - 80 };
@@ -63,9 +64,7 @@ export function useAsk(threadId: string) {
   const [wins, setWins] = useState<Win[]>([]);
   const winsRef = useRef(wins);
   winsRef.current = wins;
-  const { refreshThreads } = useApp();
   const patch = (key: string, p: Partial<Win>) => setWins((ws) => ws.map((w) => (w.key === key ? { ...w, ...p } : w)));
-  const discard = (w: Win) => { if (w.sideId && !w.kept) fetch(`/api/threads/${w.sideId}`, { method: 'DELETE' }).catch(() => {}); };
 
   // Always an object: a server that answers with plain text (an old copy without this route, a proxy error) becomes an error.
   const post = (url: string, body: object) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
@@ -114,19 +113,18 @@ export function useAsk(threadId: string) {
     const q = trimQuote(quote);
     setWins((ws) => {
       let next = ws.map((w) => ({ ...w, shrunk: true }));
-      while (next.length >= MAX_PILLS + 1) { discard(next[0]); next = next.slice(1); }
-      return [...next, { key, quote: q, code, sideId: null, shrunk: false, title: question?.slice(0, 60) || q.slice(0, 60), kept: false, sketch: emptySketch(), drawing: draw }];
+      while (next.length >= MAX_PILLS + 1) next = next.slice(1);
+      return [...next, { key, quote: q, code, sideId: null, shrunk: false, title: question?.slice(0, 60) || q.slice(0, 60), sketch: emptySketch(), drawing: draw }];
     });
     if (question) send(key, q, question);
     window.getSelection()?.removeAllRanges();
   };
-  const close = (key: string) => setWins((ws) => { const w = ws.find((x) => x.key === key); if (w) discard(w); return ws.filter((x) => x.key !== key); });
+  const close = (key: string) => setWins((ws) => ws.filter((x) => x.key !== key));
   const restore = (key: string) => setWins((ws) => ws.map((w) => ({ ...w, shrunk: w.key !== key })));
-  const save = (w: Win) => w.sideId && fetch(`/api/threads/${w.sideId}/keep`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
-    .then((r) => { if (r.ok) { patch(w.key, { kept: true }); refreshThreads(); } });
+  // Notes: open one again in this window, or start a fresh one.
+  const openNote = (key: string, id: string, title: string) => patch(key, { sideId: id, title, quote: '', error: undefined, sketch: emptySketch(), drawing: false });
+  const fresh = (key: string) => patch(key, { sideId: null, title: '', quote: '', error: undefined, sketch: emptySketch(), drawing: false });
 
-  // Leaving the session discards its unsaved side questions.
-  useEffect(() => () => winsRef.current.forEach(discard), []);
 
   // The floating "Ask about this" button follows the selection.
   const [pick, setPick] = useState<{ text: string; code: boolean; x: number; y: number } | null>(null);
@@ -167,7 +165,8 @@ export function useAsk(threadId: string) {
       {wins.map((w) => (
         <AskWindow key={w.key} win={w} onSend={(q) => send(w.key, w.quote, q)} onFollow={(q) => w.sideId && follow(w.key, w.sideId, q)}
           onTask={(q) => toTask(w.key, w.quote, q)} onSketch={(sk) => patch(w.key, { sketch: sk })} onDraw={(on) => patch(w.key, { drawing: on })}
-          onClose={() => close(w.key)} onSave={() => save(w)} onShrink={() => patch(w.key, { shrunk: true })} />
+          onClose={() => close(w.key)} onShrink={() => patch(w.key, { shrunk: true })} threadId={threadId}
+          onOpenNote={(id, title) => openNote(w.key, id, title)} onFresh={() => fresh(w.key)} />
       ))}
       {pills.length > 0 && (
         <div className="ask-pills">
@@ -184,11 +183,12 @@ export function useAsk(threadId: string) {
 }
 
 type WinProps = { win: Win; onSend: (q: string) => void; onFollow: (q: string) => void; onTask: (q: string) => void;
-  onSketch: (s: Sketch) => void; onDraw: (on: boolean) => void; onClose: () => void; onSave: () => void; onShrink: () => void };
+  onSketch: (s: Sketch) => void; onDraw: (on: boolean) => void; onClose: () => void; onShrink: () => void;
+  threadId: string; onOpenNote: (id: string, title: string) => void; onFresh: () => void };
 
 // The window: no title, just room. What you asked about (if anything), the answers, the page you draw on,
 // then the box to type in; under it, + to draw or bring in a screenshot, and Send to your current thread.
-function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, onSave, onShrink }: WinProps) {
+function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, onShrink, threadId, onOpenNote, onFresh }: WinProps) {
   const t = useT();
   const fr = useLang() === 'fr';
   const [geo, setGeo] = useState<Geo>(dockGeo);
@@ -248,15 +248,20 @@ function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, o
   return (
     <div ref={box} className={`ask-win scratch ${phone ? 'sheet-mode' : ''}`} hidden={win.shrunk} role="dialog" aria-label={t('Scratchpad', 'Brouillon')}
       style={phone ? undefined : { left: geo.x, top: geo.y, width: geo.w, height: geo.h }}>
+      {asked && !win.sent && <button className="btn ghost sm sp-back" onClick={onFresh} title={t('Your notes, and a new one', 'Tes notes, et une nouvelle')}><Icon name="list" size={13} />{t('Notes', 'Notes')}</button>}
       <div className="sp-corner">
         <button className="icon-btn" onClick={onShrink} title={t('Shrink', 'Réduire')} aria-label={t('Shrink', 'Réduire')}><Icon name="minus" size={13} /></button>
-        <button className="icon-btn" onClick={onClose} title={t('Close and discard (Esc)', 'Fermer et effacer (Échap)')} aria-label={t('Close', 'Fermer')}><Icon name="x" size={13} /></button>
+        <button className="icon-btn" onClick={onClose} title={t('Close (Esc). Your notes are kept.', 'Fermer (Échap). Tes notes sont gardées.')} aria-label={t('Close', 'Fermer')}><Icon name="x" size={13} /></button>
       </div>
       {win.sent ? <div className="sp-body sent"><Icon name="check" size={18} /><span>{t('Sent to your thread', 'Envoyé à ton fil')}</span></div> : <>
         <div className="sp-body">
           {asked ? <Conversation sideId={win.sideId!} code={win.code} onRunning={setRunning} />
             : win.quote ? <Quote text={win.quote} code={win.code} /> : null}
           {win.drawing && <SketchPad value={win.sketch} onChange={onSketch} />}
+          {win.drawing && !asked && <p className="sp-tip">{win.sketch.bg
+            ? t('Circle or underline the part you mean, then say below what should change. ⌘Z takes back a stroke.', 'Entoure ou souligne la partie qui compte, puis dis en dessous ce qui doit changer. ⌘Z annule un trait.')
+            : t('Sketch a layout, a flow or an idea: boxes and arrows are plenty. ⌘Z takes back a stroke.', 'Dessine une mise en page, un parcours ou une idée : des boîtes et des flèches suffisent. ⌘Z annule un trait.')}</p>}
+          {!asked && !win.quote && !win.drawing && <Notes threadId={threadId} onOpen={onOpenNote} />}
         </div>
         {win.error && <div className="ask-error">{serverText(win.error, fr)}</div>}
         <div className="sp-input">
@@ -269,8 +274,6 @@ function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, o
         <div className="sp-row">
           <PlusMenu drawing={win.drawing} onDraw={() => onDraw(true)} onPicture={() => file.current?.click()} />
           <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { bring(e.target.files?.[0]); e.target.value = ''; }} />
-          {asked && (win.kept ? <span className="muted sp-kept">{t('Saved to notes', 'Gardée dans tes notes')}</span>
-            : <button className="btn ghost sm" onClick={onSave}>{t('Save to notes', 'Garder dans mes notes')}</button>)}
           <span className="spacer" />
           <button className="btn ghost sm" disabled={busy || !ready} onClick={toThread}
             title={t('Send what you wrote (and drew) to your current thread, as a message to the main agent', 'Envoyer ce que tu as écrit (et dessiné) à ton fil, comme message à l’agent principal')}>
@@ -278,6 +281,33 @@ function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, o
           </button>
         </div>
       </>}
+    </div>
+  );
+}
+
+// This session's notes, newest first: open one again, or delete it.
+type Note = { id: string; title: string; updatedAt: number; sketch: string | null };
+function Notes({ threadId, onOpen }: { threadId: string; onOpen: (id: string, title: string) => void }) {
+  const t = useT();
+  const fr = useLang() === 'fr';
+  const [notes, setNotes] = useState<Note[] | null>(null);
+  const load = () => fetch(`/api/threads/${threadId}/scratch-notes`).then((r) => r.json()).then((n) => setNotes(Array.isArray(n) ? n.sort((a, b) => b.updatedAt - a.updatedAt) : [])).catch(() => setNotes([]));
+  useEffect(() => { void load(); }, [threadId]);
+  const remove = (n: Note) => { if (!confirm(t(`Delete the note “${n.title}”?`, `Supprimer la note « ${n.title} » ?`))) return; fetch(`/api/threads/${n.id}`, { method: 'DELETE' }).then(load); };
+  if (!notes?.length) return null;
+  return (
+    <div className="sp-notes">
+      <div className="sp-notes-head">{t('Your notes', 'Tes notes')}</div>
+      {notes.map((n) => (
+        <div key={n.id} className="sp-note">
+          <button className="sp-note-open" onClick={() => onOpen(n.id, n.title)}>
+            {n.sketch ? <img src={`/api/shots/${n.sketch}`} alt="" /> : <span className="sp-note-icon"><Icon name="write" size={13} /></span>}
+            <span className="sp-note-title">{n.title || t('Note', 'Note')}</span>
+            <span className="muted sp-note-when">{ago(n.updatedAt, fr)}</span>
+          </button>
+          <button className="icon-btn sp-note-del" onClick={() => remove(n)} title={t('Delete this note', 'Supprimer cette note')} aria-label={t('Delete', 'Supprimer')}><Icon name="x" size={12} /></button>
+        </div>
+      ))}
     </div>
   );
 }

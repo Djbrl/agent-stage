@@ -6,7 +6,6 @@ import { useAgent } from './useAgent';
 import { AgentPanel } from './AgentPanel';
 import { Stage } from './Stage';
 import { Icon } from './icons';
-import { HealthDot } from './HealthDot';
 import { useHealth, diagnose } from './useHealth';
 import { useApp } from './useSettings';
 import { Resizer, storedNumber, store } from './Resizer';
@@ -18,6 +17,7 @@ import { ThreadMenu } from './ThreadMenu';
 import { Tips } from './Tips';
 import { useT, useLang, serverText } from './i18n';
 import { useAsk } from './AskWindow';
+import { GitSetup } from './GitSetup';
 
 export type Layout = 'studio' | 'classic';
 type Tab = 'chat' | 'steps' | 'threads';
@@ -70,7 +70,9 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   useEffect(() => { fetch(`/api/threads/${id}/git`).then((r) => r.json()).then((j) => setRepo(Boolean(j.repo))).catch(() => {}); }, [id]);
   // A session someone shared: replay only (no Undo, Keep, version history or composer).
   const shared = meta.shared ? { project: String(meta.workspace ?? ''), onPlay: () => { setStageOpen(true); replay.play(); } } : undefined;
-  const git = repo === null || shared ? null : { repo, onInit: () => fetch(`/api/threads/${id}/git/init`, { method: 'POST' }).then((r) => r.ok && setRepo(true)) };
+  const [gitSetup, setGitSetup] = useState(false);
+  const git = repo === null || shared ? null : { repo, onInit: () => setGitSetup(true) };
+  const gitModal = gitSetup && <GitSetup threadId={id} onDone={() => { setRepo(true); setGitSetup(false); }} onClose={() => setGitSetup(false)} />;
   const undo = (ref: string) => fetch(`/api/threads/${id}/undo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
     .then((r) => r.json()).then((j) => j.error && alert(serverText(j.error, fr)));
   const keep = (ref: string): Promise<string | null> => fetch(`/api/threads/${id}/keep-task`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
@@ -112,7 +114,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   if (layout === 'studio') {
     const agentPanel = (
       <AgentPanel visible={tab === 'chat'} threadProvider={meta.providerId} state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
-        status={<HealthDot health={health} serverDown={serverDown} onRecheck={recheck} gpu={gpuCtl} bare />}
+        health={health} serverDown={serverDown} gpu={gpuCtl}
         engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
         problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
         banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null}
@@ -161,7 +163,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
           </button>
         )}
         {tips}
-        {ask.layer}
+        {ask.layer}{gitModal}
       </div>
       </HighlightContext.Provider>
     );
@@ -172,7 +174,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
     <div className={`thread ${showStage ? 'split' : 'solo'}`} style={showStage ? { gridTemplateColumns: `${chatW}px 0 minmax(0, 1fr)` } : undefined}>
       <div className="chat-col">
         <AgentPanel threadProvider={meta.providerId} state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
-          status={<HealthDot health={health} serverDown={serverDown} onRecheck={recheck} gpu={gpuCtl} bare />}
+          health={health} serverDown={serverDown} gpu={gpuCtl}
           engine={meta.engine ?? 'native'} hasHistory={state.timeline.length > 0}
           problem={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? null : problem} onOpenSettings={onOpenSettings}
           banner={gpuCtl.gpu?.managed && gpuCtl.gpu.phase !== 'ready' ? <GpuPanel gpu={gpuCtl.gpu} start={gpuCtl.start} stop={gpuCtl.stop} /> : null} replaying={replay.active} header={header} centered={!showStage}
@@ -185,7 +187,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
           approve={approve} onCollapse={() => setStageOpen(false)} lit={lit} onFollowing={setFollowing} />
       )}
       {tips}
-      {ask.layer}
+      {ask.layer}{gitModal}
     </div>
     </HighlightContext.Provider>
   );

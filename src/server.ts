@@ -4,7 +4,8 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { streamSSE } from 'hono/streaming';
-import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { execFile as execFileCb } from 'node:child_process';
 import { homedir, userInfo } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { Agent, type AgentEvent } from './agent.ts';
@@ -208,7 +209,8 @@ if (PUBLIC) {
 const T = '/api/threads/:id';
 
 // threads
-app.get('/api/threads', async (c) => c.json((await listThreads()).filter((t) => !t.temp).map((t) => ({
+// Scratchpad notes (side questions, mode 'ask') aren't sessions: they're listed in Scratchpad, under their session.
+app.get('/api/threads', async (c) => c.json((await listThreads()).filter((t) => !t.temp && t.mode !== 'ask').map((t) => ({
   id: t.id, title: t.title, folder: t.folder, updatedAt: t.updatedAt, running: live.get(t.id)?.agent.running ?? false, engine: t.engine ?? 'native',
   tokens: t.usage.promptTokens + t.usage.completionTokens, shared: Boolean(t.shared),
 }))));
@@ -408,12 +410,41 @@ app.get(`${T}/git`, async (c) => {
   const l = await open(c.req.param('id'));
   return l ? c.json({ repo: !readOnly(l) && await isRepo(l.thread.folder), shared: readOnly(l) }) : c.json({ error: 'not found' }, 404);
 });
+// Before turning Git on: is git installed, how many files, and which are big (art, video) and better left out.
+const BIG_MB = 10;
+async function bigFiles(dir: string) {
+  const files = await listFiles(dir);
+  const sized = await Promise.all(files.map(async (f) => ({ path: f, mb: ((await stat(join(dir, f)).catch(() => null))?.size ?? 0) / 1048576 })));
+  return { files: files.length, big: sized.filter((f) => f.mb > BIG_MB).sort((a, b) => b.mb - a.mb) };
+}
+app.get(`${T}/git/plan`, async (c) => {
+  const l = await open(c.req.param('id'));
+  if (!l) return c.json({ error: 'not found' }, 404);
+  const installed = await new Promise<boolean>((ok) => execFileCb('git', ['--version'], (e) => ok(!e)));
+  const { files, big } = await bigFiles(l.thread.folder);
+  return c.json({ installed, files, bigCount: big.length, bigMb: Math.round(big.reduce((a, b) => a + b.mb, 0)), bigExamples: big.slice(0, 4).map((b) => ({ path: b.path, mb: Math.round(b.mb) })), limitMb: BIG_MB });
+});
 app.post(`${T}/git/init`, async (c) => {
   const l = await open(c.req.param('id'));
   if (!l) return c.json({ error: 'not found' }, 404);
   if (readOnly(l)) return c.json({ error: READ_ONLY }, 403);
-  try { if (!(await isRepo(l.thread.folder))) await initRepo(l.thread.folder); return c.json({ repo: true }); }
-  catch (e: any) { return c.json({ error: e.message }, 500); }
+  const { skipBig } = await c.req.json().catch(() => ({}));
+  try {
+    if (!(await isRepo(l.thread.folder))) {
+      // Big files stay out of the history (listed in .gitignore), so Git stays small and fast.
+      if (skipBig !== false) {
+        const { big } = await bigFiles(l.thread.folder);
+        if (big.length) {
+          const gi = join(l.thread.folder, '.gitignore');
+          const had = await readFile(gi, 'utf8').catch(() => '');
+          const lines = big.map((b) => `/${b.path.replace(/([*?[\]!#])/g, '\\$1')}`);
+          await writeFile(gi, `${had}${had && !had.endsWith('\n') ? '\n' : ''}# Big files left out of version history by Codetandem (over ${BIG_MB} MB)\n${lines.join('\n')}\n`);
+        }
+      }
+      await initRepo(l.thread.folder);
+    }
+    return c.json({ repo: true });
+  } catch (e: any) { return c.json({ error: e.message }, 500); }
 });
 app.post(`${T}/stop`, withThread((l) => {
   if (!l.agent.running && !l.approvals.size && !l.checkpoints.size) { l.emit({ type: 'idle' }); return; } // the page thought it was still running
@@ -473,7 +504,8 @@ app.post(`${T}/ask-thread`, withThread(async (l, { question, images }) => {
   // The window sends "About this part:\n> quote\n\nquestion": the title is the question, then the start of the quote.
   const q = String(question), m = q.match(/^About this part:\n([\s\S]*?)\n\n([\s\S]*)$/);
   const title = m ? `${m[2].trim()} · ${m[1].replace(/^> ?/gm, '').replace(/\s+/g, ' ').trim()}` : q;
-  t.engine = l.thread.engine; t.providerId = l.thread.providerId; t.title = title.slice(0, 60); await saveThread(t);
+  // Kept as a note straight away (Scratchpad lists them); temp only kept it out of the recent folders.
+  t.engine = l.thread.engine; t.providerId = l.thread.providerId; t.title = title.slice(0, 60); t.temp = false; await saveThread(t);
   const side = await open(t.id);
   if (!side) return { error: 'could not open side thread' };
   side.agent.notes.push(await briefOf(l), levelNote(settings.learn.level));
@@ -496,6 +528,13 @@ app.post(`${T}/context`, withThread(async (l, { action }) => {
   l.agent.notes = summary ? [`Summary of this thread so far (the full conversation was compacted):\n${summary}`] : [];
   l.emit({ type: 'context', action: action === 'compact' ? 'compact' : 'clear', summary });
 }));
+app.get(`${T}/scratch-notes`, async (c) => {
+  const id = c.req.param('id');
+  return c.json((await listThreads()).filter((t) => t.parent === id && t.mode === 'ask' && !t.temp).map((t) => ({
+    id: t.id, title: t.title, updatedAt: t.updatedAt,
+    sketch: (t.events.find((e: any) => e.type === 'user' && e.images?.length) as any)?.images?.[0] ?? null,
+  })));
+});
 app.post(`${T}/keep`, withThread((l) => { l.thread.temp = false; persist(l); }));
 app.post(`${T}/checkpoint`, withThread((l, { id, choice, text }) => {
   l.checkpoints.get(id)?.({ choice: choice === 'confirm' || choice === 'skip' ? choice : 'discuss', text });

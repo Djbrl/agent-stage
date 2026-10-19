@@ -10,7 +10,9 @@ import { stepText } from './StepsSheet';
 import { Markdown } from './Markdown';
 import { useApp } from './useSettings';
 import { useHighlight } from './highlight';
-import { engineOf, agentName, isReady, type Engine } from './api';
+import { engineOf, agentName, isReady, recipeOf, type Engine, type Provider } from './api';
+import type { HealthView } from './useHealth';
+import { GpuPanel, type GpuView } from './useGpu';
 import { Learned } from './Learned';
 import { parseAsk, Sketches } from './AskWindow';
 import { useT, useLang, tr, modeName, serverText } from './i18n';
@@ -43,7 +45,7 @@ function summarize(steps: Step[], fr: boolean) {
 // "Quiz me" (Learn mode). The mock model recognises the first words (QUIZ_START in src/model.ts).
 const QUIZ = "Quiz me on what we just did: ask me 3 short questions about the ideas and the code from this session, one at a time. Wait for my answer before the next question, tell me in one or two sentences whether I'm right and why, and finish with my score and what to review. Don't change any files.";
 
-export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onAskAbout, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git, shared }: {
+export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onAskAbout, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git, shared, health, serverDown, gpu }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
   mode: 'build' | 'learn'; onMode: (m: 'build' | 'learn') => void; onCheckpoint: (id: string, choice: 'confirm' | 'discuss' | 'skip', text?: string) => void;
   onRun: (t: string) => void; onAsk: (t: string) => void; onStop: () => void; onSelect: (id: string) => void;
@@ -54,6 +56,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   visible?: boolean; // the Chat tab can be hidden: scroll to the newest item when it shows again
   onUndo?: (ref: string) => void; onKeep?: (ref: string) => Promise<string | null>; git?: { repo: boolean; onInit: () => void } | null;
   shared?: { project: string; onPlay: () => void }; // a session someone shared: replay only, no composer
+  health?: HealthView | null; serverDown?: boolean; gpu?: { gpu: GpuView | null; start: () => void; stop: () => void }; // the ✦ shows the model's state
 }) {
   const [text, setText] = useState('');
   const box = useRef<HTMLTextAreaElement>(null);
@@ -215,8 +218,8 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
 
       {banner && !side && <div className="banner">{banner}</div>}
       {git && !git.repo && !side && !banner && (
-        <div className="git-note">{t('This folder keeps no versions, so the agent’s changes can’t be undone.', 'Ce dossier ne garde pas de versions : les changements de l’agent ne pourront pas être annulés.')}
-          <button className="btn ghost sm" onClick={git.onInit}>{t('Turn it on', 'Activer')}</button></div>
+        <div className="git-note">{t('This folder isn’t saved with Git, so you can’t undo the agent’s changes.', 'Ce dossier n’est pas suivi par Git : tu ne pourras pas annuler les changements de l’agent.')}
+          <button className="btn ghost sm" onClick={git.onInit}>{t('Set up Git…', 'Configurer Git…')}</button></div>
       )}
       {problem && !side && <div className="problem"><span className="sdot bad" />{problem}</div>}
       {shared && !replaying ? (
@@ -272,10 +275,10 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
             </div>
           )}
           {!side && !shared && <button className="scratch-btn" onClick={() => onAsk('')} title={t('Ask a side question or sketch an idea. The agent keeps working.', 'Pose une question à part ou dessine une idée. L’agent continue.')}>
-            <Icon name="write" size={14} />{t('Scratchpad', 'Brouillon')}</button>}
+            {t('Scratchpad', 'Brouillon')}</button>}
           {status}
           {!side && <TokenMeter tokens={state.tokens} engine={engine} />}
-          <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} />
+          <ModelPicker disabled={state.running} onOpenSettings={onOpenSettings} lockedTo={hasHistory ? engine : undefined} threadProvider={threadProvider} health={health ?? null} serverDown={Boolean(serverDown)} gpu={gpu} />
         </div>
       </div>}
     </aside>
@@ -372,7 +375,11 @@ function TokenMeter({ tokens, engine }: { tokens: State['tokens']; engine?: Engi
 
 // The model chip: "engine · model". Grouped by engine; once a thread has history only its own engine's models
 // are switchable (each engine keeps its own memory of the conversation).
-function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { disabled: boolean; onOpenSettings: () => void; lockedTo?: Engine; threadProvider?: string }) {
+// Its colour says which family of model is on (Claude: orange, open models: blue, the demo: lime) and turns grey
+// when that model can't answer right now (no key, server or GPU off). The tooltip says which and why.
+const familyOf = (p: Provider) => { const r = recipeOf(p); return r === 'demo' ? 'demo' : r === 'claude' || r === 'claude-code' ? 'claude' : 'open'; };
+function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider, health, serverDown, gpu }: { disabled: boolean; onOpenSettings: () => void; lockedTo?: Engine; threadProvider?: string;
+  health: HealthView | null; serverDown: boolean; gpu?: { gpu: GpuView | null; start: () => void; stop: () => void } }) {
   const { settings, save, me } = useApp();
   const t = useT();
   const fr = useLang() === 'fr';
@@ -386,11 +393,19 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
   // A thread locked to the other engine keeps running on its own model, so that's the one to show.
   const active = lockedTo && selected && engineOf(selected) !== lockedTo ? settings.providers.find((p) => p.id === threadProvider) ?? selected : selected;
   const groups: Engine[] = ['native', 'claude-code'];
+  // Health is checked for the selected model; another one (a thread on the other engine) only needs to be set up.
+  const m = active?.id === settings.activeProvider ? health?.model : undefined;
+  const why = serverDown ? t('Codetandem’s server isn’t answering', 'Le serveur de Codetandem ne répond pas')
+    : !active || !isReady(active) ? t('not set up yet', 'pas encore configuré')
+    : !m || m.state === 'ok' || m.state === 'mock' || m.state === 'checking' ? ''
+    : ({ auth: t('key refused', 'clé refusée'), missing: t('model not found', 'modèle introuvable'), unreachable: t('can’t reach it', 'injoignable') } as Record<string, string>)[m.state] ?? t('not answering', 'ne répond pas');
+  const name = active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : t('no model', 'aucun modèle');
+  const g = gpu?.gpu?.managed ? gpu.gpu : null;
   return (
     <div className="picker" ref={wrap}>
-      <button className="spark-btn" disabled={disabled} onClick={() => (few ? onOpenSettings() : setOpen(!open))}
-        aria-label={`${t('Model', 'Modèle')}: ${active ? active.name : t('none', 'aucun')}`}
-        title={disabled ? t('You can switch models once the agent is done', 'Tu pourras changer de modèle quand l’agent aura fini') : `${t('Model', 'Modèle')}: ${active ? (engineOf(active) === 'claude-code' ? `Claude Code · ${active.name.replace(/^Claude Code · /, '')}` : active.name) : t('pick one', 'à choisir')}`}>
+      <button className={`spark-btn fam-${active ? familyOf(active) : 'demo'} ${why ? 'off' : ''}`} disabled={disabled} onClick={() => (few ? onOpenSettings() : setOpen(!open))}
+        aria-label={`${t('Model', 'Modèle')}: ${name}${why ? ` (${why})` : ''}`}
+        title={`${name}${why ? ` · ${why}` : ` · ${t('ready', 'prêt')}`}${disabled ? `\n${t('You can switch models once the agent is done', 'Tu pourras changer de modèle quand l’agent aura fini')}` : ''}`}>
         <span className="sparkle" aria-hidden="true">✦</span>
       </button>
       {open && (
@@ -404,12 +419,13 @@ function ModelPicker({ disabled, onOpenSettings, lockedTo, threadProvider }: { d
                 <div className="picker-head">{agentName(g, fr)}{locked && <span className="muted"> · {t('in a new session', 'dans une nouvelle session')}</span>}</div>
                 {list.map((p) => (
                   <button key={p.id} disabled={locked} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }).catch(() => {}); setOpen(false); }}>
-                    <span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? t('demo', 'démo') : p.model}</span>
+                    <span className={`fam-dot fam-${familyOf(p)}`} /><span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? t('demo', 'démo') : p.model}</span>
                   </button>
                 ))}
               </div>
             );
           })}
+          {g && gpu && <div className="picker-gpu"><GpuPanel gpu={g} start={gpu.start} stop={gpu.stop} /></div>}
           {!me?.public && <>
             <button className="manage" onClick={() => { setOpen(false); onOpenSettings(); }}>{t('Agents…', 'Agents…')}</button>
           </>}

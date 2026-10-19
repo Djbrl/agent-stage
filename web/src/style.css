@@ -1398,7 +1398,7 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 /* Scratchpad: the side window, a page to draw on, and the button under the chat box */
 .scratch-btn { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; background: var(--hover); color: var(--text); font: 600 12.5px var(--sans); cursor: pointer; white-space: nowrap; }
 .scratch-btn:hover { background: var(--line); }
-@container (max-width: 400px) { .scratch-btn { padding: 0 9px; font-size: 0; gap: 0; } .scratch-btn .icon { width: 15px; height: 15px; } }
+@container (max-width: 400px) { .scratch-btn { padding: 0 10px; } }
 .ask-title { display: inline-flex; align-items: center; gap: 6px; }
 .sketch { display: flex; flex-direction: column; gap: 8px; }
 .sketch-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
@@ -1457,3 +1457,36 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .sp-menu .icon { color: var(--dim); }
 .ask-win.scratch .ask-error { margin: 0 12px 8px; }
 .sk-btn .icon { margin-right: 4px; }
+/* Git setup */
+.git-setup { width: min(520px, calc(100vw - 32px)); }
+.gs-lead { margin: 0 0 6px; font-size: 14px; line-height: 1.5; }
+.gs-small { margin: 0 0 14px; font-size: 12.5px; }
+.gs-checks { display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+.gs-big { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; line-height: 1.45; }
+.gs-big input { margin-top: 3px; }
+.gs-big > span { display: flex; flex-direction: column; gap: 4px; }
+.gs-big .muted { font-size: 12.5px; }
+.git-setup .check a { color: var(--accent-ink); }
+/* the ✦: colour by model family, grey when the model can't answer */
+.spark-btn:disabled { opacity: 1; }
+.spark-btn.fam-claude { background: #ff5a1f; color: #fff; } .spark-btn.fam-claude:hover:not(:disabled) { background: #e84d14; }
+.spark-btn.fam-open { background: #2f45e8; color: #fff; }
+.spark-btn.fam-demo { background: #c8f169; color: #141414; } .spark-btn.fam-demo:hover:not(:disabled) { background: #b5e34f; }
+.spark-btn.off, .spark-btn.off:hover:not(:disabled) { background: var(--line-strong); color: var(--surface); }
+.fam-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.fam-dot.fam-claude { background: #ff5a1f; } .fam-dot.fam-open { background: #2f45e8; } .fam-dot.fam-demo { background: #9ccc3c; }
+.picker-gpu { border-top: 1px solid var(--line-soft); margin-top: 4px; padding: 8px 4px 2px; }
+/* Scratchpad: notes list, tips under the drawing, the Notes button */
+.sp-back { position: absolute; top: 10px; left: 12px; z-index: 2; height: 28px; gap: 6px; color: var(--dim); }
+.sp-tip { margin: 0; font-size: 13px; line-height: 1.5; color: var(--dim); text-align: center; padding: 0 12px; }
+.sp-notes { display: flex; flex-direction: column; gap: 4px; }
+.sp-notes-head { font-weight: 600; font-size: 13.5px; padding: 0 4px 4px; }
+.sp-note { display: flex; align-items: center; gap: 4px; border-radius: 12px; }
+.sp-note:hover { background: var(--hover); }
+.sp-note-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px; border: 0; background: none; color: var(--text); font: 13.5px var(--sans); text-align: left; cursor: pointer; }
+.sp-note-open img { width: 44px; height: 32px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: #fff; flex-shrink: 0; }
+.sp-note-icon { width: 44px; height: 32px; display: grid; place-items: center; border-radius: 6px; background: var(--hover); color: var(--dim); flex-shrink: 0; }
+.sp-note-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-note-when { font-size: 12px; flex-shrink: 0; }
+.sp-note-del { margin: 0 6px 0 0; opacity: 0; }
+.sp-note:hover .sp-note-del, .sp-note-del:focus-visible { opacity: 1; }
