@@ -13,7 +13,37 @@ export type Provider = {
   baseUrl: string; apiKey: string; model: string;
   gpuHourly?: number; tunnelHost?: string; brevInstance?: string;
   gpuTypes?: string; autoStopMin?: number; // one-click GPU: Brev types to try, destroy after N idle minutes (0 = never)
+  recipe?: Recipe; builtin?: boolean; // how it's set up; built-in agents are always listed and can't be removed
+  installed?: boolean; // finished the setup (Ollama pulled the model, the GPU checks passed)
 };
+// How an agent gets set up: what it needs from you, and what (if anything) gets installed.
+export type Recipe = 'demo' | 'claude' | 'claude-code' | 'nvidia' | 'gpu' | 'ollama' | 'openai';
+export const recipeOf = (p: Provider): Recipe => p.recipe ?? (p.kind === 'mock' ? 'demo' : p.kind === 'anthropic' ? 'claude' : p.kind === 'claude-code' ? 'claude-code'
+  : p.tunnelHost || p.brevInstance ? 'gpu' : /:11434\b/.test(p.baseUrl) ? 'ollama' : /integrate\.api\.nvidia\.com/.test(p.baseUrl) ? 'nvidia' : 'openai');
+export const OLLAMA_URL = process.env.OLLAMA_HOST ? `http://${process.env.OLLAMA_HOST.replace(/^https?:\/\//, '')}` : 'http://localhost:11434';
+
+// The agents every install lists, set up or not.
+export const BUILTINS: Provider[] = [
+  { id: 'mock', name: 'Demo (scripted)', kind: 'mock', baseUrl: '', apiKey: '', model: 'mock', recipe: 'demo' },
+  { id: 'claude', name: 'Claude (Anthropic API)', kind: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: '', model: 'claude-opus-5-5', recipe: 'claude' },
+  { id: 'claude-code', name: 'Claude Code', kind: 'claude-code', baseUrl: '', apiKey: '', model: 'claude-sonnet-5-5', recipe: 'claude-code' },
+  { id: 'gpu', name: 'Your own GPU (Brev + vLLM)', kind: 'openai', baseUrl: 'http://localhost:18000/v1', apiKey: '', model: 'Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8', recipe: 'gpu',
+    tunnelHost: 'agent-gpu', brevInstance: 'agent-gpu', gpuHourly: 1.06, autoStopMin: 20 },
+  { id: 'nvidia', name: 'NVIDIA API', kind: 'openai', baseUrl: 'https://integrate.api.nvidia.com/v1', apiKey: '', model: 'nvidia/nemotron-3-super-120b-a12b', recipe: 'nvidia' },
+  { id: 'ollama', name: 'Ollama (this computer)', kind: 'openai', baseUrl: `${OLLAMA_URL}/v1`, apiKey: '', model: 'qwen3-coder:30b', recipe: 'ollama' },
+].map((p) => ({ ...p, builtin: true }) as Provider);
+
+// Older settings files: tag each agent with its recipe, and add the built-ins that are missing
+// (an existing agent of the same kind stands in for one, so nobody gets a duplicate).
+export function withBuiltins(list: Provider[]): Provider[] {
+  const out: Provider[] = list.map((p) => ({ ...p, recipe: recipeOf(p) }));
+  for (const b of BUILTINS) {
+    const same = out.find((p) => p.id === b.id) ?? out.find((p) => !p.builtin && p.recipe === b.recipe);
+    if (same) Object.assign(same, { builtin: true });
+    else out.push({ ...b });
+  }
+  return out;
+}
 export type Engine = 'native' | 'claude-code';
 export const engineOf = (p: Provider): Engine => (p.kind === 'claude-code' ? 'claude-code' : 'native');
 
@@ -42,19 +72,15 @@ const read = async <T>(p: string, fallback: T): Promise<T> => {
 export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunnelHost?: string; brevInstance?: string }, sandbox: string): Promise<Settings> {
   await mkdir(THREADS, { recursive: true });
   const saved = await read<Settings | null>(join(DATA_DIR, 'settings.json'), null);
-  if (saved) return { ...saved, learn: saved.learn ?? { level: 'beginner', frequency: 'normal', language: 'en' } }; // files from before Learn mode
-  // First run: seed from .env so existing setups keep working.
-  const providers: Provider[] = [{ id: 'mock', name: 'Demo (scripted)', kind: 'mock', baseUrl: '', apiKey: '', model: 'mock' }];
-  if (env.apiKey && env.apiKey !== 'mock') providers.push({
-    id: 'env', name: env.tunnelHost ? `GPU · ${env.tunnelHost}` : 'From .env', kind: 'openai',
+  if (saved) return { ...saved, providers: withBuiltins(saved.providers), learn: saved.learn ?? { level: 'beginner', frequency: 'normal', language: 'en' } }; // files from before Learn mode
+  // First run: the built-ins, plus the model from .env so existing setups keep working.
+  const envGpu = Boolean(env.apiKey && env.apiKey !== 'mock' && env.tunnelHost);
+  const providers: Provider[] = BUILTINS.filter((b) => !(envGpu && b.recipe === 'gpu')).map((b) => ({ ...b }));
+  if (env.apiKey && env.apiKey !== 'mock') providers.splice(1, 0, {
+    id: 'env', name: env.tunnelHost ? `GPU · ${env.tunnelHost}` : 'From .env', kind: 'openai', recipe: env.tunnelHost ? 'gpu' : 'openai', installed: true, builtin: envGpu || undefined,
     baseUrl: env.baseUrl, apiKey: env.apiKey, model: env.model,
     gpuHourly: env.gpuHourly || undefined, tunnelHost: env.tunnelHost || undefined, brevInstance: env.brevInstance || undefined,
   });
-  providers.push(
-    { id: 'claude', name: 'Claude (Anthropic API)', kind: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: '', model: 'claude-opus-5-5' },
-    { id: 'nvidia', name: 'NVIDIA API', kind: 'openai', baseUrl: 'https://integrate.api.nvidia.com/v1', apiKey: '', model: 'nvidia/nemotron-3-super-120b-a12b' },
-    { id: 'ollama', name: 'Ollama (this computer)', kind: 'openai', baseUrl: 'http://localhost:11434/v1', apiKey: 'ollama', model: 'qwen3-coder:30b' },
-  );
   const s: Settings = { providers, activeProvider: providers[1]?.id === 'env' ? 'env' : 'mock', approval: 'always', maxSteps: 30, recentFolders: [sandbox],
     learn: { level: 'beginner', frequency: 'normal', language: 'en' } };
   await saveSettings(s);
@@ -79,18 +105,6 @@ export function apiCost(p: Provider | undefined, prompt: number, completion: num
 export const keyOf = (p: Provider) => p.apiKey || ((p.kind === 'anthropic' || p.kind === 'claude-code') && (process.env.PUBLIC !== '1' || process.env.DEMO_CLAUDE === '1') ? process.env.ANTHROPIC_API_KEY ?? '' : '');
 export const toConfig = (p: Provider): ModelConfig => ({ baseUrl: p.baseUrl, apiKey: p.kind === 'mock' ? 'mock' : keyOf(p), model: p.model,
   kind: p.kind === 'claude-code' ? 'anthropic' : p.kind });
-
-// Presets offered in Settings → Models → Add.
-export const PRESETS: Omit<Provider, 'id'>[] = [
-  { name: 'Claude Code · Opus 5.5', kind: 'claude-code', baseUrl: '', apiKey: '', model: 'claude-opus-5-5' },
-  { name: 'Claude Code · Sonnet 5.5', kind: 'claude-code', baseUrl: '', apiKey: '', model: 'claude-sonnet-5-5' },
-  { name: 'Claude (Anthropic API)', kind: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: '', model: 'claude-opus-5-5' },
-  { name: 'OpenAI API', kind: 'openai', baseUrl: 'https://api.openai.com/v1', apiKey: '', model: '' },
-  { name: 'NVIDIA API', kind: 'openai', baseUrl: 'https://integrate.api.nvidia.com/v1', apiKey: '', model: 'nvidia/nemotron-3-super-120b-a12b' },
-  { name: 'Ollama (this computer)', kind: 'openai', baseUrl: 'http://localhost:11434/v1', apiKey: 'ollama', model: 'qwen3-coder:30b' },
-  { name: 'My GPU (Brev + vLLM)', kind: 'openai', baseUrl: 'http://localhost:18000/v1', apiKey: '', model: 'Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8', tunnelHost: 'agent-gpu', brevInstance: 'agent-gpu', gpuHourly: 1.06, autoStopMin: 20 },
-  { name: 'OpenRouter', kind: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: '', model: 'qwen/qwen3-coder' },
-];
 
 export async function listThreads(): Promise<Thread[]> {
   const files = (await readdir(THREADS).catch(() => [])).filter((f) => f.endsWith('.json'));

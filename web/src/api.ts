@@ -12,7 +12,20 @@ export type Provider = {
   id: string; name: string; kind: 'mock' | 'openai' | 'anthropic' | 'claude-code';
   baseUrl: string; apiKey: string; model: string;
   gpuHourly?: number; tunnelHost?: string; brevInstance?: string; gpuTypes?: string; autoStopMin?: number;
+  recipe?: Recipe; builtin?: boolean; installed?: boolean;
 };
+// How an agent is set up (src/store.ts has the same list).
+export type Recipe = 'demo' | 'claude' | 'claude-code' | 'nvidia' | 'gpu' | 'ollama' | 'openai';
+export const recipeOf = (p: Provider): Recipe => p.recipe ?? (p.kind === 'mock' ? 'demo' : p.kind === 'anthropic' ? 'claude' : p.kind === 'claude-code' ? 'claude-code'
+  : p.tunnelHost || p.brevInstance ? 'gpu' : /:11434\b/.test(p.baseUrl) ? 'ollama' : /integrate\.api\.nvidia\.com/.test(p.baseUrl) ? 'nvidia' : 'openai');
+// Ready to run: set up with whatever its recipe needs. Ollama counts once its model was downloaded here.
+export function isReady(p: Provider) {
+  const r = recipeOf(p);
+  if (r === 'demo') return true;
+  if (r === 'ollama') return Boolean(p.installed);
+  if (r === 'gpu') return Boolean(p.installed || p.apiKey) && Boolean(p.brevInstance);
+  return Boolean(p.apiKey) && Boolean(p.model);
+}
 export type Settings = { providers: Provider[]; activeProvider: string; approval: 'always' | 'safe'; maxSteps: number; recentFolders: string[];
   insights?: 'auto' | 'on' | 'off'; learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr'; ai?: 'none' | 'chat' | 'agents' } };
 export type ThreadSummary = { id: string; title: string; folder: string; updatedAt: number; running: boolean; tokens: number; engine?: Engine; shared?: boolean };

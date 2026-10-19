@@ -19,8 +19,9 @@ import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMes
 import { GpuManager } from './gpu.ts';
 import { ClaudeCodeAgent } from './claudecode.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread, DATA_DIR,
-  PRESETS, engineOf, keyOf, apiCost, type Provider, type Settings, type Thread } from './store.ts';
+  engineOf, recipeOf, keyOf, apiCost, type Provider, type Settings, type Thread } from './store.ts';
 import { lessonNotes, exportSession, parseSession } from './session.ts';
+import { checks, ollamaModels, startPull, pullState, validModel } from './setup.ts';
 
 const sandbox = resolve(process.env.WORKSPACE ?? 'workspace');
 // Public mode: this server runs inside a disposable container for one visitor (see src/public/). The visitor
@@ -197,7 +198,7 @@ if (PUBLIC) {
     );
     if (!settings.providers.some((p) => p.id === 'env')) settings.activeProvider = 'claude'; // no live GPU: Claude by default
   }
-  const blocked: Array<[string, RegExp]> = [['POST', /^\/api\/providers/], ['GET', /^\/api\/fs/], ['POST', /^\/api\/pick-folder/], ['POST', /^\/api\/gpu\//]];
+  const blocked: Array<[string, RegExp]> = [['POST', /^\/api\/providers/], ['GET', /^\/api\/setup/], ['POST', /^\/api\/setup/], ['GET', /^\/api\/fs/], ['POST', /^\/api\/pick-folder/], ['POST', /^\/api\/gpu\//]];
   app.use('/api/*', async (c, next) => {
     if (blocked.some(([m, r]) => c.req.method === m && r.test(c.req.path))) return c.json({ error: 'Not available in the online demo' }, 403);
     await next();
@@ -516,7 +517,15 @@ app.post(`${T}/approve`, withThread((l, { id, ok }) => {
 
 // settings + providers
 app.get('/api/settings', (c) => c.json(publicSettings()));
-app.get('/api/presets', (c) => c.json(PRESETS));
+// Setting up an agent: requirement checks, and open models downloaded with Ollama.
+app.get('/api/setup/check', async (c) => c.json(await checks(recipeOf({ recipe: c.req.query('recipe') } as Provider))));
+app.get('/api/setup/ollama/models', async (c) => c.json(await ollamaModels()));
+app.post('/api/setup/ollama/pull', async (c) => {
+  const { model } = await c.req.json();
+  if (typeof model !== 'string' || !validModel(model.trim())) return c.json({ error: 'That doesn’t look like a model name.' }, 400);
+  return c.json(startPull(model.trim()));
+});
+app.get('/api/setup/ollama/pull', (c) => c.json(pullState(c.req.query('model') ?? '')));
 app.put('/api/settings', async (c) => {
   let next = await c.req.json();
   if (PUBLIC) { // visitors can only switch between the demo's models
