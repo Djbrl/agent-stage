@@ -4,21 +4,28 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useHighlight } from './highlight';
 import { useLang } from './i18n';
 
+// Plain text between tokens can still hold an unclosed ** or ` (a reply that's still typing out): hide those
+// markers instead of showing them raw. A complete pair would have matched as a token.
+const bare = (t: string) => t.replace(/\*\*|`/g, '');
+
 function inline(text: string, key = 0): ReactNode[] {
   const out: ReactNode[] = [];
   const re = /(\*\*.+?\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g;
   let last = 0, m: RegExpExecArray | null, i = key;
   while ((m = re.exec(text))) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last) out.push(bare(text.slice(last, m.index)));
     const t = m[0];
     if (t.startsWith('`')) out.push(<Code key={i++} text={t.slice(1, -1)} />);
     else if (t.startsWith('**')) out.push(<strong key={i++}>{inline(t.slice(2, -2), i * 100)}</strong>);
     else out.push(<em key={i++}>{inline(t.slice(1, -1), i * 100)}</em>);
     last = m.index + t.length;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) out.push(bare(text.slice(last)));
   return out;
 }
+
+// One line of text with **bold**, *italic* and `code`, for short strings outside a reply (concept lines, exercises).
+export function Inline({ text }: { text: string }) { return <>{inline(text)}</>; }
 
 const CALLOUT = /^✦\s*(Build checkpoint|Design checkpoint|Implementation checkpoint|Implementation report|System check|Concept|Why this matters|What you learned)\s*:?\s*(.*)$/i;
 
@@ -40,17 +47,19 @@ export function Markdown({ text, skip }: { text: string; skip?: string[] }) {
     if (!m) return <Plain key={i} text={part} />;
     const kind = m[1].toLowerCase().replace(/\s+/g, '-');
     if (skip?.includes(kind)) return null;
-    return <Callout key={i} kind={kind} head={HEAD[kind]?.[fr ? 1 : 0] ?? m[1]} sub={m[2]} body={rest.join('\n').trim()} fr={fr} />;
+    // The last card usually ends with what the agent asks you: it never folds, nor do "your turn" cards.
+    const fold = i < parts.length - 1 && !kind.endsWith('checkpoint');
+    return <Callout key={i} kind={kind} head={HEAD[kind]?.[fr ? 1 : 0] ?? m[1]} sub={m[2]} body={rest.join('\n').trim()} fr={fr} fold={fold} />;
   })}</div>;
 }
 
 // A callout card: a bold heading, then the text. A long one shows a short preview and opens with "Show more".
 const PREVIEW = 150; // px of text shown while folded
-function Callout({ kind, head, sub, body, fr }: { kind: string; head: string; sub?: string; body: string; fr: boolean }) {
+function Callout({ kind, head, sub, body, fr, fold }: { kind: string; head: string; sub?: string; body: string; fr: boolean; fold: boolean }) {
   const inner = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
   const [open, setOpen] = useState(false);
-  useLayoutEffect(() => { if (inner.current) setLong(inner.current.scrollHeight > PREVIEW + 40); }, [body]);
+  useLayoutEffect(() => { if (inner.current) setLong(fold && inner.current.scrollHeight > PREVIEW + 40); }, [body, fold]);
   return (
     <div className={`callout ${kind} ${long && !open ? 'folded' : ''}`}>
       <div className="callout-head">{head}{sub ? <span>{fr ? ' : ' : ': '}{sub}</span> : null}</div>

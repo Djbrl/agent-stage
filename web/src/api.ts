@@ -51,6 +51,9 @@ export function leaveDemo() {
   f.submit();
 }
 
+// Agent names are saved in English ("Ollama (this computer)"): show their place in the reader's language.
+export const shownName = (name: string, fr: boolean) => (fr ? name.replace(/\(this computer\)$/, '(cet ordinateur)').replace(/\(your GPU\)$/, '(ton GPU)') : name);
+
 export type Engine = 'native' | 'claude-code';
 export const engineOf = (p: Provider): Engine => (p.kind === 'claude-code' ? 'claude-code' : 'native');
 // Which agent runs the model: ours, or Claude Code (through the Agent SDK).

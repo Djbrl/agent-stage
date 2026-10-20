@@ -1,6 +1,6 @@
 // Settings: models (with keys + connection test), learning, appearance, usage & spend, safety, about.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { get, send, fmtTokens, engineOf, recipeOf, isReady, type Provider, type Recipe, type Settings } from './api';
+import { get, send, fmtTokens, engineOf, recipeOf, isReady, shownName, type Provider, type Recipe, type Settings } from './api';
 import { useApp } from './useSettings';
 import { Icon, type IconName } from './icons';
 import { useTheme, type ThemePref } from './theme';
@@ -69,7 +69,7 @@ function Models() {
   const row = (p: Provider) => (
     <button key={p.id} className={`model-row ${p.id === sel ? 'on' : ''}`} onClick={() => { setFinished(null); setSel(p.id); }}>
       <Icon name={RECIPE_ICON[recipeOf(p)]} size={15} />
-      <span className="grow"><span>{p.name}</span><span className="model-sub">{isReady(p) ? (p.kind === 'mock' ? t('No model, no cost', 'Pas de modèle, pas de coût') : p.model) : t('Not set up', 'Pas configuré')}</span></span>
+      <span className="grow"><span>{shownName(p.name, t('en', 'fr') === 'fr')}</span><span className="model-sub">{isReady(p) ? (p.kind === 'mock' ? t('No model, no cost', 'Pas de modèle, pas de coût') : p.model) : t('Not set up', 'Pas configuré')}</span></span>
       {p.id === settings.activeProvider && <span className="pill on">{t('in use', 'utilisé')}</span>}
     </button>
   );
@@ -131,7 +131,7 @@ function AgentDetails({ p, onRemoved }: { p: Provider; onRemoved: () => void }) 
   return (
     <>
       <div className="form-head">
-        <div className="form-title">{p.name}</div>
+        <div className="form-title">{shownName(p.name, t('en', 'fr') === 'fr')}</div>
         {active ? <span className="pill on">{t('in use', 'utilisé')}</span>
           : <button className="btn primary" onClick={() => commit({ activeProvider: p.id })}>{t('Use this agent', 'Utiliser cet agent')}</button>}
       </div>

@@ -1,6 +1,6 @@
 # Tandemcode
 
-### ▶ Try it live: **[tandemcode-app.vercel.app](https://tandemcode-app.vercel.app)**
+### ▶ Try it live: **[tandemcode-app.vercel.app](https://tandemcode-app.vercel.app)** · 🎬 [Watch the demo video](https://youtu.be/h9uvHVJPNxg)
 
 *They pedal, you steer.* **The coding-agent harness for learners**: an AI coding agent you ride along with, so you
 understand the code it writes instead of just shipping it.
@@ -17,22 +17,22 @@ understand the code it writes instead of just shipping it.
 - ✅ **Done means checked.** The harness runs your tests when the agent says it's finished, and sends failures back.
 - ↩️ **You stay in control.** Approve every command, stop or steer mid-run, undo just what the task changed.
 - ✏️ **Ask without interrupting.** Select anything to ask about it, or sketch what you mean in the Scratchpad.
-- 🔓 **Open models first.** Qwen3-Coder on your own GPU, Ollama offline with no API bill, or Claude. MIT licensed.
+- 🔓 **Any model.** Our own Tandemcode agent on Claude by default, or open models: Qwen3-Coder on your own GPU, or Ollama offline with no API bill. MIT licensed.
 
-![A finished run: the files the agent wrote are lit on the map, a failing test was sent back and fixed, and the task ends with what you learned](docs/screenshots/studio-light.png)
+![A finished Tandem run on a todo app: the two files the agent changed are lit on the map, it reports what it ran and what it didn't check, and the task ends with what you learned](docs/screenshots/studio-light.png)
 
-<!-- Demo video (≤ 3 min): add the link here before submitting. -->
+[![The demo video: click to watch it on YouTube](https://img.youtube.com/vi/h9uvHVJPNxg/hqdefault.jpg)](https://youtu.be/h9uvHVJPNxg)
 
 > Open Source × AI Hackathon 2026 (Galsen Dev): track **Éducation & apprentissage**.
-> The live demo runs on our own machine when we're online; any time, `npm run mock` runs it on your computer in a
-> minute, no key needed ([Quick start](#quick-start)).
+> The live demo runs on our own machine when we're online. Any time, you can run it on your own computer with an
+> Anthropic API key, or with an open model through Ollama ([Quick start](#quick-start)).
 
 **En bref.** De plus en plus de développeurs et d'étudiants livrent du code écrit par une IA qu'ils ne savent ni lire,
 ni expliquer, ni corriger : l'IA fait le travail et ils n'apprennent rien. Tandemcode garde l'humain dans la boucle.
 L'agent se déplace sur une carte de votre projet, le mode Tandem (par défaut) l'arrête pour vous demander votre avis
 avant d'écrire du code, chaque étape est expliquée en mots simples, et vous pouvez demander « pourquoi », rejouer et
-annuler. Il fonctionne avec des modèles ouverts (Qwen3-Coder sur notre GPU, Ollama hors ligne, sans facture d'API) ou
-avec Claude. Licence MIT.
+annuler. Il fonctionne avec notre agent Tandemcode sur Claude (par défaut) ou avec des modèles ouverts (Qwen3-Coder sur
+notre GPU, Ollama hors ligne, sans facture d'API). Licence MIT. Vidéo de démo : https://youtu.be/h9uvHVJPNxg
 
 ## The problem
 Developers and students increasingly ship code an AI wrote that they can't read, explain or fix: the AI does the work,
@@ -65,7 +65,7 @@ and understands.
   edits. Fresh edits glow, failures show, and the camera follows the work.
 - **Plain-language steps.** Every action gets a short label and a "why". Any diff has "Explain this change".
   This works in English or French.
-- **Replay** any thread and watch the agent walk the project again.
+- **Rewind.** Scroll the Steps list and the map moves back through the run, one step at a time.
 
 **Stay in control**
 - **Approve** every shell command.
@@ -76,12 +76,13 @@ and understands.
   back to the agent ("not done yet"). A missing test tool is reported, not blamed on the agent.
 
 **Practical**
-- **Any model.** Our own GPU (one-click Brev + vLLM, auto-stop), Ollama on your own computer, NVIDIA, OpenRouter, the
-  Claude API, or the Claude Code engine. The map, Tandem mode and approvals work the same on all of them.
+- **Any model.** The Tandemcode agent (our own loop, on Claude Sonnet by default), the Claude Code engine, our own GPU
+  (one-click Brev + vLLM, auto-stop), Ollama on your own computer, NVIDIA or OpenRouter. Switch mid-session and the
+  conversation carries over. The map, Tandem mode and approvals work the same on all of them.
 - **Costs in view.** Tokens per thread, spend estimates, GPU time, and compact or clear a thread's context on demand.
 - **Computer use.** The agent drives your Chrome as text (page text plus numbered controls), so open models can test
   the web apps they build.
-- **Comfort.** Light and dark themes, voice prompting, works on a phone.
+- **Comfort.** Three themes (Default, a muted Dark, and Stone), voice prompting, works on a phone.
 - **Live online demo.** Each visitor gets a private, sealed Docker sandbox ([docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)).
 
 **Made for learning**
@@ -93,20 +94,22 @@ and understands.
   drop in a screenshot and circle what should change; Claude and Claude Code see the drawing. Select any part of the
   agent's work to ask about it, save the answer to your notes, or turn the note and sketch into a real task.
 
-![Tandem mode: the agent asked how to split the code, explained the idea, and waits for "Go ahead"; the planned files are dotted on the map](docs/screenshots/tandem.png)
+![Tandem mode: after the learner said how they would fix the bug, the agent proposes the exact change and waits for "Go ahead"; the files it plans to touch are dotted on the map](docs/screenshots/tandem.png)
 
-![The same finished run in the dark theme](docs/screenshots/studio-dark.png)
+![The same finished run in the Dark theme](docs/screenshots/studio-dark.png)
+
+![The landing page, also the live demo's front door](docs/screenshots/landing.png)
 
 ## Status
 Working and tested end to end:
-- the scripted demo model;
+- the Tandemcode agent on Claude Sonnet 5.5 (the default), Claude Opus, and the Claude Code engine;
 - Qwen3-Coder on our GPU, locally and through the online demo;
-- the Claude API and the Claude Code engine with a real key;
 - Undo and Keep, the done-check, the browser tools, and the sandbox isolation.
 
 Included but not yet tested end to end by us: the Ollama preset (`qwen3-coder:30b`) and NVIDIA-hosted Nemotron.
 
-Without a key the app runs a scripted demo model, so you can try it in 10 seconds.
+The default agent runs on Claude, so it needs an Anthropic API key. For no API bill, set up Ollama or your own GPU in
+Settings → Agents.
 
 ## Quick start
 Requires Node ≥ 22.18.
@@ -114,14 +117,14 @@ Requires Node ≥ 22.18.
 ```bash
 git clone https://github.com/Djbrl/codetandem-harness && cd codetandem-harness
 npm install
-npm run mock         # → http://localhost:3000 on the scripted demo model: no key, GPU or network
-npm start            # the same, with the real models you add in Settings
+npm start            # → http://localhost:3000, then add a key or a model in Settings → Agents
+npm run mock         # the interface on a scripted model, no key or network (for development and the tests)
 ```
 
-To use a real model, open Settings → Models in the app and add its key there. For Claude you can
-instead put `ANTHROPIC_API_KEY` in a `.env` file (copy `.env.example`) and restart. Settings also has the
-one-click GPU (Brev + vLLM).
-The agent works inside `./workspace`; point it at another folder with `WORKSPACE=/path npm start`.
+The default Tandemcode agent needs an Anthropic API key: add it in Settings → Agents, or put `ANTHROPIC_API_KEY` in a
+`.env` file (copy `.env.example`) and restart. Settings → Agents also sets up Ollama (it checks your install and
+downloads the model) and the one-click GPU (Brev + vLLM).
+Open any folder from the app, or start from an empty project; `WORKSPACE=/path npm start` sets the default folder.
 
 Self-hosting on your own GPU machine instead: run `scripts/serve-vllm.sh` on it, then set `TUNNEL_HOST`
 (the server keeps the SSH tunnel up), and optionally `BREV_INSTANCE` and `GPU_HOURLY_USD` for the
@@ -164,9 +167,10 @@ write lock, and refuses a checkpoint until the learner's question got a visible 
 The same model also writes the plain-language step labels, file summaries, "Explain this change", commit messages
 for Keep, and the summary when you compact a thread. On your own GPU all of that is free.
 
-**Why open-weight models first.** A learner or a school should be able to run the whole thing on hardware they control:
+**Why open-weight models matter.** A learner or a school should be able to run the whole thing on hardware they control:
 Ollama on a laptop or a lab machine, or one GPU shared by a class, with no per-token bill and no code leaving the
-building. Claude is supported for the strongest results, but nothing in Tandemcode depends on it.
+building. Claude is the default because it gives the strongest results out of the box, but nothing in Tandemcode
+depends on it.
 
 AI tools used to build it (Claude Code, Mobbin MCP) are listed in
 [docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md).
@@ -174,11 +178,12 @@ AI tools used to build it (Claude Code, Mobbin MCP) are listed in
 ## Models
 | Model | Provider | Role |
 |---|---|---|
-| `nvidia/nemotron-3-super-120b-a12b` | NVIDIA API | default agent model |
+| `claude-sonnet-5-5` | Anthropic API, in the Tandemcode agent (our loop) or through the Claude Code engine | default agent; cost shown in Usage |
+| `claude-opus-5-5` | Anthropic API, same two ways | strongest results |
 | `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8` | self-hosted with vLLM on one L40S GPU ([script](scripts/serve-vllm.sh)) | open-weight agent model we develop and demo with |
-| `claude-opus-5-5`, `claude-sonnet-5-5` | Anthropic API, in our loop or through the Claude Code engine | strongest results; cost shown in Usage |
+| `nvidia/nemotron-3-super-120b-a12b` | NVIDIA API | hosted open-weight model (preset) |
 | `qwen3-coder:30b` (or any model you pull) | Ollama on your own computer | offline or classroom use, no API bill (preset included) |
-| any OpenAI-compatible model | vLLM, LM Studio, OpenRouter | add it in Settings → Models |
+| any OpenAI-compatible model | vLLM, LM Studio, OpenRouter | add it in Settings → Agents |
 
 ## Contributing
 Contributions are welcome, including AI-assisted ones (see how in CONTRIBUTING). Start with

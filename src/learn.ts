@@ -42,7 +42,7 @@ export const checkpointSchema = {
 };
 
 export function languageLine(lang: 'en' | 'fr') {
-  return lang === 'fr' ? '\nAlways reply to the user in French (code, identifiers and file names stay in English).' : '';
+  return lang === 'fr' ? '\nAlways reply to the user in French, addressing them as « tu », never « vous », like the app does (code, identifiers and file names stay in English).' : '';
 }
 
 export function learnPrompt(p: LearnPrefs) {

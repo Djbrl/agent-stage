@@ -1205,7 +1205,6 @@ body.ask-dragging, body.ask-dragging * { user-select: none !important; }
 .ob-lane { position: relative; flex: 1; max-width: 520px; margin: 0 auto; height: 4px; border-radius: 4px; background: repeating-linear-gradient(90deg, #d9d9cf 0 12px, transparent 12px 20px); }
 .ob-lane i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: #ff5a1f; transition: width .5s cubic-bezier(.2,.8,.2,1); }
 .ob-lane span { position: absolute; bottom: 2px; margin-left: -13px; line-height: 0; transition: left .5s cubic-bezier(.2,.8,.2,1); }
-.ob-count { font: 600 14px var(--mono); color: #55554f; min-width: 36px; text-align: right; }
 .ob-stage { display: grid; place-items: center; padding: 24px 16px; animation: ob-in .45s cubic-bezier(.2,.8,.2,1); }
 @keyframes ob-in { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
 .ob-hello { display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; max-width: 720px; }
@@ -1225,8 +1224,9 @@ body.ask-dragging, body.ask-dragging * { user-select: none !important; }
 .ob-choice span { font-size: 16px; line-height: 1.45; color: #3a3a36; }
 .ob-choice:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(20,20,20,.1); }
 .ob-choice:focus-visible { outline: 3px solid #2f45e8; outline-offset: 3px; }
-.ob-lime:hover, .ob-lime.on { background: #c8f169; } .ob-sun:hover, .ob-sun.on { background: #ffd23f; } .ob-orange:hover, .ob-orange.on { background: #ff8a5c; }
-.ob-blue:hover, .ob-blue.on { background: #2f45e8; color: #fff; } .ob-blue:hover span, .ob-blue.on span { color: #e3e7ff; }
+.ob-choice:hover:not(.on) { border-color: rgba(20,20,20,.14); } /* hover lifts; only the picked card takes its colour */
+.ob-lime.on { background: #c8f169; } .ob-sun.on { background: #ffd23f; } .ob-orange.on { background: #ff8a5c; }
+.ob-blue.on { background: #2f45e8; color: #fff; } .ob-blue.on span { color: #e3e7ff; }
 .ob-choice.on { border-color: #141414; }
 .ob-tick { position: absolute; top: 18px; right: 18px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #141414; color: #fff; opacity: 0; transform: scale(.6); transition: opacity .2s, transform .2s; }
 .ob-choice.on .ob-tick { opacity: 1; transform: none; }
@@ -1311,6 +1311,7 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .composer .icon-btn.mic.on { background: #d0422a; color: #fff; }
 .app-head-btn { white-space: nowrap; flex-shrink: 0; }
 .app-head-btn.head-settings:hover { background: var(--line); }
+@media (max-width: 480px) { .app-head-btn.head-new { width: 38px; padding: 0; justify-content: center; } .app-head-btn.head-new span { display: none; } } /* phones: both header buttons fit */
 @media (max-width: 640px) { .app-head-btn.head-settings { width: 38px; padding: 0; justify-content: center; } .app-head-btn.head-settings span { display: none; } }
 .lg-word { font-style: normal; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 999px; }
 .lg-word.learn { background: #ffd23f; color: #141414; } .lg-word.build { background: var(--text); color: var(--surface); }
@@ -1487,8 +1488,11 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .spark-btn.off, .spark-btn.off:hover:not(:disabled) { background: var(--line-strong); color: var(--surface); }
 .picker-gpu { border-top: 1px solid var(--line-soft); margin-top: 4px; padding: 8px 4px 2px; }
 /* Scratchpad: notes list, tips under the drawing, the Notes button */
-.sp-back { position: absolute; top: 10px; left: 12px; z-index: 2; height: 28px; gap: 6px; color: var(--dim); }
+.sp-back { position: absolute; top: 10px; left: 12px; z-index: 2; height: 28px; gap: 6px; color: var(--dim); background: var(--surface); box-shadow: 0 0 0 6px var(--surface); } /* text scrolls under it */
 .sp-tip { margin: 0; font-size: 13px; line-height: 1.5; color: var(--dim); text-align: center; padding: 0 12px; }
+.sp-empty { margin: auto 0; padding: 0 8px; text-align: center; color: var(--dim); font-size: 13.5px; line-height: 1.5; }
+.sp-empty b { display: block; color: var(--text-strong); margin-bottom: 4px; }
+.sp-empty p { margin: 0; }
 .sp-notes { display: flex; flex-direction: column; gap: 4px; }
 .sp-notes-head { font-weight: 600; font-size: 13.5px; padding: 0 4px 4px; }
 .sp-note { display: flex; align-items: center; gap: 4px; border-radius: 12px; }
@@ -1852,3 +1856,4 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 :root[data-theme][data-tone="stone"] .tip .tip-ok, :root[data-theme][data-tone="stone"] .tour-card .btn.primary { background: var(--on-text); color: var(--text); }
 :root[data-theme][data-tone="stone"] .idea-tip .starter-ideas button:hover { background: var(--line); }
 
+.picker-menu .picker-check { color: var(--accent); flex: none; margin-left: 4px; }

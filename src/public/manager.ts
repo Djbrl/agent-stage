@@ -202,13 +202,14 @@ const server = createServer(async (req, res) => {
     const s = sessions.get(cookieOf(req) ?? '');
     if (req.method === 'POST' && req.url === '/__start') {
       const body = await new Promise<string>((ok) => { let b = ''; req.on('data', (d) => (b += d)); req.on('end', () => ok(b)); });
-      const code = new URLSearchParams(body).get('code') ?? '';
-      if (INVITE && !same(code, INVITE)) return page(res, 'That code is not right.');
-      if (s) { res.writeHead(303, { location: '/' }); return res.end(); }
-      if (sessions.size >= MAX) return page(res, 'All demo sandboxes are busy right now. Try again in a few minutes.');
+      const form = new URLSearchParams(body), fr = wantsFr(req, form), home = `/?lang=${fr ? 'fr' : 'en'}`;
+      const code = form.get('code') ?? '';
+      if (INVITE && !same(code, INVITE)) return page(res, fr ? 'Ce code n’est pas le bon.' : 'That code is not right.', fr);
+      if (s) { res.writeHead(303, { location: home }); return res.end(); }
+      if (sessions.size >= MAX) return page(res, fr ? 'Tous les bacs à sable sont pris. Réessaie dans quelques minutes.' : 'All demo sandboxes are busy right now. Try again in a few minutes.', fr);
       const n = await startSession({ ip: String(req.headers['cf-connecting-ip'] ?? req.socket.remoteAddress ?? ''), country: String(req.headers['cf-ipcountry'] ?? ''), agent: String(req.headers['user-agent'] ?? '').slice(0, 160) });
       console.log(`+ sandbox ${n.id} for ${n.who.ip} ${n.who.country} (${sessions.size}/${MAX})`);
-      res.writeHead(303, { location: '/', 'set-cookie': `agst=${n.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400` });
+      res.writeHead(303, { location: home, 'set-cookie': `agst=${n.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400` });
       return res.end();
     }
     // Leave demo: delete this visitor's sandbox, forget the cookie, back to the landing page.
@@ -219,10 +220,10 @@ const server = createServer(async (req, res) => {
     }
     if (s) return proxy(req, res, s);
     if (req.url?.startsWith('/api/')) { res.writeHead(401, { 'content-type': 'application/json' }); return res.end('{"error":"sandbox expired"}'); }
-    return page(res);
+    return page(res, '', wantsFr(req));
   } catch (e: any) {
     console.error(e);
-    if (!res.headersSent) page(res, `Something went wrong: ${e.message}`);
+    if (!res.headersSent) page(res, `Something went wrong: ${e.message}`, wantsFr(req));
   }
 });
 // Docker is only touched once this copy owns the port: a second copy that fails to start must not
@@ -263,26 +264,39 @@ td,th{padding:10px 12px;border-bottom:1px solid #22252b;text-align:left;vertical
 }
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
-async function page(res: ServerResponse, message = '') {
+// The gate before a sandbox starts. It speaks the landing page's language (?lang=fr, or the browser's) and keeps
+// it short: the welcome window inside the app explains the sandbox and its limits right after.
+// Inlined: before a sandbox starts, every path answers with this page, so /icon.svg can't be fetched here.
+const ICON = `data:image/svg+xml;base64,${(await readFile(join(import.meta.dirname, '../../web/public/icon.svg')).catch((e) => { console.warn(`gate page: no logo (${e.message})`); return Buffer.from(''); })).toString('base64')}`;
+async function page(res: ServerResponse, message = '', fr = false) {
   const up = await modelUp().catch(() => false);
+  const t = (en: string, frText: string) => (fr ? frText : en);
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-  res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tandemcode · live demo</title>
+  res.end(`<!doctype html><html lang="${fr ? 'fr' : 'en'}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tandemcode · ${t('live demo', 'démo en direct')}</title>
+<link rel="icon" href="${ICON}"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: dark; } body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0c0e; color: #e7e9ee; font: 15px/1.55 system-ui, sans-serif; }
-  main { width: min(440px, calc(100% - 32px)); } h1 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 8px; } p { color: #9aa1ad; }
-  form { display: flex; gap: 8px; margin-top: 22px; } input { flex: 1; padding: 10px 12px; border-radius: 9px; border: 1px solid #2a2e36; background: #14161a; color: inherit; font: inherit; }
-  button { padding: 10px 16px; border-radius: 9px; border: 0; background: #e7e9ee; color: #0b0c0e; font: inherit; font-weight: 600; cursor: pointer; }
-  .msg { color: #f5b84a; } .busy button { opacity: .6; pointer-events: none; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f6f6f0; color: #141414; font: 16px/1.55 Figtree, system-ui, sans-serif; }
+  main { width: min(440px, calc(100% - 32px)); } h1 { font: 800 34px/1.1 Archivo, system-ui, sans-serif; letter-spacing: -.02em; margin: 0 0 12px; }
+  p { color: #55554f; margin: 0 0 10px; } .logo { display: flex; align-items: center; gap: 8px; font: 800 18px Archivo, system-ui, sans-serif; margin-bottom: 28px; }
+  form { display: flex; gap: 8px; margin-top: 22px; } input { flex: 1; padding: 11px 14px; border-radius: 999px; border: 1px solid #d8d8cf; background: #fff; color: inherit; font: inherit; }
+  button { padding: 12px 22px; border-radius: 999px; border: 0; background: #2f45e8; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  .msg { color: #a35f00; } .busy button { opacity: .6; pointer-events: none; } .model { font-size: 14px; }
 </style>
-<main><h1>Tandemcode, live</h1>
-<p>Watch an AI coding agent work on a real project, on a map. You get your own private sandbox with sample projects: the agent really edits files, runs tests and uses a browser inside it. It's deleted ${IDLE_MIN} minutes after you leave.</p>
-<p>Limits, so everyone gets a turn: ${MAX} sandboxes at a time, $${DEMO_USD} of Claude and ${GPU_MIN} minutes on the GPU per sandbox.</p>
-<p>${up ? '● The live model is <b style="color:#3ecf8e">online</b>: an open model on our GPU does the work.' : '● Tandemcode’s agent runs on <b style="color:#3ecf8e">Claude Sonnet 5.5</b>.'}</p>
+<main><div class="logo"><img src="${ICON}" width="28" height="28" alt="">tandemcode</div>
+<h1>${t('Your own sandbox, ready in a few seconds.', 'Ton bac à sable, prêt en quelques secondes.')}</h1>
+<p>${t('The agent really edits files, runs tests and uses a browser in it. It’s deleted after you leave.', 'L’agent y modifie vraiment des fichiers, lance des tests et utilise un navigateur. Il est supprimé quand tu pars.')}</p>
+<p class="model">${up ? t('The agent runs on an open model, on our GPU.', 'L’agent tourne sur un modèle ouvert, sur notre GPU.') : t('The agent runs on Claude Sonnet 5.5.', 'L’agent tourne sur Claude Sonnet 5.5.')}</p>
 ${message ? `<p class="msg">${message.replace(/</g, '&lt;')}</p>` : ''}
-<form method="post" action="/__start" onsubmit="this.classList.add('busy');this.querySelector('button').textContent='Starting your sandbox…'">
-  ${INVITE ? '<input name="code" placeholder="Invite code" autocomplete="off" required>' : ''}<button>Start my sandbox</button>
+<form method="post" action="/__start" onsubmit="this.classList.add('busy');this.querySelector('button').textContent='${t('Starting your sandbox…', 'Démarrage de ton bac à sable…')}'">
+  <input type="hidden" name="lang" value="${fr ? 'fr' : 'en'}">
+  ${INVITE ? `<input name="code" placeholder="${t('Invite code', 'Code d’invitation')}" autocomplete="off" required>` : ''}<button>${t('Start my sandbox', 'Lancer mon bac à sable')}</button>
 </form></main>`);
 }
+// French when the link says so (?lang=fr from the landing page), else when the browser prefers it.
+const wantsFr = (req: IncomingMessage, form?: URLSearchParams) => {
+  const l = form?.get('lang') ?? new URL(req.url ?? '/', 'http://x').searchParams.get('lang');
+  return l === 'fr' || l === 'en' ? l === 'fr' : String(req.headers['accept-language'] ?? '').toLowerCase().startsWith('fr');
+};
 
 // Idle sandboxes go away; everything goes away when the manager stops.
 setInterval(() => { for (const s of sessions.values()) if (Date.now() - s.lastSeen > IDLE_MIN * 60_000) void stopSession(s); }, 60_000);

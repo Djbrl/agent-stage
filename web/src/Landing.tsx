@@ -173,6 +173,7 @@ export function Landing({ onStart, onLogo }: { onStart: () => void; onLogo?: () 
         <div className="lp-cta-row">
           <button className="lp-cta" onClick={onStart}>{t('Take a ride', 'Faire un tour')}</button>
           <button className="lp-ghost" onClick={() => go('lp-learn')}>{t('See how it works', 'Voir comment ça marche')} ↓</button>
+          <a className="lp-ghost" href="https://youtu.be/h9uvHVJPNxg" target="_blank" rel="noreferrer">▶ {t('Watch the video', 'Voir la vidéo')}</a>
         </div>
         </div>
         <HeroMap t={t} />
@@ -219,9 +220,12 @@ export function Landing({ onStart, onLogo }: { onStart: () => void; onLogo?: () 
         <div className="lp-checker" aria-hidden="true" />
         <h2>{t('Ready to ride?', 'Prêt à rouler ?')}</h2>
         <p>{t('Open one of your projects, or start from an empty one. Open source, MIT, runs on your own computer.', 'Ouvre un de tes projets, ou pars d’un projet vide. Open source, MIT, tourne sur ton ordinateur.')}</p>
+        <iframe src="https://www.youtube-nocookie.com/embed/h9uvHVJPNxg" title={t('Tandemcode demo video', 'Vidéo de démo de Tandemcode')} loading="lazy"
+          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen
+          style={{ display: 'block', width: '100%', maxWidth: 880, aspectRatio: '16 / 9', margin: '8px auto 28px', border: 0, borderRadius: 20 }} />
         <div className="lp-cta-row">
           <button className="lp-cta lp-big" onClick={onStart}>{t('Try it live', 'Essayer en direct')}</button>
-          <a className="lp-ghost" href="https://github.com/Djbrl/agent-stage" target="_blank" rel="noreferrer">{t('Source on GitHub', 'Code sur GitHub')}</a>
+          <a className="lp-ghost" href="https://github.com/Djbrl/codetandem-harness" target="_blank" rel="noreferrer">{t('Source on GitHub', 'Code sur GitHub')}</a>
         </div>
       </section>
       </div>
@@ -336,7 +340,7 @@ function MapMock({ t }: { t: T }) {
       <div className="mk-ask">
         <div className="mk-open">
           <div className="mk-open-head"><b>2</b>{t('Edit greet.js', 'Modifie greet.js')}</div>
-          <code className="del">- return name;</code><code className="add">+ return `Hello, ${'${name}'}!`;</code>
+          <code className="del">- return name;</code><code className="add">{'+ return `Hello, ${name}!`;'}</code>
           <span>{t('Why: you asked for a greeting, not just the name.', 'Pourquoi : tu voulais une salutation, pas juste le nom.')}</span>
         </div>
         <div className="mk-q">{t('Why put greet() in its own file?', 'Pourquoi greet() dans son propre fichier ?')}</div>

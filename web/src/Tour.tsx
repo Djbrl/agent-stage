@@ -19,7 +19,7 @@ const mapArea = () => {
 
 const STOPS: Stop[] = [
   { at: () => rect('.studio-panel'), title: ['Your panel', 'Ton panneau'],
-    text: ['Your conversation with the agent. Tabs show up here as you go: Sessions lists your other projects, Steps lists everything the agent did. New session starts another one.', 'Ta conversation avec l’agent. Des onglets apparaissent ici au fil du temps : Sessions liste tes autres projets, Étapes tout ce qu’a fait l’agent. Nouvelle session en démarre une autre.'] },
+    text: ['Your conversation with the agent. Once it starts working, a Steps tab here lists everything it did. New session starts another project.', 'Ta conversation avec l’agent. Dès qu’il se met au travail, un onglet Étapes liste ici tout ce qu’il a fait. Nouvelle session démarre un autre projet.'] },
   { at: () => rect('.agent-panel .composer-box'), title: ['Tell it what to build', 'Dis-lui quoi construire'],
     text: ['Type or say what you want. In Tandem mode it asks before it writes code; Solo just builds.', 'Écris ou dis ce que tu veux. En mode Tandem, il demande avant d’écrire du code ; Solo construit directement.'] },
   { at: () => rect('.scratch-btn'), title: ['Scratchpad', 'Le Brouillon'],
@@ -27,7 +27,7 @@ const STOPS: Stop[] = [
   { at: mapArea, title: ['The map', 'La carte'],
     text: ['Your project, drawn as a map. Watch the agent move: files light up blue when it reads them, orange when it edits them.', 'Ton projet, dessiné comme une carte. Suis l’agent : les fichiers s’allument en bleu quand il les lit, en orange quand il les modifie.'] },
   { at: () => rect('.spark-btn'), title: ['The model', 'Le modèle'],
-    text: ['Pick which AI does the work. Grey means it can’t answer right now.', 'Choisis l’IA qui fait le travail. Gris veut dire qu’elle ne peut pas répondre pour l’instant.'] },
+    text: ['Pick which AI does the work. You can switch at any time.', 'Choisis l’IA qui fait le travail. Tu peux en changer à tout moment.'] },
   { at: () => rect('.head-settings'), title: ['Settings', 'Réglages'],
     text: ['Your agents and keys, your level, and what the agent may do without asking.', 'Tes agents et clés, ton niveau, et ce que l’agent peut faire sans demander.'] },
 ];

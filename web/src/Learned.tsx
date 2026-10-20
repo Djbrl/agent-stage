@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Concept, Entry } from './useAgent';
 import { Icon } from './icons';
 import { useT } from './i18n';
+import { Inline } from './Markdown';
 
 // "Quiz me": runs in Scratchpad, so the quiz never interrupts the session. The mock model recognises the first
 // words (QUIZ_START in src/model.ts).
@@ -33,10 +34,10 @@ export function Learned({ entry, all, latest, onQuiz, onSave }: {
           <button key={c.name} className={shown === c.name ? 'on' : ''} aria-expanded={shown === c.name} onClick={() => setShown(shown === c.name ? null : c.name)}>{c.name}</button>
         ))}
       </div>
-      {pick && <p className="learned-line">{pick.line}</p>}
+      {pick && <p className="learned-line"><Inline text={pick.line} /></p>}
       <div className="learned-row">
         {onQuiz && <button className="learned-quiz" onClick={onQuiz}>{t('Quiz me', 'Interroge-moi')}</button>}
-        {entry.exercise && <span><b>{t('Your turn:', 'À toi :')}</b> {entry.exercise}</span>}
+        {entry.exercise && <span><b>{t('Your turn:', 'À toi :')}</b> <Inline text={entry.exercise} /></span>}
       </div>
       <div className="learned-foot">
         {latest && all.length > entry.concepts.length && (
