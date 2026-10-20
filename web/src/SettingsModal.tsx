@@ -468,7 +468,7 @@ function Learning() {
 function Appearance() {
   const [pref, setPref] = useTheme();
   const t = useT();
-  const opts: [ThemePref, string][] = [['light', t('Light', 'Clair')], ['dark', t('Dark', 'Sombre')], ['system', t('Like my computer', 'Comme mon ordinateur')]];
+  const opts: [ThemePref, string][] = [['light', t('Default', 'Par défaut')], ['dark', t('Dark', 'Sombre')], ['stone', t('Stone', 'Pierre')], ['system', t('Like my computer', 'Comme mon ordinateur')]];
   return (
     <>
       <p className="set-intro">{t('How Tandemcode looks on this computer.', 'L’apparence de Tandemcode sur cet ordinateur.')}</p>

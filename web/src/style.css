@@ -11,6 +11,7 @@
   --sans: 'Figtree', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --display: 'Archivo', 'Figtree', ui-sans-serif, system-ui, sans-serif;
   --orange: #ff5a1f; --blue: #2f45e8; --lime: #c8f169; --sun: #ffd23f; --ink: #141414; --chalk: #f1f1ea;
+  --go: #c8f169; /* send / stop, and the highlight in the muted themes */
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   font: 13px/1.5 var(--sans); color: var(--text); -webkit-font-smoothing: antialiased;
   color-scheme: dark;
@@ -717,15 +718,16 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .ask-btn { color: var(--dim); }
 .ask-btn.on { color: var(--text); background: var(--hover); }
 /* settings → appearance */
-.theme-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.theme-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .theme-pick button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .theme-pick button.on { border-color: var(--line-strong); background: var(--hover); }
 .theme-pick .muted { font-size: 11.5px; line-height: 1.4; }
 .theme-swatch { width: 100%; height: 54px; border-radius: 8px; margin-bottom: 4px; border: 1px solid var(--line-soft); }
-.theme-swatch.dark { background: #0c0d0f; }
+.theme-swatch.dark { background: linear-gradient(135deg, #c8f169 0 22%, #262624 22%); }
+.theme-swatch.stone { background: linear-gradient(135deg, #a9c48b 0 22%, #efece6 22%); }
 .theme-swatch.light { background: linear-gradient(135deg, #c8f169 0 40%, #f1f1ea 40%); }
-.theme-swatch.system { background: linear-gradient(135deg, #f1f1ea 50%, #0c0d0f 50%); }
+.theme-swatch.system { background: linear-gradient(135deg, #f1f1ea 50%, #262624 50%); }
 /* light theme: surfaces are white, so tabs and your bubbles need a fill to read */
 :root[data-theme="light"] .bubble-user { background: var(--hover); }
 :root[data-theme="light"] .studio-tabs { background: var(--hover); }
@@ -1275,11 +1277,11 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .spark-btn { width: 38px; height: 38px; border: 0; border-radius: 50%; display: grid; place-items: center; background: #2f45e8; color: #fff; cursor: pointer; transition: transform .15s, background .15s; }
 .spark-btn:hover:not(:disabled) { background: #2336c4; transform: rotate(15deg); } .spark-btn:disabled { opacity: .5; cursor: default; }
 .composer .btn.round { width: 40px; height: 40px; }
-:root .composer .send-btn, :root .composer .btn.primary.round { background: #c8f169; color: #141414; border: 0; }
+:root .composer .send-btn, :root .composer .btn.primary.round { background: var(--go); color: #141414; border: 0; }
 .composer .send-btn:hover:not(:disabled) { background: #b5e34f; }
-.composer .send-btn:disabled { background: #c8f169; opacity: .5; }
+.composer .send-btn:disabled { background: var(--go); opacity: .5; }
 .composer .stop-btn { background: #141414; border: 0; }
-.stop-sq { display: block; width: 15px; height: 15px; border-radius: 4px; background: #c8f169; }
+.stop-sq { display: block; width: 15px; height: 15px; border-radius: 4px; background: var(--go); }
 .composer .stop-btn:hover { background: #2a2a28; }
 .composer-bar { gap: 8px; padding: 8px 2px 0; }
 /* inside the bubble: the text grows up to 40% of the screen, mic and send sit at its bottom-right; mode and model sit under it */
@@ -1456,7 +1458,7 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .sp-input:focus-within { border-color: var(--line-strong); }
 .sp-input textarea { flex: 1; resize: none; border: 0; outline: 0; background: none; color: var(--text); font: 15px/1.5 var(--sans); max-height: 30vh; }
 .sp-input .btn.round { width: 34px; height: 34px; flex-shrink: 0; }
-:root .sp-input .btn.primary.round { background: #c8f169; color: #141414; border: 0; }
+:root .sp-input .btn.primary.round { background: var(--go); color: #141414; border: 0; }
 .sp-row { display: flex; align-items: center; gap: 8px; margin: 8px 12px 0; flex-shrink: 0; }
 .sp-row .btn.sm { height: 30px; padding: 0 12px; }
 .sp-kept { font-size: 12.5px; }
@@ -1795,3 +1797,57 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .skel span:nth-child(1) { width: 88%; } .skel span:nth-child(2) { width: 72%; } .skel span:nth-child(3) { width: 46%; }
 @keyframes skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .arrive, .callout, .skel span { animation: none; } }
+
+/* ── Dark: muted, warm charcoal (like Claude's dark), not near-black. No big coloured cards or bright blue buttons:
+   neutral greys, with green as the highlight (send / stop, Tandem, the ✦). The map keeps its blue and orange. */
+:root[data-theme="dark"] {
+  --frame: #262624; --surface: #30302e; --raised: #30302e; --hover: #3a3a37; --line: #45443f; --line-soft: #393936; --line-strong: #5c5a53;
+  --text: #ecebe6; --text-strong: #ffffff; --text-2: #c6c4bc; --dim: #a09e95; --faint: #79776f; --on-text: #1f1e1d;
+  --accent: #b5d49a; --accent-soft: #b5d49a22; --accent-ink: #c9e2b2;
+  --glass: rgba(48,48,46,.92); --scrim: rgba(0,0,0,.5); --map-bg: #232321; --map-dot: rgba(255,255,255,.05);
+}
+:root[data-theme="dark"] .app-head-btn.primary, :root[data-theme="dark"] .ask-pick, :root[data-theme="dark"] .lg.spark { background: var(--text); color: var(--on-text); }
+:root[data-theme="dark"] .app-head-btn.primary:hover { background: var(--text-strong); }
+:root[data-theme="dark"] .spark-btn { background: var(--hover); color: var(--go); }
+:root[data-theme="dark"] .mode-icon.learn.on, :root[data-theme="dark"] .lg-word.learn, :root[data-theme="dark"] .lg.guide { background: var(--go); color: #141414; }
+:root[data-theme="dark"] .decision, :root[data-theme="dark"] .learned { background: var(--raised); color: var(--text); border: 1px solid var(--line); }
+:root[data-theme="dark"] .decision-body, :root[data-theme="dark"] .decision-line, :root[data-theme="dark"] .decision-pills button, :root[data-theme="dark"] .decision-explain,
+:root[data-theme="dark"] .decision-files span, :root[data-theme="dark"] .learned-try { background: var(--hover); color: var(--text); }
+:root[data-theme="dark"] .decision-pills button.on, :root[data-theme="dark"] .decision-go { background: var(--go); color: #141414; }
+:root[data-theme="dark"] .decision-explain:hover { background: var(--line); }
+:root[data-theme="dark"] .decision-hint, :root[data-theme="dark"] .decision-line .mono { color: var(--dim); }
+:root[data-theme="dark"] .learned-head { background: transparent; color: var(--go); border-bottom: 1px solid var(--line); }
+:root[data-theme="dark"] .learned-check.on .box { background: var(--go); }
+:root[data-theme="dark"] .tip, :root[data-theme="dark"] .tour-card { background: var(--hover); color: var(--text); border: 1px solid var(--line-strong); }
+:root[data-theme="dark"] .tip::before { background: var(--hover); border: 1px solid var(--line-strong); }
+:root[data-theme="dark"] .tip .tip-ok, :root[data-theme="dark"] .tour-card .btn.primary { background: var(--go); color: #141414; border-color: transparent; }
+:root[data-theme="dark"] .tour-card .btn.ghost, :root[data-theme="dark"] .tour-skip { color: var(--text-2); border-color: var(--line-strong); }
+:root[data-theme="dark"] .idea-tip .starter-ideas button:hover { background: var(--line); color: var(--text); }
+
+/* ── Stone: light and calm. Off-whites and stone, stone cards instead of coloured ones, a muted green highlight. */
+:root[data-theme="light"][data-tone="stone"] {
+  --frame: #efece6; --surface: #faf8f4; --raised: #faf8f4; --hover: #e8e4dc; --line: #ddd8ce; --line-soft: #e7e2d9; --line-strong: #bfb8aa;
+  --text: #2b2824; --text-strong: #12110f; --text-2: #4a463f; --dim: #6d675d; --faint: #888276; --on-text: #faf8f4;
+  --accent: #5e7048; --accent-soft: #e2e7d8; --accent-ink: #4a5a37; --ink: #2b2824; --chalk: #efece6;
+  --go: #a9c48b; --map-bg: #f4f2ed; --glass: rgba(250,248,244,.92);
+}
+:root[data-theme][data-tone="stone"] .app-head-btn.primary, :root[data-theme][data-tone="stone"] .ask-pick, :root[data-theme][data-tone="stone"] .lg.spark,
+:root[data-theme][data-tone="stone"] .checkpoint .btn.primary, :root[data-theme][data-tone="stone"] .welcome-card.onboard .btn.primary { background: var(--text); color: var(--on-text); }
+:root[data-theme][data-tone="stone"] .app-head-btn.primary:hover { background: var(--text-strong); }
+:root[data-theme][data-tone="stone"] .spark-btn { background: var(--text); color: var(--go); }
+:root[data-theme][data-tone="stone"] .mode-icon.learn.on, :root[data-theme][data-tone="stone"] .lg-word.learn, :root[data-theme][data-tone="stone"] .lg.guide { background: var(--go); color: var(--text-strong); }
+:root[data-theme][data-tone="stone"] .decision, :root[data-theme][data-tone="stone"] .learned { background: #e9e5dd; color: var(--text); box-shadow: none; }
+:root[data-theme][data-tone="stone"] .decision-body, :root[data-theme][data-tone="stone"] .decision-line, :root[data-theme][data-tone="stone"] .decision-pills button,
+:root[data-theme][data-tone="stone"] .decision-explain, :root[data-theme][data-tone="stone"] .learned-try { background: var(--surface); color: var(--text); }
+:root[data-theme][data-tone="stone"] .decision-files span { background: rgba(250,248,244,.7); }
+:root[data-theme][data-tone="stone"] .decision-pills button.on, :root[data-theme][data-tone="stone"] .decision-go { background: var(--text); color: var(--on-text); }
+:root[data-theme][data-tone="stone"] .decision-explain:hover { background: #f1eee8; }
+:root[data-theme][data-tone="stone"] .learned-head { background: #dcd6ca; color: var(--text-strong); }
+:root[data-theme][data-tone="stone"] .learned-check.on .box { background: var(--go); }
+:root[data-theme][data-tone="stone"] .composer-box { border-color: var(--text); }
+:root[data-theme][data-tone="stone"] .composer-box:focus-within { border-color: var(--accent); }
+:root[data-theme][data-tone="stone"] .caption.wait { color: var(--go); }
+:root[data-theme][data-tone="stone"] .tip, :root[data-theme][data-tone="stone"] .tour-card { background: var(--text); color: var(--on-text); }
+:root[data-theme][data-tone="stone"] .tip::before { background: var(--text); }
+:root[data-theme][data-tone="stone"] .tip .tip-ok, :root[data-theme][data-tone="stone"] .tour-card .btn.primary { background: var(--go); color: var(--text-strong); }
+:root[data-theme][data-tone="stone"] .idea-tip .starter-ideas button:hover { background: var(--line); }

@@ -25,9 +25,9 @@ type Pal = {
   folderFill: number; folderStroke: number; folderLabel: number; hub: number; hubLabel: number; fileFill: number; fileStroke: number; labelMid: number; labelLow: number;
 };
 const PAL: Record<'dark' | 'light', Pal> = {
-  dark: { // the original dark map
-    hot: '#ff5b1f', warm: '#ffa66e', red: '#f2555a', amber: '#f5b84a', accent: '#7b8cff', ink: '#e8e9ec', halo: 'rgba(15,16,17,0.88)',
-    importOut: 'rgba(95,168,255,0.75)', importIn: 'rgba(62,207,142,0.75)', read: '#6b8fc4', ripple: '#ff8c50', markerRing: '#0f1011', markerIdle: '#8a8f98',
+  dark: { // the dark map, on the muted charcoal theme (the agent stays blue, its trail orange)
+    hot: '#ff5b1f', warm: '#ffa66e', red: '#f2555a', amber: '#f5b84a', accent: '#7b8cff', ink: '#ecebe6', halo: 'rgba(35,35,33,0.9)',
+    importOut: 'rgba(95,168,255,0.75)', importIn: 'rgba(62,207,142,0.75)', read: '#6b8fc4', ripple: '#ff8c50', markerRing: '#30302e', markerIdle: '#8a8f98',
     shadow: 'rgba(0,0,0,0.5)', line: '255,255,255', text: '232,233,236', accentRgb: '123,140,255', readRgb: '95,168,255',
     folderFill: 0.03, folderStroke: 0.075, folderLabel: 0.32, hub: 0.05, hubLabel: 0.3, fileFill: 0.13, fileStroke: 0.16, labelMid: 0.78, labelLow: 0.45,
   },

@@ -1,16 +1,18 @@
-// Light (the default, the Tandemcode look) / dark / follow the system. Saved per browser; applied as <html data-theme="light|dark">, which the
-// stylesheet and the map palette read. index.html applies it before the first paint, so there's no flash.
+// Default (light, the Tandemcode colours) / dark (muted charcoal) / stone (light, muted) / follow the system. Saved per
+// browser; applied as <html data-theme="light|dark"> (stone is light with data-tone="stone"), which the stylesheet and
+// the map palette read. index.html applies it before the first paint, so there's no flash.
 import { useEffect, useState } from 'react';
 
-export type ThemePref = 'dark' | 'light' | 'system';
+export type ThemePref = 'dark' | 'light' | 'stone' | 'system';
 const media = () => window.matchMedia('(prefers-color-scheme: light)');
 
 export function getPref(): ThemePref {
-  try { const v = localStorage.getItem('theme'); return v === 'dark' || v === 'system' ? v : 'light'; } catch { return 'light'; }
+  try { const v = localStorage.getItem('theme'); return v === 'dark' || v === 'stone' || v === 'system' ? v : 'light'; } catch { return 'light'; }
 }
 export function apply(pref = getPref()) {
-  const t = pref === 'system' ? (media().matches ? 'light' : 'dark') : pref;
+  const t = pref === 'system' ? (media().matches ? 'light' : 'dark') : pref === 'stone' ? 'light' : pref;
   document.documentElement.dataset.theme = t;
+  if (pref === 'stone') document.documentElement.dataset.tone = 'stone'; else delete document.documentElement.dataset.tone;
 }
 
 export function useTheme(): [ThemePref, (p: ThemePref) => void] {
