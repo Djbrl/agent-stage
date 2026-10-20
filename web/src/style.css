@@ -1579,3 +1579,76 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 /* shorter scenes: less scrolling per section */
 .lp-scene { height: 210vh; }
 .lp-scene#lp-map { height: 190vh; }
+/* map mockup, 20 10: beat 1 rewinds (marker runs back, scrubber slides back, steps count down), beat 2 opens a step */
+.lp-scene#lp-map { height: 270vh; }
+.mk-marker { transition: opacity .35s; } .mk-marker.rw, .mk-marker.park { opacity: 0; }
+.lp-scene[data-beat="1"] .mk-marker.fw, .lp-scene[data-beat="2"] .mk-marker.fw { opacity: 0; }
+.lp-scene[data-beat="1"] .mk-marker.rw { opacity: 1; } .lp-scene[data-beat="2"] .mk-marker.park { opacity: 1; }
+.mk-rw-badge { position: absolute; left: 14px; top: 14px; background: var(--orange); color: #fff; border-radius: 999px; padding: 6px 12px; font-weight: 700; animation: blink 1.4s infinite; }
+.mk-steps { position: absolute; right: 4%; top: 7%; width: 42%; list-style: none; margin: 0; padding: 8px; background: #fff; border-radius: 14px; box-shadow: 0 12px 30px rgba(20,20,20,.14); display: flex; flex-direction: column; gap: 4px; }
+.mk-steps li { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 9px; color: var(--mute); font-weight: 600; }
+.mk-steps li b { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #ecede3; color: var(--ink); font-size: .85em; flex-shrink: 0; }
+.lp-scene[data-beat="1"] .mk-steps li { animation: mk-stepon 4s infinite; }
+.mk-steps li.s3 { animation-delay: 0s !important; } .mk-steps li.s2 { animation-delay: 1s !important; } .mk-steps li.s1 { animation-delay: 2s !important; } .mk-steps li.s0 { animation-delay: 3s !important; }
+@keyframes mk-stepon { 0%, 24% { background: var(--ink); color: #fff; } 25%, 100% { background: transparent; color: var(--mute); } }
+.lp-scene[data-beat="1"] .mk-knob { left: 92%; animation: mk-knob-back 4s linear infinite; transition: none; }
+@keyframes mk-knob-back { from { left: 92%; } to { left: 8%; } }
+.mk-open { position: absolute; left: 4%; top: 8%; width: 50%; background: #fff; border-radius: 14px; padding: 12px 14px; box-shadow: 0 16px 40px rgba(20,20,20,.18); display: flex; flex-direction: column; gap: 5px;
+  transform: translateY(45%) scale(.55); transform-origin: bottom left; opacity: 0; transition: transform .55s cubic-bezier(.2,.8,.2,1), opacity .35s; }
+.mk-open-head { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 4px; }
+.mk-open-head b { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--orange); color: #fff; font-size: .85em; }
+.mk-open code { font: 12px var(--mono); padding: 3px 6px; border-radius: 6px; } .mk-open .del { background: #fde4dd; color: #a8321f; } .mk-open .add { background: #e4f6d2; color: #2f5d0e; }
+.mk-open span { color: var(--mute); font-size: .92em; margin-top: 4px; }
+.mk-ask .mk-q { left: 58%; top: 10%; max-width: 38%; transition: transform .4s .7s, opacity .4s .7s; }
+.mk-ask .mk-a { left: 58%; top: 36%; max-width: 38%; transition: transform .4s 1.3s, opacity .4s 1.3s; }
+.mk-map { transition: opacity .4s; }
+.lp-scene[data-beat="2"] .mk-map { opacity: .5; }
+.lp-scene[data-beat="2"] .mk-open { transform: none; opacity: 1; }
+/* Tandem mockup, 20 10: a real decision; the chat dims behind Scratchpad and the card */
+.mk-call ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.mk-call li { display: flex; flex-direction: column; padding: 6px 9px; border-radius: 9px; background: #fff; border: 1px solid #f1e3a6; line-height: 1.3; color: var(--mute); }
+.mk-call li em { font-style: normal; font-weight: 700; color: var(--ink); }
+.mk-call li.pick { border-color: var(--blue); }
+.mk-dim { position: absolute; inset: 0; background: rgba(246,246,240,.72); opacity: 0; transition: opacity .4s; pointer-events: none; }
+.lp-scene[data-beat="1"] .mk-dim, .lp-scene[data-beat="2"] .mk-dim { opacity: 1; }
+.mk-shot { opacity: 0; transform: translateY(8px); transition: opacity .4s .35s, transform .4s .35s; }
+.lp-scene[data-beat="1"] .mk-shot { opacity: 1; transform: none; }
+.mk-call { gap: 8px; }
+/* engines as a spinning wheel that changes per beat */
+.mk-wheel { width: 100%; height: auto; }
+.mk-spin { transform-origin: 180px 180px; animation: spin 6s linear infinite; }
+.mk-wheel .w { opacity: 0; transition: opacity .45s; }
+.lp-scene[data-beat="0"] .mk-wheel .w0, .lp-scene[data-beat="1"] .mk-wheel .w1, .lp-scene[data-beat="2"] .mk-wheel .w2 { opacity: 1; }
+.mk-wheel .tyre { fill: none; stroke: #141414; stroke-width: 18; }
+.mk-wheel .rim { fill: none; stroke: #c5c5b8; stroke-width: 8; }
+.mk-wheel .rim.deep { stroke: var(--orange); stroke-width: 34; }
+.mk-wheel .spokes line { stroke: #9a9a90; stroke-width: 2.5; }
+.mk-wheel .blades line { stroke: #141414; stroke-width: 9; stroke-linecap: round; }
+.mk-wheel .disc { fill: #ecede3; stroke: #c5c5b8; stroke-width: 6; }
+.mk-wheel .disc-ring { fill: none; stroke: #d9d9cf; stroke-width: 3; stroke-dasharray: 10 14; }
+.w0 .rim { stroke: var(--blue); }
+.lp-scene[data-beat="1"] .mk-spin { animation-duration: 3s; }
+.lp-scene[data-beat="2"] .mk-spin { animation-duration: 12s; }
+/* hero, 20 10: copy on the left, the fork on the right */
+.lp-hero { display: grid; grid-template-columns: minmax(0, 11fr) minmax(0, 9fr); align-items: center; gap: clamp(16px, 3vw, 48px); text-align: left; }
+.lp-hero-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+.lp-hero h1 { font-size: clamp(56px, 8.4vw, 132px); }
+.lp-hero .lp-cta-row { justify-content: flex-start; }
+.lp-fork { width: 100%; height: auto; max-height: calc(100vh - 160px); opacity: 0; animation: lp-up .8s ease .5s forwards; }
+.lp-fork .road { fill: none; stroke: #d9d9cf; stroke-width: 26; stroke-linecap: round; }
+.lp-fork .lane { fill: none; stroke: #fff; stroke-width: 3; stroke-dasharray: 10 12; }
+.lp-fork .taken { fill: none; stroke: var(--orange); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 900; stroke-dashoffset: 900; animation: lp-fork-take 6s infinite; }
+@keyframes lp-fork-take { 0%, 10% { stroke-dashoffset: 900; } 85%, 100% { stroke-dashoffset: 0; } }
+.lp-fork .sign { font: 700 15px var(--sans); }
+.lp-fork .choice { animation: lp-fork-choose 6s infinite; }
+@keyframes lp-fork-choose { 0%, 30% { fill: #fff; stroke: #c5c5b8; } 36%, 100% { fill: var(--blue); stroke: var(--blue); } }
+.lp-fork .choice-text { animation: lp-fork-text 6s infinite; }
+@keyframes lp-fork-text { 0%, 30% { fill: var(--ink); } 36%, 100% { fill: #fff; } }
+.lp-fork .cursor { animation: lp-fork-point 6s infinite; }
+@keyframes lp-fork-point { 0% { transform: translate(560px, 470px); opacity: 0; } 12% { opacity: 1; } 30% { transform: translate(468px, 165px); } 36%, 60% { transform: translate(464px, 161px); opacity: 1; } 70%, 100% { opacity: 0; transform: translate(464px, 161px); } }
+@media (max-width: 900px) {
+  .lp-hero { grid-template-columns: 1fr; text-align: center; }
+  .lp-hero-copy { align-items: center; } .lp-hero .lp-cta-row { justify-content: center; }
+  .lp-fork { max-width: 420px; margin: 0 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .lp-fork { opacity: 1; } }

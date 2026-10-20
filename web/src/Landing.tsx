@@ -99,7 +99,11 @@ function useScroll(root: React.RefObject<HTMLDivElement | null>) {
         const p = Math.min(1, Math.max(0, run > 0 ? -r.top / run : 0));
         const beats = Number(s.dataset.scene);
         s.style.setProperty('--p', p.toFixed(4));
-        s.dataset.beat = String(Math.min(beats - 1, Math.floor(p * beats)));
+        const beat = String(Math.min(beats - 1, Math.floor(p * beats)));
+        if (s.dataset.beat !== beat) { // a drawing that plays on this beat starts from the beginning
+          s.dataset.beat = beat;
+          for (const svg of s.querySelectorAll<SVGSVGElement>(`svg[data-replay="${beat}"]`)) svg.setCurrentTime(0);
+        }
       }
       for (const n of el.querySelectorAll<HTMLElement>('[data-in]:not(.in)')) if (n.getBoundingClientRect().top < el.clientHeight * 0.8) n.classList.add('in');
       if (track && H) {
@@ -159,15 +163,18 @@ export function Landing({ onStart }: { onStart: () => void }) {
       </header>
 
       <section className="lp-hero">
+        <div className="lp-hero-copy">
         <div className="lp-lights" aria-hidden="true"><i /><i /><i /></div>
         <p className="lp-eyebrow">{t('The harness you learn with', 'L’orchestrateur d’agents pour apprendre')}</p>
         <h1><span className="lp-from-l">{t('It pedals.', 'Il pédale.')}</span><span className="lp-from-r">{t('You steer.', 'Tu guides.')}</span></h1>
-        <p className="lp-lede">{t('Follow your agents on a map. Use Tandem mode to stay active in decisions, take notes, and draw when words aren\'t enough. Plug in Claude or any open model.',
+        <p className="lp-lede">{t('Follow your agents on a map. Use Tandem mode to stay active in decisions, take notes, and draw when words aren’t enough. Plug in Claude or any open model.',
           'Suis tes agents sur une carte. Avec le mode Tandem, garde la main sur les décisions, prends des notes, et dessine quand les mots ne suffisent pas. Branche Claude ou n’importe quel modèle ouvert.')}</p>
         <div className="lp-cta-row">
           <button className="lp-cta" onClick={onStart}>{t('Take a ride', 'Faire un tour')}</button>
           <button className="lp-ghost" onClick={() => go('lp-map')}>{t('See how it works', 'Voir comment ça marche')} ↓</button>
         </div>
+        </div>
+        <Fork t={t} />
       </section>
 
       <div className="lp-track">
@@ -222,6 +229,24 @@ export function Landing({ onStart }: { onStart: () => void }) {
   );
 }
 
+// The hero picture: the agent (orange) rides up to a fork and waits; your cursor (blue) picks the way; it rides on.
+const FORK_MAIN = 'M80 520 C 200 500, 260 420, 320 330 C 360 270, 400 200, 470 160';
+const FORK_SIDE = 'M320 330 C 380 360, 460 400, 560 400';
+function Fork({ t }: { t: T }) {
+  return (
+    <svg className="lp-fork" viewBox="0 0 620 580" role="img" aria-label={t('The agent rides to a fork; you pick the way', 'L’agent roule jusqu’à un carrefour ; tu choisis la route')}>
+      <path className="road" d={FORK_MAIN} /><path className="road" d={FORK_SIDE} />
+      <path className="lane" d={FORK_MAIN} /><path className="lane" d={FORK_SIDE} />
+      <path className="taken" d={FORK_MAIN} />
+      <g transform="translate(400 120)"><rect className="choice" x="0" y="-26" width="160" height="40" rx="20" strokeWidth="2" /><text className="sign choice-text" x="80" y="0" textAnchor="middle">localStorage</text></g>
+      <g transform="translate(460 440)"><rect x="0" y="-26" width="160" height="40" rx="20" fill="#fff" stroke="#c5c5b8" strokeWidth="2" /><text className="sign" x="80" y="0" textAnchor="middle">{t('a database', 'une base de données')}</text></g>
+      <g><circle r="14" fill="#141414" /><circle r="6" fill="#ff5a1f" />
+        <animateMotion dur="6s" repeatCount="indefinite" keyPoints="0;0;0.55;0.55;1" keyTimes="0;0.1;0.3;0.38;0.85" calcMode="linear" path={FORK_MAIN} /></g>
+      <g className="cursor"><path d="M0 0 L0 26 L7 19 L12 30 L17 28 L12 17 L22 17 Z" fill="#2f45e8" stroke="#fff" strokeWidth="2" strokeLinejoin="round" /></g>
+    </svg>
+  );
+}
+
 // A feature told in three beats: the text column scrolls past a pinned mockup that changes with each beat.
 function Scene({ id, tone, kicker, title, beats, mock, flip }: { id: string; tone: string; kicker: string; title: [string, string]; beats: [string, string][]; mock: ReactNode; flip?: boolean }) {
   return (
@@ -246,7 +271,10 @@ function Window({ title, children }: { title: string; children: ReactNode }) {
   return <div className="lp-win"><div className="lp-win-bar"><i /><i /><i /><span>{title}</span></div><div className="lp-win-body">{children}</div></div>;
 }
 
+// The map in three beats: the agent moving through the project, rewinding its steps (the marker runs back, the
+// scrubber slides back, the step list counts down), then one step opened and a question asked about it.
 function MapMock({ t }: { t: T }) {
+  const steps = [t('Read app.js', 'Lit app.js'), t('Edit greet.js', 'Modifie greet.js'), t('Write greet.test.js', 'Écrit greet.test.js'), t('Run npm test', 'Lance npm test')];
   return (
     <Window title="weather-app · Codetandem">
       <svg className="mk-map" viewBox="0 0 640 420" role="img" aria-label={t('A project map: the agent moves from file to file', 'Une carte du projet : l’agent va de fichier en fichier')}>
@@ -263,15 +291,24 @@ function MapMock({ t }: { t: T }) {
           <g className="mk-f f0"><circle cx="500" cy="110" r="12" /><text x="520" y="115">package.json</text></g>
           <g className="mk-hub"><circle cx="575" cy="200" r="16" /><text x="552" y="236">terminal</text></g>
         </g>
-        <g className="mk-marker"><circle r="11" fill="#141414" /><circle r="5" fill="#c8f169" />
+        <g className="mk-marker fw"><circle r="11" fill="#141414" /><circle r="5" fill="#c8f169" />
           <animateMotion dur="7s" repeatCount="indefinite"><mpath href="#mk-route" /></animateMotion></g>
+        <g className="mk-marker rw"><circle r="11" fill="#141414" /><circle r="5" fill="#ff5a1f" />
+          <animateMotion dur="4s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#mk-route" /></animateMotion></g>
+        <g className="mk-marker park" transform="translate(285 245)"><circle r="11" fill="#141414" /><circle r="5" fill="#c8f169" /></g>
       </svg>
       <div className="mk-caption"><span className="c1">{t('Reading app.js', 'Lit app.js')}</span><span className="c2">{t('Editing greet.js', 'Modifie greet.js')}</span><span className="c3">{t('Running npm test', 'Lance npm test')}</span></div>
       <div className="mk-rewind">
-        <div className="mk-diff"><b>greet.js · {t('step 2', 'étape 2')}</b><code className="del">- return name;</code><code className="add">+ return `Hello, ${'${name}'}!`;</code><span>{t('Why: you asked for a greeting, not just the name.', 'Pourquoi : tu voulais une salutation, pas juste le nom.')}</span></div>
-        <div className="mk-scrub"><i /><i /><i /><i /><i /><span className="mk-knob" /></div>
+        <span className="mk-rw-badge">⏪ {t('Rewinding', 'Retour en arrière')}</span>
+        <ol className="mk-steps">{steps.map((x, i) => <li key={x} className={`s${i}`}><b>{i + 1}</b>{x}</li>)}</ol>
+        <div className="mk-scrub"><i /><i /><i /><i /><span className="mk-knob" /></div>
       </div>
       <div className="mk-ask">
+        <div className="mk-open">
+          <div className="mk-open-head"><b>2</b>{t('Edit greet.js', 'Modifie greet.js')}</div>
+          <code className="del">- return name;</code><code className="add">+ return `Hello, ${'${name}'}!`;</code>
+          <span>{t('Why: you asked for a greeting, not just the name.', 'Pourquoi : tu voulais une salutation, pas juste le nom.')}</span>
+        </div>
         <div className="mk-q">{t('Why put greet() in its own file?', 'Pourquoi greet() dans son propre fichier ?')}</div>
         <div className="mk-a">{t('So index.js and the test can both import it. I split it at step 2, after you chose “one file per job”.', 'Pour que index.js et le test puissent l’importer. Je l’ai séparé à l’étape 2, quand tu as choisi « un fichier par rôle ».')}</div>
       </div>
@@ -279,59 +316,87 @@ function MapMock({ t }: { t: T }) {
   );
 }
 
-// Tandem mode, Scratchpad and What you learned, one per beat.
+// Tandem mode, Scratchpad and What you learned, one per beat. Beat 0 is a real design decision; from beat 1 the
+// chat dims so the eye goes to Scratchpad (a screenshot, then a pencil circling the button) and then the card.
 function LearnMock({ t }: { t: T }) {
   return (
     <Window title={t('Tandem · weather-app', 'Tandem · weather-app')}>
       <div className="mk-chat">
-        <div className="mk-user">{t('Show the weather for my city', 'Affiche la météo de ma ville')}</div>
+        <div className="mk-user">{t('Save my favourite cities', 'Garde mes villes préférées')}</div>
         <div className="mk-step done">✓ {t('Read 3 files', 'A lu 3 fichiers')}</div>
         <div className="mk-call">
-          <b>✦ {t('Your call', 'À toi de décider')}</b>
-          <span>{t('Fetch the weather in its own module, so the page stays simple?', 'Récupérer la météo dans son propre module, pour garder la page simple ?')}</span>
-          <div><i className="go">{t('Go ahead', 'Vas-y')}</i><i>{t('Skip this step', 'Passer')}</i></div>
+          <b>✦ {t('Your call: where do favourites live?', 'À toi de décider : où ranger les favoris ?')}</b>
+          <ul>
+            <li className="pick"><em>localStorage</em>{t('simple, only in this browser', 'simple, seulement dans ce navigateur')}</li>
+            <li><em>{t('a small database', 'une petite base de données')}</em>{t('syncs across devices, more setup', 'synchronisée partout, plus de travail')}</li>
+          </ul>
+          <div><i className="go">{t('Go with localStorage', 'Va pour localStorage')}</i><i>{t('Explain', 'Explique')}</i></div>
         </div>
         <div className="mk-keeps">{t('Nothing changes until you say go', 'Rien ne change avant ton feu vert')}</div>
         <div className="mk-modes"><span className="on">Tandem</span><span>Solo</span><em>✎ {t('Scratchpad', 'Brouillon')}</em></div>
       </div>
+      <div className="mk-dim" />
       <div className="mk-side mk-scratch">
-        <svg viewBox="0 0 220 110" className="mk-shot" aria-hidden="true">
+        <svg viewBox="0 0 220 110" className="mk-shot" data-replay="1" aria-hidden="true">
           <rect width="220" height="110" rx="10" fill="#141414" />
           <rect x="14" y="14" width="120" height="10" rx="5" fill="#3a3a36" /><rect x="14" y="32" width="90" height="8" rx="4" fill="#2a2a28" />
           <rect x="14" y="62" width="70" height="26" rx="13" fill="#2f45e8" /><rect x="150" y="14" width="56" height="74" rx="8" fill="#2a2a28" />
-          <ellipse className="mk-circle" cx="49" cy="75" rx="46" ry="22" fill="none" stroke="#ff5a1f" strokeWidth="4" strokeLinecap="round" />
+          <path d="M95 75 A46 22 0 1 1 3 75 A46 22 0 1 1 95 75" fill="none" stroke="#ff5a1f" strokeWidth="4" strokeLinecap="round" strokeDasharray="232" strokeDashoffset="232">
+            <animate attributeName="stroke-dashoffset" values="232;232;0;0" keyTimes="0;0.3;0.75;1" dur="3.4s" fill="freeze" />
+          </path>
+          <g className="mk-pencil" opacity="0">
+            <path d="M0 0 L5 -2 L30 -27 L27 -30 L2 -5 Z" fill="#ffd23f" stroke="#141414" strokeWidth="1.5" strokeLinejoin="round" />
+            <path d="M0 0 L5 -2 L2 -5 Z" fill="#141414" />
+            <animateMotion dur="3.4s" keyPoints="0;0;1;1" keyTimes="0;0.3;0.75;1" calcMode="linear" fill="freeze" path="M95 75 A46 22 0 1 1 3 75 A46 22 0 1 1 95 75" />
+            <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.27;0.3;0.8;0.9" dur="3.4s" fill="freeze" />
+          </g>
         </svg>
         <div className="mk-q">{t('Can this button be bigger?', 'Ce bouton peut être plus grand ?')}</div>
         <div className="mk-a">{t('Yes: it’s the .cta class in style.css. Want me to add it to the plan?', 'Oui : c’est la classe .cta dans style.css. Je l’ajoute au plan ?')}</div>
-        <div className="mk-sp-notes"><span>{t('Your notes', 'Tes notes')}</span><i>{t('What does “await” do?', 'Que fait « await » ?')}</i><i>{t('Why a module?', 'Pourquoi un module ?')}</i></div>
+        <div className="mk-sp-notes"><span>{t('Your notes', 'Tes notes')}</span><i>{t('Why localStorage?', 'Pourquoi localStorage ?')}</i><i>{t('What does “await” do?', 'Que fait « await » ?')}</i></div>
       </div>
       <div className="mk-learned">
         <b>{t('What you learned', 'Ce que tu as appris')}</b>
-        <div className="mk-chips"><span>async / await</span><span>{t('modules', 'modules')}</span><span>{t('error handling', 'gestion d’erreurs')}</span></div>
-        <div className="mk-learned-row"><span className="mk-quiz">{t('Quiz me', 'Interroge-moi')}</span><span>{t('Your turn: show the temperature in °F too.', 'À toi : affiche aussi la température en °F.')}</span></div>
+        <div className="mk-chips"><span>localStorage</span><span>JSON</span><span>{t('trade-offs', 'compromis')}</span></div>
+        <div className="mk-learned-row"><span className="mk-quiz">{t('Quiz me', 'Interroge-moi')}</span><span>{t('Your turn: add a button to remove a city.', 'À toi : ajoute un bouton pour retirer une ville.')}</span></div>
         <span className="mk-saved">✓ {t('Saved to notes', 'Gardé dans tes notes')}</span>
       </div>
     </Window>
   );
 }
 
+// Engines as wheels: one spinning wheel that changes with the beat. Spoked for open-weight models, deep aero rims
+// for Claude, a closed disc for Codex (coming soon). The list on the right lights up the matching engines.
 function GearMock({ t }: { t: T }) {
   const engines: [string, string, number][] = [
-    ['Qwen3-Coder', t('open weights · your GPU, one click', 'poids ouverts · ton GPU, en un clic'), 0],
     ['Ollama', t('open weights · this computer', 'poids ouverts · cet ordinateur'), 0],
+    ['vLLM', t('open weights · your own GPU', 'poids ouverts · ton propre GPU'), 0],
     ['NVIDIA', t('open weights · hosted', 'poids ouverts · hébergé'), 0],
-    ['Claude', t('our agent loop', 'notre boucle d’agent'), 1],
-    ['Claude Code', t('engine', 'moteur'), 1],
+    ['Claude', t('in Codetandem’s agent', 'dans l’agent de Codetandem'), 1],
+    ['Claude Code', t('Anthropic’s agent', 'l’agent d’Anthropic'), 1],
     ['Codex', t('coming soon', 'bientôt'), 2],
   ];
-  const cog = (r: number, teeth: number) => { const c = (2 * Math.PI * r) / teeth / 2; return `${c} ${c}`; };
+  const spokes = (n: number, r0: number, r1: number) => Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2, b = a + (i % 2 ? 0.08 : -0.08);
+    return <line key={i} x1={180 + r0 * Math.cos(b)} y1={180 + r0 * Math.sin(b)} x2={180 + r1 * Math.cos(a)} y2={180 + r1 * Math.sin(a)} />;
+  });
   return (
     <div className="mk-gears">
-      <svg className="mk-cassette" viewBox="0 0 360 360" aria-hidden="true">
-        <circle className="mk-chain" cx="180" cy="180" r="166" />
-        <g className="mk-cogs">
-          {[148, 118, 90, 64].map((r, i) => <circle key={r} className={`mk-cog g${i}`} cx="180" cy="180" r={r} strokeDasharray={cog(r, 34 - i * 6)} />)}
-          <circle cx="180" cy="180" r="30" fill="#141414" /><circle cx="180" cy="180" r="9" fill="#fafaf7" />
+      <svg className="mk-wheel" viewBox="0 0 360 360" aria-hidden="true">
+        <g className="mk-spin">
+          <g className="w w0">{/* spoked: a light road wheel */}
+            <circle cx="180" cy="180" r="160" className="tyre" /><circle cx="180" cy="180" r="146" className="rim" />
+            <g className="spokes">{spokes(28, 16, 146)}</g>
+          </g>
+          <g className="w w1">{/* aero: deep rim, few bladed spokes */}
+            <circle cx="180" cy="180" r="160" className="tyre" /><circle cx="180" cy="180" r="132" className="rim deep" />
+            <g className="blades">{spokes(12, 18, 118)}</g>
+          </g>
+          <g className="w w2">{/* disc: closed, for later */}
+            <circle cx="180" cy="180" r="160" className="tyre" /><circle cx="180" cy="180" r="146" className="disc" />
+            <circle cx="180" cy="180" r="110" className="disc-ring" />
+          </g>
+          <circle cx="180" cy="180" r="22" fill="#141414" /><circle cx="180" cy="180" r="7" fill="#fafaf7" />
         </g>
       </svg>
       <ul className="mk-engines">
