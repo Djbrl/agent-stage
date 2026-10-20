@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { State } from './useAgent';
 import { useT } from './i18n';
 import { baseName } from './api';
+import { tourDone } from './Tour';
 
 type Key = 'agent' | 'approve' | 'checkpoint' | 'edit' | 'done' | 'follow';
 type Anchor = string[] | (() => DOMRect | null); // selectors (first visible wins) or a live rectangle
@@ -36,7 +37,10 @@ export function Tips({ state, following, replaying, shared }: { state: State; fo
   // (The saved events load in the first moment after mount; work after that is happening now.)
   const live = useRef(false), mounted = useRef(Date.now());
   if (state.running && !replaying && Date.now() - mounted.current > 1500) live.current = true;
-  const off = replaying || shared;
+  // The walkthrough of the interface comes first: no tip until it's over.
+  const [toured, setToured] = useState(tourDone);
+  useEffect(() => { const f = () => setToured(true); window.addEventListener('tour-done', f); return () => window.removeEventListener('tour-done', f); }, []);
+  const off = replaying || shared || !toured;
 
   const fire = (key: Key, text: string, anchor: Anchor) => {
     if (off || seen.current.has(key)) return;
