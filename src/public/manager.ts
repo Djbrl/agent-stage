@@ -14,7 +14,7 @@ import { DATA_DIR } from '../store.ts';
 const PORT = Number(process.env.PORT ?? 8080);
 const INVITE = process.env.INVITE ?? ''; // public.sh sets one by default; empty (INVITE=off) = anyone with the link
 const MAX = Number(process.env.MAX_SESSIONS ?? 5);
-const LANDING = process.env.LANDING_URL ?? 'https://agent-stage-eta.vercel.app'; // where Leave demo sends the visitor
+const LANDING = process.env.LANDING_URL ?? 'https://codetandem.vercel.app'; // where Leave demo sends the visitor
 const IDLE_MIN = Number(process.env.IDLE_MIN ?? 20);
 const BUDGET = Number(process.env.TOKEN_BUDGET ?? 400_000); // model tokens per sandbox
 const DEMO_USD = Number(process.env.DEMO_USD ?? 5); // Claude spend allowed per sandbox

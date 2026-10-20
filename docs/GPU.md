@@ -1,6 +1,6 @@
 # Running your own model on a GPU
 
-agent-stage can rent a GPU on [NVIDIA Brev](https://brev.nvidia.com), run an open model on it with vLLM, and
+Codetandem can rent a GPU on [NVIDIA Brev](https://brev.nvidia.com), run an open model on it with vLLM, and
 destroy the machine when you're done, all from the app (Settings → Models → "My GPU (Brev + vLLM)").
 
 **Start GPU**: creates the machine (trying several L40S-class types in order, in case one is sold out), installs

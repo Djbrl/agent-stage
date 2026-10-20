@@ -1,7 +1,7 @@
 {
   "name": "agent-stage",
   "version": "0.1.0",
-  "description": "Visual, lightweight coding agent for open-weight models (temporary name)",
+  "description": "The coding-agent harness for learners: a visual coding agent for open-weight models and Claude",
   "license": "MIT",
   "type": "module",
   "engines": {

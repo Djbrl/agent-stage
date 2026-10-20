@@ -6,7 +6,7 @@ Each one can be done without a GPU or a paid key: `npm run mock` runs the app on
 ---
 
 ## 1. Ollama setup guide for offline and classroom use  [documentation]
-agent-stage already ships an "Ollama (this computer)" preset (`qwen3-coder:30b` on `http://localhost:11434/v1`), but
+Codetandem already ships an "Ollama (this computer)" preset (`qwen3-coder:30b` on `http://localhost:11434/v1`), but
 there is no guide. Write `docs/OLLAMA.md`: installing Ollama, which models fit 8 / 16 / 32 GB of RAM (and how slow they
 are), pulling one, picking it in Settings → Models, and what to expect from a small model in Learn mode. Add a section
 for a school lab: one machine serving Ollama on the local network for a whole class, with no API bill. Link it from the

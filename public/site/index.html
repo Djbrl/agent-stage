@@ -3,9 +3,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Codetandem · the coding agent for learners</title>
-<meta name="description" content="Codetandem is the coding agent for learners. You steer, it pedals: ride along on every change, say yes before it writes, and keep what you learned. Open source. Try it live.">
+<meta name="description" content="Codetandem is the coding agent for learners. They pedal, you steer: ride along on every change, say yes before it writes, and keep what you learned. Open source. Try it live.">
 <meta name="theme-color" content="#c8f169">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,600..900&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
@@ -93,7 +93,7 @@
     </a>
     <div class="links">
       <a href="#how" data-i18n="navHow">How it works</a>
-      <a href="https://github.com/Djbrl/agent-stage">GitHub</a>
+      <a href="https://github.com/Djbrl/codetandem-harness">GitHub</a>
       <button id="lang" class="lang" type="button" aria-label="Lire en français">FR</button>
       <a id="try0" class="pill" aria-disabled="true" href="#" data-i18n="try">Try it live</a>
     </div>
@@ -102,11 +102,11 @@
   <main class="wrap" style="width: 100%; padding: 0">
     <section class="hero">
       <div>
-        <h1 data-i18n="h1">You steer.<br>It pedals.</h1>
+        <h1 data-i18n="h1">They pedal,<br>you steer.</h1>
         <p class="lede" data-i18n="lede">The coding agent for learners. You ride along on every change, it asks before it writes, and each task ends with what you learned.</p>
         <div class="cta">
           <a id="try" class="pill go" aria-disabled="true" href="#" data-i18n="try">Try it live</a>
-          <a class="pill alt" href="https://github.com/Djbrl/agent-stage" data-i18n="source">Source on GitHub</a>
+          <a class="pill alt" href="https://github.com/Djbrl/codetandem-harness" data-i18n="source">Source on GitHub</a>
         </div>
         <p class="status"><span id="dot" class="dot"></span><span id="status" data-i18n="checking">Checking the live demo…</span></p>
       </div>
@@ -176,7 +176,7 @@
 
     <section class="open">
       <div><h3 data-i18n="openTitle">Open source, MIT.</h3><p data-i18n="open">Runs open models like Qwen3-Coder on your own GPU or through Ollama, or Claude. Your code stays on your machine.</p></div>
-      <div class="clone"><code id="cmd">git clone https://github.com/Djbrl/agent-stage</code><button id="copy" type="button" data-i18n="copy">Copy</button></div>
+      <div class="clone"><code id="cmd">git clone https://github.com/Djbrl/codetandem-harness</code><button id="copy" type="button" data-i18n="copy">Copy</button></div>
     </section>
 
     <section id="demo" class="demo">
@@ -204,7 +204,7 @@
 <script>
   const fr = {
     navHow: 'Comment ça marche', try: 'Essayer en direct', source: 'Code sur GitHub', checking: 'On vérifie la démo…',
-    h1: 'Tu guides.<br>Il pédale.',
+    h1: 'Ils pédalent,<br>tu guides.',
     lede: "L'agent de code pour apprendre. Tu suis chaque changement, il demande avant d'écrire, et chaque tâche se termine par ce que tu as appris.",
     mapAsk: "Le test d'abord ?", mapYes: 'Oui', mapNo: 'Pas encore',
     h2: 'Coder en tandem.',

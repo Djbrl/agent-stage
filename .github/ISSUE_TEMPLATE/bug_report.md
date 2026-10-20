@@ -18,6 +18,6 @@ labels: bug
 
 **Mode and engine**: Learn / Build · our agent loop / Claude Code
 
-**Your setup**: OS, browser, Node version (`node -v`), agent-stage version or commit
+**Your setup**: OS, browser, Node version (`node -v`), Codetandem version or commit
 
 **Screenshot, or the thread's lesson notes / session file** (optional; remove anything private first)

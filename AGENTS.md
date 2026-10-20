@@ -3,9 +3,9 @@
 Read this first. It's the full context as of **16 10 2026**. `CLAUDE.md` points here.
 
 ## What this is
-Hackathon entry for the **Open Source × AI Hackathon 2026** (hacktoberfest.galsen.dev/hackathon). **The name is Codetandem** (chosen by Jib on 19 10 2026; it was "agent-stage" before). The brand is light, playful and sporty, like a tandem bike: the learner steers, the agent pedals. Lines: "You steer. It pedals." and "Code in tandem." Palette: lime, track orange, jersey blue, sun yellow and ink; Archivo for headlines, Figtree for body text. The icon is a tandem bike on track orange (`public/site/icon.svg`, copied to `web/public/icon.svg` for the app). The landing page uses the new style; the app itself only got the new name and icon.
+Hackathon entry for the **Open Source × AI Hackathon 2026** (hacktoberfest.galsen.dev/hackathon). **The name is Codetandem** (chosen by Jib on 19 10 2026; it was "agent-stage" before). The brand is light, playful and sporty, like a tandem bike: the learner steers, the agent pedals. Lines: "They pedal, you steer." (the landing hero since 20 10) and "Code in tandem." Palette: lime, track orange, jersey blue, sun yellow and ink; Archivo for headlines, Figtree for body text. The icon is a tandem bike on track orange (`public/site/icon.svg`, copied to `web/public/icon.svg` for the app). The landing page uses the new style; the app itself only got the new name and icon.
 
-**Still named agent-stage, on purpose** (renaming breaks existing data or links, so it's Jib's call): the data folder `~/.agent-stage` and `AGENT_STAGE_HOME`, `~/agent-stage-projects`, the git refs `refs/agent-stage/*`, the session file format id `agent-stage/session`, the Docker image `agent-stage-sandbox`, the npm package name, the GitHub repo `Djbrl/agent-stage` and the Vercel URL.
+**Still named agent-stage, on purpose** (renaming breaks existing data or links, so it's Jib's call): the data folder `~/.agent-stage` and `AGENT_STAGE_HOME`, `~/agent-stage-projects`, the git refs `refs/agent-stage/*`, the session file format id `agent-stage/session`, the Docker image `agent-stage-sandbox` and the npm package name. Renamed on 20 10: the GitHub repo is now `Djbrl/codetandem-harness` (GitHub redirects the old address), and the Vercel project is `codetandem`, served at https://codetandem.vercel.app (the old agent-stage-eta.vercel.app still works).
 
 Codetandem is a **visual-first coding-agent harness**. You give a task, and the project is drawn as a map: the agent's marker moves to the files it reads and edits, and steps, diffs and explanations are one click away. It runs open models (Qwen3-Coder on our own Brev GPU, NVIDIA's API, Ollama…) through its own agent loop, or Claude Code through the Agent SDK. Since 19 10 it is positioned as **the coding-agent harness for learners** and entered in the **Éducation & apprentissage** track (prizes go to the top 3 overall; there is no separate education prize). The target is people who already code, not kids. Learn (shown as **Tandem**) is the default mode; Build is shown as **Solo**.
 
@@ -55,7 +55,7 @@ npm run typecheck # tsc for the server (tsconfig.json) and the UI (web/tsconfig.
 
 ## Online demo (`npm run public`)
 How it fits together:
-1. Vercel landing page `public/site` → https://agent-stage-eta.vercel.app (Vercel team "bountbi"). It reads `live.json`.
+1. Vercel landing page `public/site` → https://codetandem.vercel.app (Vercel team "bountbi"). It reads `live.json`.
 2. A Cloudflare quick tunnel → the manager on `:8080`.
 3. One Docker container per visitor (`public/Dockerfile`, image `agent-stage-sandbox`), with the app in `PUBLIC=1` mode and the sample projects in `public/samples`.
 

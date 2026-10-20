@@ -1,21 +1,31 @@
 # Codetandem
 
-*You steer. It pedals.* Formerly called agent-stage; the repository, the data folder `~/.agent-stage` and the npm
-package still use the old name.
+### ▶ Try it live: **[codetandem.vercel.app](https://codetandem.vercel.app)**
 
-[![CI](https://github.com/Djbrl/agent-stage/actions/workflows/ci.yml/badge.svg)](https://github.com/Djbrl/agent-stage/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Djbrl/agent-stage)](https://github.com/Djbrl/agent-stage/releases/latest)
+*They pedal, you steer.* **The coding-agent harness for learners**: an AI coding agent you ride along with, so you
+understand the code it writes instead of just shipping it.
+
+[![CI](https://github.com/Djbrl/codetandem-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/Djbrl/codetandem-harness/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Djbrl/codetandem-harness)](https://github.com/Djbrl/codetandem-harness/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Open-weight models](https://img.shields.io/badge/models-open--weight%20%2B%20Claude-6f42c1)](#models)
 [![Node ≥ 22.18](https://img.shields.io/badge/node-%E2%89%A5%2022.18-brightgreen)](https://nodejs.org)
 
-**The coding-agent harness for learners.** For people who already write some code and use AI agents, but want to
-stay in the loop and actually learn. You watch the agent move across a map of your project, **Tandem mode** (the default; you ride together)
-makes it stop for your call before it writes code, every step is labelled in plain words, and you can ask "why",
-replay and undo. It runs on **open-weight models** (Qwen3-Coder on our own GPU, or Ollama on your own computer for
-offline or classroom use with no API bill) or on **Claude**.
+- 🗺️ **Watch it work on a map.** Your project is drawn as a map, and the agent is a marker moving to every file it reads or edits.
+- 🚲 **Tandem mode, on by default.** The agent asks how *you* would do it, and writes nothing until you say "go ahead".
+- 💡 **Learn as you go.** Every step is explained in plain words, and each task ends with *What you learned*, a quiz and a "your turn" exercise.
+- ✅ **Done means checked.** The harness runs your tests when the agent says it's finished, and sends failures back.
+- ↩️ **You stay in control.** Approve every command, stop or steer mid-run, undo just what the task changed.
+- ✏️ **Ask without interrupting.** Select anything to ask about it, or sketch what you mean in the Scratchpad.
+- 🔓 **Open models first.** Qwen3-Coder on your own GPU, Ollama offline with no API bill, or Claude. MIT licensed.
+
+![A finished run: the files the agent wrote are lit on the map, a failing test was sent back and fixed, and the task ends with what you learned](docs/screenshots/studio-light.png)
+
+<!-- Demo video (≤ 3 min): add the link here before submitting. -->
 
 > Open Source × AI Hackathon 2026 (Galsen Dev): track **Éducation & apprentissage**.
+> The live demo runs on our own machine when we're online; any time, `npm run mock` runs it on your computer in a
+> minute, no key needed ([Quick start](#quick-start)).
 
 **En bref.** De plus en plus de développeurs et d'étudiants livrent du code écrit par une IA qu'ils ne savent ni lire,
 ni expliquer, ni corriger : l'IA fait le travail et ils n'apprennent rien. Codetandem garde l'humain dans la boucle.
@@ -23,10 +33,6 @@ L'agent se déplace sur une carte de votre projet, le mode Tandem (par défaut) 
 avant d'écrire du code, chaque étape est expliquée en mots simples, et vous pouvez demander « pourquoi », rejouer et
 annuler. Il fonctionne avec des modèles ouverts (Qwen3-Coder sur notre GPU, Ollama hors ligne, sans facture d'API) ou
 avec Claude. Licence MIT.
-
-![A finished run: the files the agent changed are lit on the map; the harness ran the tests, sent a failure back, and the agent fixed it](docs/screenshots/studio-light.png)
-
-<!-- Demo video (≤ 3 min): add the link here before submitting. -->
 
 ## The problem
 Developers and students increasingly ship code an AI wrote that they can't read, explain or fix: the AI does the work,
@@ -78,14 +84,18 @@ and understands.
 - **Comfort.** Light and dark themes, voice prompting, works on a phone.
 - **Live online demo.** Each visitor gets a private, sealed Docker sandbox ([docs/PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)).
 
-**New in v0.1** <!-- OWNER: being built on 19 10 2026 by other agents; verify each item works before submitting, delete any that didn't land. -->
-- *(to verify)* **First-launch questions**: your level and your language, so Tandem mode starts at the right pace.
-- *(to verify)* **Contextual tips** where you need them, instead of a tour.
-- *(to verify)* **"What you learned" card** after each task, with a **"Try it yourself"** exercise.
-- *(to verify)* **A progressive interface**: controls appear as you need them.
-- **Scratchpad**: ask a side question, or sketch what you mean, while the agent keeps working. Draw with the mouse, or drop in a screenshot and circle what should change; Claude and Claude Code see the drawing. Select any part of the agent's work to ask about it, save the answer to your notes, or turn the note and sketch into a real task.
+**Made for learning**
+- **Three first-launch questions** (have you used AI to code, your level, your language), so the tutor starts at the
+  right pace. A short tour and contextual tips explain the screen as you meet it.
+- **"What you learned"** after each task: the ideas it used (tap one for its explanation), *Quiz me*, a *Your turn*
+  exercise, and *Save to notes*.
+- **Scratchpad**: ask a side question, or sketch what you mean, while the agent keeps working. Draw with the mouse, or
+  drop in a screenshot and circle what should change; Claude and Claude Code see the drawing. Select any part of the
+  agent's work to ask about it, save the answer to your notes, or turn the note and sketch into a real task.
 
-![Mid-run, dark theme: the agent marker on the file it is editing](docs/screenshots/studio-dark.png)
+![Tandem mode: the agent asked how to split the code, explained the idea, and waits for "Go ahead"; the planned files are dotted on the map](docs/screenshots/tandem.png)
+
+![The same finished run in the dark theme](docs/screenshots/studio-dark.png)
 
 ## Status
 Working and tested end to end:
@@ -102,6 +112,7 @@ Without a key the app runs a scripted demo model, so you can try it in 10 second
 Requires Node ≥ 22.18.
 
 ```bash
+git clone https://github.com/Djbrl/codetandem-harness && cd codetandem-harness
 npm install
 npm run mock         # → http://localhost:3000 on the scripted demo model: no key, GPU or network
 npm start            # the same, with the real models you add in Settings
@@ -117,6 +128,9 @@ Self-hosting on your own GPU machine instead: run `scripts/serve-vllm.sh` on it,
 status bar. See `.env.example`, which also explains when the server reads `.env`.
 
 Terminal-only harness: `npm run agent -- workspace "your task"`.
+
+Settings and sessions are saved in `~/.agent-stage/` (the project was called agent-stage before; the folder keeps
+that name so existing data still loads).
 
 ## Architecture
 ```

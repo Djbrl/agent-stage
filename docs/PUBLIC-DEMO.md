@@ -12,7 +12,7 @@ Needs Docker Desktop running. The first run builds the sandbox image (a few minu
 
 ## What a visitor gets
 
-Their own **sandbox**: a container with agent-stage in public mode, two sample projects (`todo-app` and `stats-py`, each with
+Their own **sandbox**: a container with Codetandem in public mode, two sample projects (`todo-app` and `stats-py`, each with
 a few ideas in its README), git, Node, Python and Chromium. The agent really edits files, runs commands and tests, and uses
 the browser, but only inside that container. It is deleted 20 minutes after their last activity.
 
@@ -25,7 +25,7 @@ The terminal also prints a line each time a sandbox is created or removed.
 
 ## The model
 
-The sandboxes use the model that is active in agent-stage's settings on this computer (for example your Brev GPU, so keep
+The sandboxes use the model that is active in Codetandem's settings on this computer (for example your Brev GPU, so keep
 `npm start` running with the GPU on), or the one given by `PUBLIC_MODEL_URL` / `PUBLIC_MODEL_KEY` / `PUBLIC_MODEL_NAME`.
 If none is usable, they fall back to the scripted demo model. The key never enters a sandbox: model calls go through
 the manager, which adds the key and stops a sandbox after `TOKEN_BUDGET` tokens (400k by default).

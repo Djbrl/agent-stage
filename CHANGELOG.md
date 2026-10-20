@@ -25,7 +25,7 @@ What changed in each release of Codetandem (called agent-stage until 19 10 2026)
   Codetandem, and the favicon and logo are a tandem bike on track orange. The data folder `~/.agent-stage`, the git
   refs, the session format id, the Docker image, the npm package and the repository keep the old name, so existing
   threads, checkpoints, shared files and links keep working.
-- **Positioning**: agent-stage is now presented as the coding-agent harness for learners (track *Éducation &
+- **Positioning**: Codetandem is now presented as the coding-agent harness for learners (track *Éducation &
   apprentissage*), with Learn mode as the default. The README leads with the learning features and has a French summary.
 
 ### Fixed
@@ -74,7 +74,7 @@ The first release, built in five days for the Open Source × AI Hackathon 2026.
   web apps they build.
 
 ### Online demo
-- `npm run public` puts agent-stage online from your own computer. Each visitor gets a private, sealed Docker sandbox:
+- `npm run public` puts Codetandem online from your own computer. Each visitor gets a private, sealed Docker sandbox:
   no access to your computer or home network, the model key stays with the manager, a spending cap per sandbox,
   disk and idle limits, and an invite code by default.
 

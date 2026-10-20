@@ -1,6 +1,6 @@
 # How we built it
 
-A transparent log of how agent-stage was made, for the jury and for anyone curious.
+A transparent log of how Codetandem was made, for the jury and for anyone curious.
 Open Source × AI Hackathon 2026, 14 → 19 October 2026.
 
 ## The idea
@@ -39,7 +39,7 @@ project**, with the controls a human needs: stop, ask, steer, approve. It also h
 ## Self-hosting the model (15 10)
 To keep the whole stack open, we serve the model ourselves: **Qwen3-Coder 30B (FP8)** with
 **vLLM** on a single NVIDIA L40S rented through NVIDIA Brev (about $1/hour). vLLM exposes the same
-OpenAI-compatible API, so agent-stage needed zero code changes, only three lines of `.env`.
+OpenAI-compatible API, so Codetandem needed zero code changes, only three lines of `.env`.
 `scripts/serve-vllm.sh` does the whole setup in one command. One snag: vLLM's FlashInfer sampler
 compiles GPU code at startup and needs `nvcc`, which the image lacked, so the script turns that
 sampler off. First real run: a 3-file task with clean tool calls in about 4 seconds.
