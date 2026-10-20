@@ -80,7 +80,7 @@ export function Onboarding({ onCreated, onBrowse, onLogo }: { onCreated: (id: st
       <h1>{t('Where do we ride?', 'On roule où ?')}</h1>
       <div className="ob-choices n2">
         <button className="ob-choice ob-blue big" disabled={busy} onClick={open}>
-          <Icon name="folder" size={28} /><b>{t('Open a project', 'Ouvrir un projet')}</b><span>{t('Pick a folder on this computer. Nothing changes until you say yes.', 'Choisis un dossier sur cet ordinateur. Rien ne change avant ton oui.')}</span>
+          <Icon name="folder" size={28} /><b>{me?.public ? t('Open a sample project', 'Ouvrir un projet d’exemple') : t('Open a project', 'Ouvrir un projet')}</b><span>{me?.public ? t('A small to-do app or a Python script, ready in your sandbox.', 'Une petite app de tâches ou un script Python, prêts dans ton bac à sable.') : t('Pick a folder on this computer. Nothing changes until you say yes.', 'Choisis un dossier sur cet ordinateur. Rien ne change avant ton oui.')}</span>
         </button>
         <button className="ob-choice ob-lime big" disabled={busy} onClick={() => start(null, true)}>
           <Icon name="play" size={28} /><b>{t('Start from scratch', 'Partir de zéro')}</b><span>{t('An empty project, a few ideas if you want one, and the agent builds whatever you ask.', 'Un projet vide, quelques idées si tu veux, et l’agent construit ce que tu lui demandes.')}</span>

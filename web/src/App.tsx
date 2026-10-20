@@ -94,12 +94,13 @@ function Shell() {
   // A blank frame until we know which screen to show: without it, a remembered session flashes before the landing
   // page or the tutorial takes over.
   const mayLand = !landed() || replay || forceOnboard || landingOpen;
-  if (!threadsLoaded && (!active || mayLand) && !me?.public) return <div className="ob" />;
-  const firstRun = threadsLoaded && !me?.public && (replay || forceOnboard || (!active && threads.length === 0));
+  // (The online demo waits for /api/me too: a visitor skips the landing page, they come from it.)
+  if (!me || (!threadsLoaded && (!active || mayLand))) return <div className="ob" />;
+  const firstRun = threadsLoaded && (replay || forceOnboard || (!active && threads.length === 0));
   const done = Boolean(me?.public) || (onboarded && !replay) || (!replay && !forceOnboard && threads.length > 0);
   const toHome = () => { setLandingOpen(false); setHome(true); select(null); };
   const onLogo = () => (done ? toHome() : (setLandingOpen(true), setShowLanding(true)));
-  if (landingOpen || (firstRun && showLanding)) return (
+  if (landingOpen || (firstRun && showLanding && !me.public)) return (
     <Landing onLogo={done ? toHome : undefined}
       onStart={() => { markLanded(); setShowLanding(false); setLandingOpen(false); if (!done) setForceOnboard(true); }} />
   );

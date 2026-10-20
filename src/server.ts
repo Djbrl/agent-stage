@@ -653,9 +653,16 @@ app.post('/api/setup/ollama/pull', async (c) => {
 app.get('/api/setup/ollama/pull', (c) => c.json(pullState(c.req.query('model') ?? '')));
 app.put('/api/settings', async (c) => {
   let next = await c.req.json();
-  if (PUBLIC) { // visitors can only switch between the demo's models
-    if (!demoModels().includes(next.activeProvider)) return c.json({ error: 'Not available in the online demo' }, 403);
-    next = { activeProvider: next.activeProvider };
+  if (PUBLIC) { // visitors can switch between the demo's models and answer the onboarding questions, nothing else
+    const active = next.activeProvider ?? settings.activeProvider;
+    if (!demoModels().includes(active)) return c.json({ error: 'Not available in the online demo' }, 403);
+    const l = next.learn ?? {}, one = <T,>(v: T, ok: T[], d: T) => (ok.includes(v) ? v : d);
+    next = { activeProvider: active, learn: {
+      level: one(l.level, ['beginner', 'intermediate', 'advanced'], settings.learn.level),
+      frequency: one(l.frequency, ['light', 'normal', 'frequent'], settings.learn.frequency),
+      language: one(l.language, ['en', 'fr'], settings.learn.language),
+      ai: one(l.ai, ['none', 'chat', 'agents', undefined], settings.learn.ai),
+    } };
   }
   const prevActive = settings.activeProvider;
   const providers: Provider[] = (next.providers ?? settings.providers).map((p: Provider) => {

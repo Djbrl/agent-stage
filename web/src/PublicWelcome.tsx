@@ -1,5 +1,5 @@
 // Online demo only: a one-time card that tells a visitor where they are before anything else.
-// Three short steps, each with a small drawing; the fine print sits behind "Limits".
+// Two short steps, each with a small drawing; the fine print sits behind "Limits". The onboarding questions come next.
 import { useState, type ReactNode } from 'react';
 import { useHealth } from './useHealth';
 import { useApp } from './useSettings';
@@ -29,19 +29,6 @@ const MapDraw = () => (
     <circle cx="96" cy="74" r="5" fill="var(--blue)" />
   </svg>
 );
-// New session → a sample project → your task.
-const StartDraw = () => (
-  <svg viewBox="0 0 220 120" aria-hidden="true">
-    <rect x="8" y="44" width="56" height="32" rx="16" fill="var(--blue)" />
-    <path d="M30 60h12M36 54v12" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-    <path d="M70 60h12" stroke="var(--line-strong)" strokeWidth="3" strokeLinecap="round" />
-    <rect x="86" y="44" width="56" height="32" rx="8" fill="var(--chalk)" stroke="var(--ink)" strokeWidth="2.5" />
-    <path d="M98 54h12l4 4h16v10H98z" fill="var(--sun)" />
-    <path d="M148 60h12" stroke="var(--line-strong)" strokeWidth="3" strokeLinecap="round" />
-    <rect x="164" y="44" width="48" height="32" rx="16" fill="var(--lime)" />
-    <path d="M188 68V52M181 58l7-7 7 7" fill="none" stroke="var(--ink)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
 export function PublicWelcome({ onDone }: { onDone: () => void }) {
   const { health } = useHealth();
@@ -51,7 +38,7 @@ export function PublicWelcome({ onDone }: { onDone: () => void }) {
   const net = Boolean(me?.internet);
   const L = me?.limits ?? { usd: 5, gpuMin: 60, max: 5, idleMin: 20 };
   const live = health && !health.model.mock && health.model.state === 'ok';
-  const claude = Boolean(settings?.providers.some((p) => p.id === 'claude'));
+  const claude = Boolean(settings?.providers.some((p) => p.kind === 'anthropic' || p.kind === 'claude-code'));
   const steps: { art: ReactNode; title: string; text: ReactNode }[] = [
     { art: <Sandbox />, title: t('Your own private sandbox', 'Ton bac à sable privé'),
       text: <>{t(`A fresh computer, started just for you. Nobody else sees it, and it’s deleted ${L.idleMin} minutes after you leave.`, `Un ordinateur tout neuf, lancé juste pour toi. Personne d’autre ne le voit, et il est supprimé ${L.idleMin} minutes après ton départ.`)}
@@ -60,8 +47,6 @@ export function PublicWelcome({ onDone }: { onDone: () => void }) {
       text: claude ? t('Tandemcode’s agent, on Claude Sonnet 5.5, does your tasks. You watch every file it reads and edits on the map.', 'L’agent de Tandemcode, sur Claude Sonnet 5.5, fait tes tâches. Tu vois sur la carte chaque fichier qu’il lit et modifie.')
         : live ? t('An open model (Qwen3-Coder) on our NVIDIA GPU does your tasks. You watch every step on the map.', 'Un modèle ouvert (Qwen3-Coder) sur notre GPU NVIDIA fait tes tâches. Tu suis chaque étape sur la carte.')
         : t('The model can’t answer right now. Come back a little later.', 'Le modèle ne peut pas répondre pour l’instant. Reviens un peu plus tard.') },
-    { art: <StartDraw />, title: t('Start here', 'Pour commencer'),
-      text: <>{t('Press New session, pick', 'Clique sur Nouvelle session, choisis')} <i>todo-app</i> {t('or', 'ou')} <i>stats-py</i>, {t('then describe a task. It asks before running commands.', 'puis décris une tâche. Il demande avant de lancer des commandes.')}</> },
   ];
   const last = step === steps.length - 1;
   const s = steps[step];
