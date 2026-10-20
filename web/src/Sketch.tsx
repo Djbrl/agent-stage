@@ -47,7 +47,8 @@ export async function sketchFromImage(file: Blob, keep: Sketch): Promise<Sketch>
   return { ...keep, strokes: [], bg: url, w: W, h };
 }
 
-export function SketchPad({ value, onChange }: { value: Sketch; onChange: (s: Sketch) => void }) {
+// onExpand: an Enlarge button (Scratchpad opens the page big, to circle things more precisely); `expanded` is that big view.
+export function SketchPad({ value, onChange, onExpand, expanded }: { value: Sketch; onChange: (s: Sketch) => void; onExpand?: () => void; expanded?: boolean }) {
   const t = useT();
   const canvas = useRef<HTMLCanvasElement>(null);
   const [color, setColor] = useState(COLORS[1]);
@@ -101,6 +102,8 @@ export function SketchPad({ value, onChange }: { value: Sketch; onChange: (s: Sk
         <span className="spacer" />
         <button className="sk-btn" disabled={!value.strokes.length} onClick={undo} title={t('Undo (⌘Z)', 'Annuler (⌘Z)')}><Icon name="undo" size={13} />{t('Undo', 'Annuler')}</button>
         <button className="sk-btn" disabled={isBlank(value) && !value.strokes.length} onClick={() => onChange(emptySketch())} title={t('Clear the page', 'Effacer la page')}>{t('Clear', 'Effacer')}</button>
+        {onExpand && <button className="sk-btn" onClick={onExpand} title={expanded ? t('Back to Scratchpad (Esc)', 'Retour au brouillon (Échap)') : t('Draw on it bigger', 'Dessiner en plus grand')}>
+          <Icon name={expanded ? 'collapse' : 'fit'} size={13} />{expanded ? t('Done', 'Terminé') : t('Enlarge', 'Agrandir')}</button>}
       </div>
       <div className={`sketch-page ${over ? 'over' : ''}`} style={{ aspectRatio: `${value.w} / ${value.h}`, maxWidth: `calc(var(--sketch-max-h, 46vh) * ${(value.w / value.h).toFixed(3)})` }}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}

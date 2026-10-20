@@ -23,22 +23,24 @@ export const shotOf = (s?: Step) => s?.output?.match(/^\[screenshot: (\/api\/sho
 export const pageOf = (s: Step) => (s.output?.split('\n')[1]?.split(' — ').at(-1) ?? '').replace(/^https?:\/\//, '');
 export const stepText = (s: Step, fr = false) => s.label ?? `${stepLabel(s, fr).verb} ${stepLabel(s, fr).what}`.trim();
 
-export function StepsSheet({ state, selected, onSelect, onClose, threadId, replay, embedded }: {
+export function StepsSheet({ state, selected, onSelect, onClose, threadId, replay, embedded, detailOutside }: {
   state: State; selected: string | null; onSelect: (k: string | null) => void; onClose: () => void; threadId: string; replay: Replay;
+  detailOutside?: boolean; // the studio shows a step's detail in Scratchpad: this sheet stays the list
   embedded?: boolean; // inside the studio panel: no floating card, no close button
 }) {
   const t = useT();
   const fr = useLang() === 'fr';
   const step = state.steps.find((s) => s.id === selected);
   const filePath = step ? (step.target.startsWith('$') ? null : step.target) : selected;
+  const detail = Boolean(selected) && !detailOutside;
   return (
     <aside className={embedded ? 'sheet embedded' : 'sheet'}>
       <div className="sheet-head">
-        {selected ? <button className="icon-btn" onClick={() => onSelect(null)} title={t('Back to steps', 'Retour aux étapes')} aria-label={t('Back to steps', 'Retour aux étapes')}><Icon name="chevron" size={13} className="flip" /></button> : null}
-        <span className="sheet-title">{selected ? (step ? stepText(step, fr) : filePath?.split('/').pop()) : `${replay.steps.length || state.steps.length} ${t((replay.steps.length || state.steps.length) === 1 ? 'step' : 'steps', (replay.steps.length || state.steps.length) === 1 ? 'étape' : 'étapes')}`}</span>
+        {detail ? <button className="icon-btn" onClick={() => onSelect(null)} title={t('Back to steps', 'Retour aux étapes')} aria-label={t('Back to steps', 'Retour aux étapes')}><Icon name="chevron" size={13} className="flip" /></button> : null}
+        <span className="sheet-title">{detail ? (step ? stepText(step, fr) : filePath?.split('/').pop()) : `${replay.steps.length || state.steps.length} ${t((replay.steps.length || state.steps.length) === 1 ? 'step' : 'steps', (replay.steps.length || state.steps.length) === 1 ? 'étape' : 'étapes')}`}</span>
         {!embedded && <button className="icon-btn" onClick={onClose} title={t('Close', 'Fermer')} aria-label={t('Close', 'Fermer')}><Icon name="x" size={12} /></button>}
       </div>
-      {selected ? <Detail state={state} step={step} filePath={filePath ?? null} threadId={threadId} /> : <List state={state} onSelect={onSelect} replay={replay} />}
+      {detail ? <Detail state={state} step={step} filePath={filePath ?? null} threadId={threadId} /> : <List state={state} onSelect={onSelect} replay={replay} />}
     </aside>
   );
 }
@@ -102,13 +104,17 @@ function List({ state, onSelect, replay }: { state: State; onSelect: (k: string)
   );
 }
 
-function Detail({ state, step, filePath, threadId }: { state: State; step?: Step; filePath: string | null; threadId: string }) {
+// Explanations already asked for, kept while the app is open: reopening a step shows its explanation again for free.
+const explained = new Map<string, string>();
+
+export function Detail({ state, step, filePath, threadId }: { state: State; step?: Step; filePath: string | null; threadId: string }) {
   const t = useT();
   const change = step?.change ?? (filePath ? state.changes[filePath] : undefined);
   const [summary, setSummary] = useState<string | null>(null);
-  const [explain, setExplain] = useState<string | null | undefined>(undefined);
+  const key = `${threadId}:${step?.id ?? filePath}`;
+  const [explain, setExplain] = useState<string | null | undefined>(() => explained.get(key));
   useEffect(() => {
-    setSummary(null); setExplain(undefined);
+    setSummary(null); setExplain(explained.get(key));
     if (!filePath) return;
     fetch(`/api/threads/${threadId}/summary?path=${encodeURIComponent(filePath)}`).then((r) => r.json()).then((j) => setSummary(j.summary ?? null)).catch(() => {});
   }, [filePath, step?.id, threadId]);
@@ -116,7 +122,7 @@ function Detail({ state, step, filePath, threadId }: { state: State; step?: Step
     if (!change || !filePath) return;
     setExplain(null);
     fetch(`/api/threads/${threadId}/explain`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: filePath, before: change.before, after: change.after }) })
-      .then((r) => r.json()).then((j) => setExplain(j.text ?? t(`Couldn’t explain this change (${j.error}). Try again in a moment.`, `Impossible d’expliquer ce changement (${j.error}). Réessaie dans un instant.`)), () => setExplain(t('Couldn’t reach the server. Try again in a moment.', 'Impossible de joindre le serveur. Réessaie dans un instant.')));
+      .then((r) => r.json()).then((j) => { if (j.text) explained.set(key, j.text); setExplain(j.text ?? t(`Couldn’t explain this change (${j.error}). Try again in a moment.`, `Impossible d’expliquer ce changement (${j.error}). Réessaie dans un instant.`)); }, () => setExplain(t('Couldn’t reach the server. Try again in a moment.', 'Impossible de joindre le serveur. Réessaie dans un instant.')));
   };
   const st = change && diffStats(lineDiff(change.before, change.after));
   return (
