@@ -1,7 +1,7 @@
 #!/bin/sh
 # Put the live demo online from this computer: builds the sandbox image, starts the manager and a Cloudflare
 # tunnel, and prints the public link. Ctrl-C takes everything offline again (sandboxes included).
-# Options (env): INVITE=code (default: a fresh code each run; INVITE=off for none)  MAX_SESSIONS=5  IDLE_MIN=20  TOKEN_BUDGET=400000  DISK_MB=1024  INTERNET=0|1 (default: on with an invite code)  NO_TUNNEL=1
+# Options (env): INVITE=code|random (default: none)  MAX_SESSIONS=5  IDLE_MIN=20  DEMO_USD=5  GPU_MIN=60  TOKEN_BUDGET=0 (none)  DISK_MB=1024  INTERNET=0|1 (default: on with an invite code)  NO_TUNNEL=1
 set -e
 cd "$(dirname "$0")/.."
 command -v docker >/dev/null || { echo "Docker Desktop is needed: https://www.docker.com/products/docker-desktop/"; exit 1; }
@@ -14,8 +14,8 @@ echo "→ building the app and the sandbox image (first time takes a few minutes
 npm run build --silent >/dev/null
 docker build -q -t agent-stage-sandbox -f public/Dockerfile . >/dev/null
 docker image prune -f --filter label=agent-stage=sandbox >/dev/null  # older builds left untagged by this one
-# An invite code by default, so a shared link alone doesn't spend the GPU or the token budget.
-[ -z "$INVITE" ] && INVITE="dakar-$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')"
+# No invite code by default (the per-sandbox caps limit the spend); INVITE=random makes a fresh one for this run.
+[ "$INVITE" = random ] && INVITE="dakar-$(od -An -N2 -tu2 /dev/urandom | tr -d ' ')"
 [ "$INVITE" = off ] && INVITE=
 export INVITE
 node --env-file-if-exists=.env src/public/manager.ts &

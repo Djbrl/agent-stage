@@ -1,9 +1,9 @@
 # Live demo from your own computer
 
 ```bash
-npm run public                   # prints a fresh invite code (e.g. dakar-40213) with the link
+npm run public                   # no code: anyone with the link ($5 of Claude, 60 GPU minutes per sandbox, 5 at a time)
+INVITE=random npm run public     # a fresh invite code (e.g. dakar-40213) printed with the link
 INVITE=dakar2026 npm run public  # choose the code
-INVITE=off npm run public        # no code: anyone with the link
 ```
 
 It prints a `https://….trycloudflare.com` link. Share it. Ctrl-C takes everything offline and deletes every sandbox.
