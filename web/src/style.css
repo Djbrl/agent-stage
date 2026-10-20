@@ -1003,7 +1003,6 @@ body.ask-dragging, body.ask-dragging * { user-select: none !important; }
 .lp-lang button { border: 0; background: none; font: 600 12px var(--sans); padding: 4px 9px; border-radius: 999px; cursor: pointer; color: var(--mute); }
 .lp-lang button.on { background: var(--ink); color: var(--paper); }
 .lp-lane { position: relative; height: 3px; background: repeating-linear-gradient(90deg, #d9d9cf 0 14px, transparent 14px 24px); }
-.lp-lane::before { content: ''; position: absolute; inset: 0 auto 0 0; width: calc(var(--gp, 0) * 100%); background: var(--orange); }
 .lp-lane-bike { position: absolute; bottom: 2px; left: calc(var(--gp, 0) * (100% - 34px)); line-height: 0; }
 .lp-lane-flag { position: absolute; right: 0; bottom: 2px; width: 14px; height: 14px; background: repeating-conic-gradient(var(--ink) 0 25%, #fff 0 50%) 0 0 / 7px 7px; }
 @media (max-width: 760px) { .lp-links > button { display: none; } .lp-brand b { display: none; } }
@@ -1026,7 +1025,8 @@ body.ask-dragging, body.ask-dragging * { user-select: none !important; }
 @keyframes lp-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 
 /* the story, with the route down its left side */
-.lp-story { position: relative; padding-left: clamp(0px, 6vw, 96px); }
+.lp-track { position: relative; padding-left: clamp(0px, 6vw, 96px); }
+.lp-story { position: relative; }
 .lp-route { position: absolute; left: 8px; top: 0; width: 80px; height: 100%; overflow: visible; pointer-events: none; }
 .lp-route path { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .lp-route-bg { stroke: #d9d9cf; stroke-width: 3; stroke-dasharray: 2 10; }
@@ -1034,7 +1034,7 @@ body.ask-dragging, body.ask-dragging * { user-select: none !important; }
 .lp-cp { position: absolute; left: 8px; top: 0; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: var(--paper); border: 3px solid #c5c5b8; transition: background .3s, border-color .3s; z-index: 1; }
 .lp-cp.on { background: var(--lime); border-color: var(--ink); }
 .lp-rider { position: absolute; left: 8px; top: 0; margin: -16px 0 0 -22px; line-height: 0; z-index: 2; pointer-events: none; }
-@media (max-width: 1100px) { .lp-route, .lp-rider, .lp-cp { display: none; } .lp-story { padding-left: 0; } }
+@media (max-width: 1100px) { .lp-route, .lp-rider, .lp-cp { display: none; } .lp-track { padding-left: 0; } }
 
 /* a scene: tall section, its content pinned; the beats light up one by one as you scroll */
 .lp-scene { height: 330vh; }
@@ -1130,10 +1130,23 @@ body.ask-dragging, body.ask-dragging * { user-select: none !important; }
 .mk-learned { left: 10%; right: 10%; bottom: 8%; background: var(--lime); transform: translateY(40px) scale(.96); }
 .mk-chips { display: flex; flex-wrap: wrap; gap: 6px; } .mk-chips span { background: #fff; border-radius: 999px; padding: 3px 10px; font-weight: 600; }
 .mk-learned-row { display: flex; align-items: center; gap: 10px; } .mk-quiz { background: var(--ink); color: #fff; border-radius: 999px; padding: 4px 12px; font-weight: 700; white-space: nowrap; }
-.lp-scene[data-beat="0"] .mk-side { opacity: 1; transform: none; }
-.lp-scene[data-beat="1"] .mk-notes { opacity: 1; transform: none; }
-.lp-scene[data-beat="1"] .mk-notes p i { transform: scaleX(1); }
-.lp-scene[data-beat="1"] .mk-notes p:nth-of-type(2) i { transition-delay: .25s; } .lp-scene[data-beat="1"] .mk-notes p:nth-of-type(3) i { transition-delay: .5s; }
+/* Tandem mockup: beat 0 the checkpoint (Tandem mode), beat 1 Scratchpad, beat 2 What you learned */
+.mk-call { background: #fff6d1; border: 2px solid #ffd23f; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; transition: transform .45s cubic-bezier(.2,.8,.2,1), box-shadow .45s; }
+.mk-call b { color: var(--blue); }
+.mk-call div { display: flex; gap: 6px; } .mk-call i { font-style: normal; font-weight: 700; border-radius: 999px; padding: 4px 12px; background: #fff; border: 1px solid #e2e2d8; }
+.mk-call i.go { background: var(--blue); color: #fff; border-color: transparent; }
+.lp-scene[data-beat="0"] .mk-call { transform: scale(1.04); box-shadow: 0 16px 40px rgba(20,20,20,.18); }
+.mk-modes { display: flex; align-items: center; gap: 6px; } .mk-modes span { border-radius: 999px; padding: 4px 12px; font-weight: 700; background: #ecede3; color: var(--mute); }
+.mk-modes span.on { background: #ffd23f; color: var(--ink); } .mk-modes em { font-style: normal; font-weight: 600; margin-left: 6px; border-radius: 999px; padding: 4px 12px; background: #ecede3; transition: background .3s, color .3s; }
+.lp-scene[data-beat="1"] .mk-modes em { background: var(--ink); color: #fff; }
+.mk-scratch { top: 6%; bottom: 6%; width: 44%; transform: translateX(40px); }
+.mk-shot { width: 100%; height: auto; display: block; }
+.mk-circle { stroke-dasharray: 230; stroke-dashoffset: 230; transition: stroke-dashoffset .9s ease .35s; }
+.lp-scene[data-beat="1"] .mk-circle { stroke-dashoffset: 0; }
+.mk-sp-notes { margin-top: auto; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #ecede3; padding-top: 8px; }
+.mk-sp-notes span { font-weight: 700; } .mk-sp-notes i { font-style: normal; color: var(--mute); background: #f4f4ee; border-radius: 8px; padding: 4px 8px; }
+.mk-saved { align-self: flex-end; font-weight: 700; font-size: .9em; background: rgba(20,20,20,.08); border-radius: 999px; padding: 3px 10px; }
+.lp-scene[data-beat="1"] .mk-side { opacity: 1; transform: none; }
 .lp-scene[data-beat="2"] .mk-learned { opacity: 1; transform: none; }
 
 /* engines mockup: a rear cassette that turns, a chain that runs, one cog per kind of engine */
@@ -1546,3 +1559,23 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .learned-save { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: rgba(20,20,20,.08); color: #141414; font: 600 12.5px var(--sans); cursor: pointer; }
 .learned-save:hover:not(:disabled) { background: rgba(20,20,20,.14); }
 .learned-save:disabled { cursor: default; }
+
+/* the side route: start and end circles, checkpoints in their section's colour, a blue tip */
+.lp-rider { width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 4px var(--paper); }
+.lp-cp-end { width: 24px; height: 24px; margin: -12px 0 0 -12px; border-width: 4px; }
+.lp-cp-end.on { background: var(--paper); border-color: var(--ink); }
+.lp-rider { transition: opacity .3s; } .lp-rider.done { opacity: 0; }
+.lp-cp-end[data-for="end"].on { background: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 4px var(--paper); }
+/* the finish line runs across the whole page, route included */
+.lp-track > .lp-finish { margin-left: calc(-1 * clamp(0px, 6vw, 96px)); padding-left: calc(16px + clamp(0px, 6vw, 96px)); }
+.lp-route { z-index: 1; }
+@media (max-width: 1100px) { .lp-track > .lp-finish { margin-left: 0; padding-left: 16px; } }
+/* hero, 20 10: the lights run while the title arrives, the eyebrow comes once they're green */
+.lp-lights i { animation-duration: 1.2s; } .lp-lights i:nth-child(2) { animation-delay: .15s; } .lp-lights i:nth-child(3) { animation-delay: .3s; }
+.lp-from-l { animation-delay: .1s; } .lp-from-r { animation-delay: .25s; }
+.lp-lede { animation-delay: .55s; } .lp-hero .lp-cta-row { animation-delay: .75s; }
+.lp-eyebrow { opacity: 0; animation: lp-up .5s ease 1.5s forwards; }
+@media (prefers-reduced-motion: reduce) { .lp-eyebrow { opacity: 1; } }
+/* shorter scenes: less scrolling per section */
+.lp-scene { height: 210vh; }
+.lp-scene#lp-map { height: 190vh; }
