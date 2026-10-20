@@ -119,7 +119,7 @@ Ops:
 - Open-source kit: smoke test (`test/smoke.test.ts`), CI, CONTRIBUTING, Code of Conduct, templates; good first issues #1–#7 on GitHub.
 
 ## Open work, roughly by value
-1. **Demo video (≤3 min) and submission by 19 10** (Jib, later). The README is updated; add the video link where its hidden comment says.
+1. **Submission.** The demo video is done (https://youtu.be/h9uvHVJPNxg), linked at the top of the README and on the landing page (hero link and an embed above the last call to action).
 2. A stable demo URL without the Vercel redeploy trick needs a domain and a named Cloudflare tunnel (Jib, later).
 3. A branch per thread (Keep and Undo are built). Doing it properly means a git worktree per thread (its own folder),
    which changes how threads and folders work; left for after the submission on purpose (18 10).
