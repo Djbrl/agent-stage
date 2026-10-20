@@ -50,9 +50,6 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
       if (e.key === 'm' || e.key === 'M') setReadmap((x) => !x);
       if (e.key === 's' || e.key === 'S') setSheetOpen(!sheetOpen);
       if (e.key === 'Escape' && sheetOpen) setSheetOpen(false);
-      if (e.key === ' ') { e.preventDefault(); replay.playing ? replay.pause() : replay.play(); }
-      if (e.key === 'ArrowLeft') replay.step(-1);
-      if (e.key === 'ArrowRight') replay.step(1);
       if (e.key === 'End' && replay.active) replay.live();
     };
     window.addEventListener('keydown', key);
@@ -80,7 +77,6 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
         <div className="stage-where">{folder}</div>
         {history && <div className="stage-tools tools-in">
           {!following && <button className="tool follow-tool" onClick={() => api.current?.follow()} title={t('Let the camera follow the agent again (F)', 'La caméra suit de nouveau l’agent (F)')}><Icon name="target" size={13} /> {t('Follow', 'Suivre')}</button>}
-          {!state.running && !replay.active && state.steps.length > 1 && <button className="tool replay-tool" onClick={replay.play} title={t('Watch the agent do it again on the map (Space)', 'Revoir le travail de l’agent sur la carte (Espace)')} aria-label={t('Replay', 'Revoir')}><Icon name="play" size={11} /></button>}
           <button className={`tool ${readmap ? 'on' : ''}`} onClick={() => setReadmap(!readmap)} title={t('What the agent reads (M)', 'Ce que lit l’agent (M)')} aria-label={t('What the agent reads', 'Ce que lit l’agent')} aria-pressed={readmap}><Icon name="read" size={13} /></button>
           <button className="tool" onClick={() => api.current?.fit()} title={t('Whole project (0)', 'Tout le projet (0)')} aria-label={t('Show the whole project', 'Voir tout le projet')}><Icon name="fit" size={13} /></button>
           <button ref={legendBtn} className="tool" onClick={() => setLegend(!legend)} title={t('What the colours mean', 'Ce que veulent dire les couleurs')} aria-label={t('What the colours mean', 'Ce que veulent dire les couleurs')}><span className="q">?</span></button>
@@ -109,15 +105,7 @@ export function Stage({ state, replay, threadId, workspace, selected, onSelect, 
 
       {caption && <div className={`caption ${state.approval || pendingCp ? 'wait' : ''}`}>{caption}</div>}
 
-      {replay.active && (
-        <div className="replay-pill">
-          <button className="icon-btn" onClick={() => replay.step(-1)} aria-label={t('Previous step', 'Étape précédente')}><Icon name="chevron" size={12} className="flip" /></button>
-          <button className="icon-btn" onClick={() => (replay.playing ? replay.pause() : replay.play())} aria-label={replay.playing ? t('Pause', 'Pause') : t('Play', 'Lecture')}>{replay.playing ? <Icon name="stop" size={10} /> : <Icon name="play" size={11} />}</button>
-          <button className="icon-btn" onClick={() => replay.step(1)} aria-label={t('Next step', 'Étape suivante')}><Icon name="chevron" size={12} /></button>
-          <span className="mono">{t('Replay · step', 'Revoir · étape')} {replay.stepIndex}/{replay.stepTotal}</span>
-          <button className="btn ghost sm live" onClick={replay.live}>● {t('Live', 'En direct')}</button>
-        </div>
-      )}
+      {/* No replay player: the Steps list is the replay (scroll it to move through the steps). */}
 
       {state.approval && (
         <div className="approval">

@@ -1,6 +1,6 @@
 // Just enough markdown for agent replies: paragraphs, lists, **bold**, *italic*, `code`, ``` blocks.
 // Builds React elements (no innerHTML), so model output can't inject markup.
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useHighlight } from './highlight';
 import { useLang } from './i18n';
 
@@ -30,7 +30,7 @@ const HEAD: Record<string, [string, string]> = {
 };
 
 // Learn-mode callouts ("✦ Concept: closures" + the paragraphs until the next callout) get their own card.
-export function Markdown({ text }: { text: string }) {
+export function Markdown({ text, skip }: { text: string; skip?: string[] }) {
   const fr = useLang() === 'fr';
   const parts = text.split(/\n(?=✦)/);
   if (parts.length === 1 && !CALLOUT.test(text.trim().split('\n')[0])) return <Plain text={text} />;
@@ -39,13 +39,25 @@ export function Markdown({ text }: { text: string }) {
     const m = first.match(CALLOUT);
     if (!m) return <Plain key={i} text={part} />;
     const kind = m[1].toLowerCase().replace(/\s+/g, '-');
-    return (
-      <div key={i} className={`callout ${kind}`}>
-        <div className="callout-head">✦ {HEAD[kind]?.[fr ? 1 : 0] ?? m[1]}{m[2] ? <span>{fr ? ' : ' : ': '}{m[2]}</span> : null}</div>
-        {rest.join('\n').trim() && <Plain text={rest.join('\n')} />}
-      </div>
-    );
+    if (skip?.includes(kind)) return null;
+    return <Callout key={i} kind={kind} head={HEAD[kind]?.[fr ? 1 : 0] ?? m[1]} sub={m[2]} body={rest.join('\n').trim()} fr={fr} />;
   })}</div>;
+}
+
+// A callout card: a bold heading, then the text. A long one shows a short preview and opens with "Show more".
+const PREVIEW = 150; // px of text shown while folded
+function Callout({ kind, head, sub, body, fr }: { kind: string; head: string; sub?: string; body: string; fr: boolean }) {
+  const inner = useRef<HTMLDivElement>(null);
+  const [long, setLong] = useState(false);
+  const [open, setOpen] = useState(false);
+  useLayoutEffect(() => { if (inner.current) setLong(inner.current.scrollHeight > PREVIEW + 40); }, [body]);
+  return (
+    <div className={`callout ${kind} ${long && !open ? 'folded' : ''}`}>
+      <div className="callout-head">{head}{sub ? <span>{fr ? ' : ' : ': '}{sub}</span> : null}</div>
+      {body && <div className="callout-body" ref={inner} style={long && !open ? { maxHeight: PREVIEW } : undefined}><Plain text={body} /></div>}
+      {long && <button className="callout-more" onClick={() => setOpen(!open)}>{open ? (fr ? 'Moins' : 'Show less') : (fr ? 'Voir la suite' : 'Show more')}</button>}
+    </div>
+  );
 }
 
 function Plain({ text }: { text: string }) {

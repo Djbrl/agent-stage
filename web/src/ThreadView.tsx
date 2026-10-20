@@ -105,6 +105,8 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   // The panel grows with the thread: Steps once there is a step, Threads once there is more than one thread.
   const showSteps = state.steps.length > 0, showThreads = Boolean(nav) && threads.length > 1;
   const tab: Tab = (tabPicked === 'steps' && !showSteps) || (tabPicked === 'threads' && !showThreads) ? 'chat' : tabPicked;
+  // The Steps list is the replay: leaving it puts the map back to now.
+  useEffect(() => { if (tab !== 'steps' && replay.active && !meta.shared) replay.live(); }, [tab]);
   const tips = <Tips state={state} following={following} replaying={replay.active} shared={Boolean(meta.shared)} />;
   const [panelW, setPanelW] = useState(() => storedNumber('panelW', 460));
   const [panelOpen, setPanelOpen] = useState(true);

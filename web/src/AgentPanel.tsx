@@ -14,7 +14,7 @@ import { useHighlight } from './highlight';
 import { engineOf, agentName, isReady, type Engine } from './api';
 import type { HealthView } from './useHealth';
 import { GpuPanel, type GpuView } from './useGpu';
-import { Learned } from './Learned';
+import { Learned, QUIZ } from './Learned';
 import { parseAsk, Sketches } from './AskWindow';
 import { useT, useLang, tr, modeName, serverText } from './i18n';
 
@@ -43,8 +43,6 @@ function summarize(steps: Step[], fr: boolean) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// "Quiz me" (Learn mode). The mock model recognises the first words (QUIZ_START in src/model.ts).
-const QUIZ = "Quiz me on what we just did: ask me 3 short questions about the ideas and the code from this session, one at a time. Wait for my answer before the next question, tell me in one or two sentences whether I'm right and why, and finish with my score and what to review. Don't change any files.";
 
 export function AgentPanel({ visible = true, threadProvider, state, title, mode, onMode, onCheckpoint, problem, onRun, onAsk, onAskAbout, onStop, onSelect, onOpenSettings, side, replaying, header, centered, banner, engine, hasHistory, status, onUndo, onKeep, git, shared, health, serverDown, gpu, onSaveNote }: {
   state: State; title: string; problem: string | null; onOpenSettings: () => void;
@@ -100,9 +98,6 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   const last = state.timeline.at(-1);
   const asked = mode === 'learn' && last?.kind === 'done' && last.text.slice(-600).includes('?');
   // After a finished Learn step (not mid-quiz, not while the tutor waits for an answer), offer a quiz on it.
-  const lastAsk = state.timeline.findLast((t) => t.kind === 'user');
-  const quizzing = lastAsk?.kind === 'user' && lastAsk.text === QUIZ;
-  const canQuiz = mode === 'learn' && !side && !state.running && !waiting && !asked && !quizzing && last?.kind === 'done' && state.steps.length > 0;
   const submit = (kind: 'run' | 'ask' = 'run') => {
     voice.stop();
     if (!text.trim()) return;
@@ -150,7 +145,8 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
             }
             if (e.kind === 'thought') return <div key={i} className="thought askable">{typed(e)}{askMsg(e.text)}</div>;
             if (e.kind === 'checkpoint') return <CheckpointCard key={i} entry={e} onAnswer={onCheckpoint} fr={fr} />;
-            if (e.kind === 'learned') return <Learned key={i} entry={e} all={state.concepts} latest={!state.timeline.slice(i + 1).some((x) => x.kind === 'learned')} onQuiz={side || shared || state.running ? undefined : () => onRun(QUIZ)} onSave={side || shared ? undefined : onSaveNote} />;
+            if (e.kind === 'learned_wait') return <div key={i} className="learned waiting"><div className="learned-head">{t('What you learned', 'Ce que tu as appris')}</div><div className="learned-chips2"><span className="ph" /><span className="ph" /><span className="ph" /></div><div className="muted learned-writing">{t('Writing it up…', 'En cours d’écriture…')}</div></div>;
+            if (e.kind === 'learned') return <Learned key={i} entry={e} all={state.concepts} latest={!state.timeline.slice(i + 1).some((x) => x.kind === 'learned')} onQuiz={side || shared ? undefined : () => onAsk(QUIZ)} onSave={side || shared ? undefined : onSaveNote} />;
             if (e.kind === 'qa') return (
               <div key={i} className="qa">
                 <div className="qa-q"><span className="qa-tag">{t('Why?', 'Pourquoi ?')}</span>{e.question}</div>
@@ -239,13 +235,6 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
       <div className="composer">
         <div className="composer-box">
           {waiting && <div className="composer-reply">{t('Replying to', 'Réponse à')} <b>{waiting.cp.title || t('this step', 'cette étape')}</b></div>}
-          {canQuiz && !text.trim() && (
-            <div className="composer-suggest">
-              <button className="btn ghost sm" onClick={() => onRun(QUIZ)} title={t('The tutor asks you 3 short questions about this step, one at a time, and tells you what you got right', 'Le tuteur te pose 3 questions courtes sur cette étape, une à la fois, et te dit ce que tu as juste')}>
-                <Icon name="quiz" size={12} /> {t('Quiz me', 'Interroge-moi')}
-              </button>
-            </div>
-          )}
           <div className="composer-input">
             <textarea
               ref={box}
@@ -294,30 +283,38 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   );
 }
 
+// A Tandem decision, laid out like the "What you learned" card: a sun-yellow card, the plan in a white bubble, the
+// proposals as pills (tap one for its detail), then Go ahead or Explain. Skipping is still possible by typing it.
 function CheckpointCard({ entry, onAnswer, fr }: { entry: Extract<State['timeline'][number], { kind: 'checkpoint' }>; onAnswer: (id: string, c: 'confirm' | 'discuss' | 'skip', t?: string) => void; fr: boolean }) {
   const { cp, answer } = entry;
   const impl = cp.kind === 'implementation';
   const t = tr(fr);
+  const [shown, setShown] = useState<number | null>(null);
+  const pick = shown !== null ? cp.additions?.[shown] : undefined;
+  const explain = t('Explain this step before I decide: why this way, what the alternatives are, and what could go wrong.',
+    'Explique cette étape avant que je décide : pourquoi comme ça, quelles sont les alternatives, et ce qui pourrait mal tourner.');
   return (
-    <div className={`checkpoint ${cp.kind} ${answer ? 'done' : ''}`}>
-      <div className="callout-head">✦ {t('Your call', 'À toi de décider')}<span>{fr ? ' : ' : ': '}{cp.title}</span></div>
-      <Markdown text={cp.summary} />
+    <div className={`decision ${cp.kind} ${answer ? 'done' : ''}`}>
+      <div className="decision-head">{t('Your call', 'À toi de décider')}</div>
+      <div className="decision-title">{cp.title}</div>
+      <div className="decision-body"><Markdown text={cp.summary} /></div>
       {cp.additions?.length ? (
-        <ul className="cp-additions">{cp.additions.map((a, i) => (
-          <li key={i}><b>{a.proposal}</b>{a.detail && <span className="cp-detail">{a.detail}</span>}{a.why && <span className="muted">{a.why}</span>}</li>
-        ))}</ul>
+        <div className="decision-pills">{cp.additions.map((a, i) => (
+          <button key={i} className={shown === i ? 'on' : ''} aria-expanded={shown === i} onClick={() => setShown(shown === i ? null : i)}>{a.proposal}</button>
+        ))}</div>
       ) : null}
-      {cp.files?.length ? <div className="cp-files">{cp.files.map((f) => <span key={f} className="chip mono">{f}</span>)}</div> : null}
+      {pick && (pick.detail || pick.why) && <div className="decision-line">{pick.detail && <span className="mono">{pick.detail}</span>}{pick.why && <span>{pick.why}</span>}</div>}
+      {cp.files?.length ? <div className="decision-files">{cp.files.map((f) => <span key={f}>{f}</span>)}</div> : null}
       {answer ? (
-        <div className={`cp-answer ${answer.choice}`}>{answer.choice === 'confirm' ? (impl ? t('✓ You said go ahead', '✓ Tu as dit oui') : t('✓ You agreed with the plan', '✓ Tu as validé le plan'))
-          : answer.choice === 'skip' ? t('You skipped this step', 'Tu as passé cette étape') : t(`You asked: “${answer.text ?? ''}”`, `Tu as demandé : « ${answer.text ?? ''} »`)}</div>
+        <div className={`decision-answer ${answer.choice}`}>{answer.choice === 'confirm' ? (impl ? t('✓ You said go ahead', '✓ Tu as dit oui') : t('✓ You agreed with the plan', '✓ Tu as validé le plan'))
+          : answer.choice === 'skip' ? t('You skipped this step', 'Tu as passé cette étape') : answer.text === explain ? t('You asked for an explanation', 'Tu as demandé une explication') : t(`You asked: “${answer.text ?? ''}”`, `Tu as demandé : « ${answer.text ?? ''} »`)}</div>
       ) : (
         <>
-          <div className="cp-actions">
-            <button className="btn primary" onClick={() => onAnswer(entry.id, 'confirm')}>{impl ? t('Go ahead', 'Vas-y') : t('Sounds good, continue', 'D’accord, continue')}</button>
-            <button className="btn ghost" onClick={() => onAnswer(entry.id, 'skip')}>{t('Skip this step', 'Passer cette étape')}</button>
+          <div className="decision-row">
+            <button className="decision-go" onClick={() => onAnswer(entry.id, 'confirm')}>{impl ? t('Go ahead', 'Vas-y') : t('Sounds good', 'D’accord')}</button>
+            <button className="decision-explain" onClick={() => onAnswer(entry.id, 'discuss', explain)}>{t('Explain', 'Explique')}</button>
           </div>
-          <div className="muted cp-hint">{impl ? t('It won’t touch your files until you say yes. ', 'Il ne touche pas à tes fichiers avant ton accord. ') : ''}{t('Questions? Type them in the box below.', 'Des questions ? Écris-les dans la zone en dessous.')}</div>
+          <div className="decision-hint">{impl ? t('Nothing changes until you say go. ', 'Rien ne change avant ton feu vert. ') : ''}{t('Something else? Type it below.', 'Autre chose ? Écris-le en dessous.')}</div>
         </>
       )}
     </div>
@@ -360,7 +357,8 @@ function Typed({ text, animate }: { text: string; animate: boolean }) {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [text]);
-  return <Markdown text={n >= text.length ? text : text.slice(0, n)} />;
+  // The "What you learned" card says it better, so the tutor's own section of that name isn't shown twice.
+  return <Markdown text={n >= text.length ? text : text.slice(0, n)} skip={['what-you-learned']} />;
 }
 
 // How big the conversation is now (what the model reads on each step) and what this session has used so far.

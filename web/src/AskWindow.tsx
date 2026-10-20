@@ -10,6 +10,7 @@ import { SketchPad, emptySketch, isBlank, sketchToPng, sketchFromImage, type Ske
 import { Icon } from './icons';
 import { Markdown } from './Markdown';
 import { ago } from './api';
+import { QUIZ } from './Learned';
 import { useT, serverText, useLang } from './i18n';
 
 type Win = { key: string; quote: string; code: boolean; sideId: string | null; shrunk: boolean; title: string; error?: string;
@@ -360,7 +361,7 @@ function Conversation({ sideId, code, onRunning }: { sideId: string; code: boole
 function AskEntry({ e, state, fr, code }: { e: State['timeline'][number]; state: State; fr: boolean; code: boolean }) {
   if (e.kind === 'user') {
     const { quote, question } = parseAsk(e.text);
-    return <div className="ask-you">{quote && <Quote text={quote} code={code} />}<Sketches names={e.images} />{question && <div className="bubble-user">{question}</div>}</div>;
+    return <div className="ask-you">{quote && <Quote text={quote} code={code} />}<Sketches names={e.images} />{question && <div className="bubble-user">{question === QUIZ ? (fr ? 'Interroge-moi' : 'Quiz me') : question}</div>}</div>;
   }
   if (e.kind === 'thought') return <div className="thought"><Markdown text={e.text} /></div>;
   if (e.kind === 'done') return <div className="final"><Markdown text={serverText(e.text, fr)} /></div>;

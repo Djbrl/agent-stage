@@ -184,7 +184,8 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
     const dpr = Math.max(1, window.devicePixelRatio || 1);
 
     const resize = () => {
-      const r = wrap.current!.getBoundingClientRect();
+      if (!wrap.current) return; // a late resize after the map is gone (e.g. switching to the landing page)
+      const r = wrap.current.getBoundingClientRect();
       v.w = r.width; v.h = r.height;
       cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
       cv.style.width = `${r.width}px`; cv.style.height = `${r.height}px`;
@@ -551,7 +552,7 @@ export function ProjectMap({ state, onSelect, selected, mapUrl, insets, readmap,
   return (
     <div className="map-wrap" ref={wrap}>
       <canvas ref={canvas} />
-      {data.files.length === 0 && !state.planned.length && <div className="map-empty" style={{ left: insets.left ?? 0, top: insets.top }}>{t('Empty folder. The map draws itself as the agent works.', 'Dossier vide. La carte se dessine pendant que l’agent travaille.')}</div>}
+      {data.files.length === 0 && !state.planned.length && !state.running && !state.steps.length && <div className="map-empty" style={{ left: insets.left ?? 0, top: insets.top }}>{t('Empty folder. The map draws itself as the agent works.', 'Dossier vide. La carte se dessine pendant que l’agent travaille.')}</div>}
       {readmap && Object.keys(lay.files).length > 0 && (
         <div className="readmap" title={t('Lit up where the agent reads. The box is what you see now.', 'S’allume là où l’agent lit. Le cadre, c’est ce que tu vois.')}>
           <div className="rm-head"><span>{t('What it reads', 'Ce qu’il lit')}</span><span className="rm-count mono" /></div>

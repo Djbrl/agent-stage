@@ -36,9 +36,6 @@ export function StepsSheet({ state, selected, onSelect, onClose, threadId, repla
       <div className="sheet-head">
         {selected ? <button className="icon-btn" onClick={() => onSelect(null)} title={t('Back to steps', 'Retour aux étapes')} aria-label={t('Back to steps', 'Retour aux étapes')}><Icon name="chevron" size={13} className="flip" /></button> : null}
         <span className="sheet-title">{selected ? (step ? stepText(step, fr) : filePath?.split('/').pop()) : `${replay.steps.length || state.steps.length} ${t((replay.steps.length || state.steps.length) === 1 ? 'step' : 'steps', (replay.steps.length || state.steps.length) === 1 ? 'étape' : 'étapes')}`}</span>
-        {!selected && replay.steps.length > 1 && (replay.active
-          ? <button className="btn ghost sm live" onClick={replay.live}>● {t('Live', 'En direct')}</button>
-          : <button className="btn ghost sm" onClick={replay.play} title={t('Watch the agent do it again on the map (Space)', 'Revoir le travail de l’agent sur la carte (Espace)')}><Icon name="play" size={11} /> {t('Replay', 'Revoir')}</button>)}
         {!embedded && <button className="icon-btn" onClick={onClose} title={t('Close', 'Fermer')} aria-label={t('Close', 'Fermer')}><Icon name="x" size={12} /></button>}
       </div>
       {selected ? <Detail state={state} step={step} filePath={filePath ?? null} threadId={threadId} /> : <List state={state} onSelect={onSelect} replay={replay} />}

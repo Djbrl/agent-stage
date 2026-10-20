@@ -25,6 +25,7 @@ export type AgentEvent = Base & (
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'kept'; ref: string; commit: string; message: string }
   | { type: 'learned'; concepts: Concept[]; exercise: string }
+  | { type: 'learned_wait' } | { type: 'learned_cancel' }
   | { type: 'done'; text: string }
   | { type: 'error'; message: string }
 );
@@ -49,7 +50,8 @@ export type Entry =
   | { kind: 'qa'; id: string; question: string; answer?: string; at: number }
   | { kind: 'checkpoint'; id: string; cp: Extract<AgentEvent, { type: 'checkpoint' }>; answer?: { choice: 'confirm' | 'discuss' | 'skip'; text?: string }; at: number }
   | { kind: 'actions'; steps: string[]; at: number }
-  | { kind: 'learned'; concepts: Concept[]; exercise: string; at: number };
+  | { kind: 'learned'; concepts: Concept[]; exercise: string; at: number }
+  | { kind: 'learned_wait'; at: number };
 
 export type State = {
   files: Record<string, FileStatus>;
@@ -160,7 +162,13 @@ function reduce(s: State, a: Action): State {
     case 'learned': {
       const seen = new Map(s.concepts.map((c) => [conceptKey(c.name), c]));
       for (const c of e.concepts) seen.set(conceptKey(c.name), c);
-      return { ...s, concepts: [...seen.values()], timeline: [...s.timeline, { kind: 'learned', concepts: e.concepts, exercise: e.exercise, at: e.at }] };
+      // The real card takes the placeholder's place.
+      const tl = s.timeline.filter((x) => x.kind !== 'learned_wait');
+      return { ...s, concepts: [...seen.values()], timeline: [...tl, { kind: 'learned', concepts: e.concepts, exercise: e.exercise, at: e.at }] };
+    }
+    case 'learned_wait': return { ...s, timeline: [...s.timeline, { kind: 'learned_wait', at: e.at }] };
+    case 'learned_cancel': {
+      return { ...s, timeline: s.timeline.filter((x) => x.kind !== 'learned_wait') };
     }
     case 'model':
       return { ...s, timeline: [...s.timeline, { kind: 'model', name: e.name, from: e.from, carried: e.carried, at: e.at }] };

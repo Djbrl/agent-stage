@@ -5,6 +5,10 @@ import type { Concept, Entry } from './useAgent';
 import { Icon } from './icons';
 import { useT } from './i18n';
 
+// "Quiz me": runs in Scratchpad, so the quiz never interrupts the session. The mock model recognises the first
+// words (QUIZ_START in src/model.ts).
+export const QUIZ = "Quiz me on what we just did: ask me 3 short questions about the ideas and the code from this session, one at a time. Wait for my answer before the next question, tell me in one or two sentences whether I'm right and why, and finish with my score and what to review. Don't change any files.";
+
 export function Learned({ entry, all, latest, onQuiz, onSave }: {
   entry: Extract<Entry, { kind: 'learned' }>; all: Concept[]; latest: boolean;
   onQuiz?: () => void; onSave?: (title: string, text: string) => Promise<boolean>;

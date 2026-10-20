@@ -6,6 +6,7 @@ import { Icon, type IconName } from './icons';
 import { useTheme, type ThemePref } from './theme';
 import { useDismiss } from './dismiss';
 import { resetOnboarding } from './Landing';
+import { confirmAsk, notice } from './Confirm';
 import { useT, useLang } from './i18n';
 
 type Tab = 'models' | 'learning' | 'appearance' | 'usage' | 'safety' | 'about';
@@ -504,6 +505,14 @@ function Safety() {
 }
 
 function About() {
+  const eraseAll = async () => {
+    const yes = await confirmAsk({ title: t('Erase all your data?', 'Effacer toutes tes données ?'), body: t('Every session, note and setting is deleted, saved keys included. This can’t be undone. Your project folders stay.', 'Toutes les sessions, notes et réglages sont supprimés, clés comprises. Impossible de revenir en arrière. Tes dossiers de projet restent.'), ok: t('Erase everything', 'Tout effacer'), danger: true });
+    if (!yes) return;
+    const r = await fetch('/api/reset', { method: 'POST' }).then((x) => x.json()).catch(() => ({ error: 'unreachable' }));
+    if (r.error) return notice(t('Couldn’t erase your data', 'Impossible d’effacer tes données'), r.error === 'Stop the agent first' ? t('An agent is working. Stop it first.', 'Un agent travaille. Arrête-le d’abord.') : r.error);
+    try { localStorage.clear(); } catch { /* private mode */ }
+    location.reload();
+  };
   const t = useT();
   return (
     <>
@@ -514,6 +523,9 @@ function About() {
       <Section title={t('Start over', 'Recommencer')}>
         <Row label={t('Onboarding', 'Accueil')} desc={t('Shows the welcome page and the first questions again. Your sessions and settings stay.', 'Remontre la page d’accueil et les premières questions. Tes sessions et réglages restent.')}>
           <button className="btn" onClick={resetOnboarding}>{t('Reset onboarding', 'Revoir l’accueil')}</button>
+        </Row>
+        <Row label={t('Your data', 'Tes données')} desc={t('Deletes every session, note and setting, saved keys included, and starts over like a first visit. Your project folders stay.', 'Supprime toutes les sessions, notes et réglages, clés comprises, et repart comme une première visite. Tes dossiers de projet restent.')}>
+          <button className="btn danger" onClick={eraseAll}>{t('Erase all my data', 'Effacer toutes mes données')}</button>
         </Row>
       </Section>
       <Section title={t('Credits', 'Crédits')}>

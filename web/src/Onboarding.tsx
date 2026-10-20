@@ -19,7 +19,7 @@ const Bike = ({ w = 44 }: { w?: number }) => (
   </svg>
 );
 
-export function Onboarding({ onCreated, onBrowse }: { onCreated: (id: string) => void; onBrowse: () => void }) {
+export function Onboarding({ onCreated, onBrowse, onLogo }: { onCreated: (id: string) => void; onBrowse: () => void; onLogo?: () => void }) {
   const { settings, save, me } = useApp();
   const t = useT();
   const { start, busy, setBusy, err, setErr } = useStartThread(onCreated);
@@ -99,10 +99,10 @@ export function Onboarding({ onCreated, onBrowse }: { onCreated: (id: string) =>
   return (
     <div className="ob">
       <header className="ob-top">
-        <span className="ob-brand"><Bike w={36} /><b>codetandem</b></span>
+        <button className="ob-brand" onClick={onLogo} title={t('Back to the landing page', 'Retour à la page d’accueil')}><Bike w={36} /><b>codetandem</b></button>
         <div className="ob-lane" aria-hidden="true">
           <i style={{ width: `${(step / (STEPS - 1)) * 100}%` }} />
-          <span style={{ left: `${(step / (STEPS - 1)) * 100}%` }}><Bike w={26} /></span>
+          <span className="ob-dot" style={{ left: `${(step / (STEPS - 1)) * 100}%` }} />
         </div>
         <span className="ob-count">{step + 1}/{STEPS}</span>
       </header>
