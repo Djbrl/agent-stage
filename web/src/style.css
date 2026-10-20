@@ -725,7 +725,7 @@ body.resizing, body.resizing * { cursor: ew-resize !important; }
 .theme-pick .muted { font-size: 11.5px; line-height: 1.4; }
 .theme-swatch { width: 100%; height: 54px; border-radius: 8px; margin-bottom: 4px; border: 1px solid var(--line-soft); }
 .theme-swatch.dark { background: linear-gradient(135deg, #c8f169 0 22%, #262624 22%); }
-.theme-swatch.stone { background: linear-gradient(135deg, #a9c48b 0 22%, #efece6 22%); }
+.theme-swatch.stone { background: linear-gradient(135deg, #2b2824 0 22%, #d9d2c5 22% 44%, #efece6 44%); }
 .theme-swatch.light { background: linear-gradient(135deg, #c8f169 0 40%, #f1f1ea 40%); }
 .theme-swatch.system { background: linear-gradient(135deg, #f1f1ea 50%, #262624 50%); }
 /* light theme: surfaces are white, so tabs and your bubbles need a fill to read */
@@ -1824,18 +1824,18 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 :root[data-theme="dark"] .tour-card .btn.ghost, :root[data-theme="dark"] .tour-skip { color: var(--text-2); border-color: var(--line-strong); }
 :root[data-theme="dark"] .idea-tip .starter-ideas button:hover { background: var(--line); color: var(--text); }
 
-/* ── Stone: light and calm. Off-whites and stone, stone cards instead of coloured ones, a muted green highlight. */
+/* ── Stone: Dark's calm, in light. Only stone shades: off-white, stone cards, dark stone for the few things that stand out. */
 :root[data-theme="light"][data-tone="stone"] {
   --frame: #efece6; --surface: #faf8f4; --raised: #faf8f4; --hover: #e8e4dc; --line: #ddd8ce; --line-soft: #e7e2d9; --line-strong: #bfb8aa;
   --text: #2b2824; --text-strong: #12110f; --text-2: #4a463f; --dim: #6d675d; --faint: #888276; --on-text: #faf8f4;
   --accent: #5e7048; --accent-soft: #e2e7d8; --accent-ink: #4a5a37; --ink: #2b2824; --chalk: #efece6;
-  --go: #a9c48b; --map-bg: #f4f2ed; --glass: rgba(250,248,244,.92);
+  --go: #d9d2c5; --map-bg: #f4f2ed; --glass: rgba(250,248,244,.92);
 }
 :root[data-theme][data-tone="stone"] .app-head-btn.primary, :root[data-theme][data-tone="stone"] .ask-pick, :root[data-theme][data-tone="stone"] .lg.spark,
 :root[data-theme][data-tone="stone"] .checkpoint .btn.primary, :root[data-theme][data-tone="stone"] .welcome-card.onboard .btn.primary { background: var(--text); color: var(--on-text); }
 :root[data-theme][data-tone="stone"] .app-head-btn.primary:hover { background: var(--text-strong); }
-:root[data-theme][data-tone="stone"] .spark-btn { background: var(--text); color: var(--go); }
-:root[data-theme][data-tone="stone"] .mode-icon.learn.on, :root[data-theme][data-tone="stone"] .lg-word.learn, :root[data-theme][data-tone="stone"] .lg.guide { background: var(--go); color: var(--text-strong); }
+:root[data-theme][data-tone="stone"] .spark-btn { background: var(--text); color: var(--on-text); }
+:root[data-theme][data-tone="stone"] .mode-icon.learn.on, :root[data-theme][data-tone="stone"] .lg-word.learn, :root[data-theme][data-tone="stone"] .lg.guide { background: var(--text); color: var(--on-text); }
 :root[data-theme][data-tone="stone"] .decision, :root[data-theme][data-tone="stone"] .learned { background: #e9e5dd; color: var(--text); box-shadow: none; }
 :root[data-theme][data-tone="stone"] .decision-body, :root[data-theme][data-tone="stone"] .decision-line, :root[data-theme][data-tone="stone"] .decision-pills button,
 :root[data-theme][data-tone="stone"] .decision-explain, :root[data-theme][data-tone="stone"] .learned-try { background: var(--surface); color: var(--text); }
@@ -1843,11 +1843,12 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 :root[data-theme][data-tone="stone"] .decision-pills button.on, :root[data-theme][data-tone="stone"] .decision-go { background: var(--text); color: var(--on-text); }
 :root[data-theme][data-tone="stone"] .decision-explain:hover { background: #f1eee8; }
 :root[data-theme][data-tone="stone"] .learned-head { background: #dcd6ca; color: var(--text-strong); }
-:root[data-theme][data-tone="stone"] .learned-check.on .box { background: var(--go); }
+:root[data-theme][data-tone="stone"] .learned-check.on .box { background: var(--text); color: var(--on-text); }
 :root[data-theme][data-tone="stone"] .composer-box { border-color: var(--text); }
 :root[data-theme][data-tone="stone"] .composer-box:focus-within { border-color: var(--accent); }
-:root[data-theme][data-tone="stone"] .caption.wait { color: var(--go); }
+:root[data-theme][data-tone="stone"] .caption.wait { color: var(--line-strong); }
 :root[data-theme][data-tone="stone"] .tip, :root[data-theme][data-tone="stone"] .tour-card { background: var(--text); color: var(--on-text); }
 :root[data-theme][data-tone="stone"] .tip::before { background: var(--text); }
-:root[data-theme][data-tone="stone"] .tip .tip-ok, :root[data-theme][data-tone="stone"] .tour-card .btn.primary { background: var(--go); color: var(--text-strong); }
+:root[data-theme][data-tone="stone"] .tip .tip-ok, :root[data-theme][data-tone="stone"] .tour-card .btn.primary { background: var(--on-text); color: var(--text); }
 :root[data-theme][data-tone="stone"] .idea-tip .starter-ideas button:hover { background: var(--line); }
+

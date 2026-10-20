@@ -1,4 +1,4 @@
-// Default (light, the Tandemcode colours) / dark (muted charcoal) / stone (light, muted) / follow the system. Saved per
+// Default (light, the Tandemcode colours) / dark (muted charcoal) / stone (light, stone shades) / follow the system. Saved per
 // browser; applied as <html data-theme="light|dark"> (stone is light with data-tone="stone"), which the stylesheet and
 // the map palette read. index.html applies it before the first paint, so there's no flash.
 import { useEffect, useState } from 'react';
