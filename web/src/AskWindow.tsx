@@ -69,7 +69,7 @@ export function useAsk(threadId: string) {
 
   // Always an object: a server that answers with plain text (an old copy without this route, a proxy error) becomes an error.
   const post = (url: string, body: object) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-    .then(async (r) => { const j = await r.json().catch(() => null); return j ?? { error: r.ok ? 'Unexpected answer from the server' : `The server said ${r.status}. Restart Codetandem and try again.` }; });
+    .then(async (r) => { const j = await r.json().catch(() => null); return j ?? { error: r.ok ? 'Unexpected answer from the server' : `The server said ${r.status}. Restart Tandemcode and try again.` }; });
   // The window's sketch as an uploaded PNG (none when the page is blank or closed), then a fresh page.
   const pack = async (key: string): Promise<string[]> => {
     const w = winsRef.current.find((x) => x.key === key);

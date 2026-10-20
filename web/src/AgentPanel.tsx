@@ -399,7 +399,7 @@ function ModelPicker({ disabled, onOpenSettings, health, serverDown, gpu }: { di
   const active = settings.providers.find((p) => p.id === settings.activeProvider);
   const groups: Engine[] = ['native', 'claude-code'];
   const m = health?.model;
-  const why = serverDown ? t('Codetandem’s server isn’t answering', 'Le serveur de Codetandem ne répond pas')
+  const why = serverDown ? t('Tandemcode’s server isn’t answering', 'Le serveur de Tandemcode ne répond pas')
     : !active || !isReady(active) ? t('not set up yet', 'pas encore configuré')
     : !m || m.state === 'ok' || m.state === 'mock' || m.state === 'checking' ? ''
     : ({ auth: t('key refused', 'clé refusée'), missing: t('model not found', 'modèle introuvable'), unreachable: t('can’t reach it', 'injoignable') } as Record<string, string>)[m.state] ?? t('not answering', 'ne répond pas');

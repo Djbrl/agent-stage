@@ -26,7 +26,7 @@ export function GitSetup({ threadId, onDone, onClose }: { threadId: string; onDo
       <div className="modal git-setup" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head"><span>{t('Keep versions with Git', 'Garder des versions avec Git')}</span><button className="icon-btn" onClick={onClose} aria-label={t('Close', 'Fermer')}><Icon name="x" size={13} /></button></div>
         <div className="modal-body">
-          <p className="gs-lead">{t('Git saves versions of your files. Codetandem saves one before every task, so Undo can put your files back if the agent gets something wrong.', 'Git garde des versions de tes fichiers. Codetandem en garde une avant chaque tâche, pour qu’Annuler remette tes fichiers si l’agent se trompe.')}</p>
+          <p className="gs-lead">{t('Git saves versions of your files. Tandemcode saves one before every task, so Undo can put your files back if the agent gets something wrong.', 'Git garde des versions de tes fichiers. Tandemcode en garde une avant chaque tâche, pour qu’Annuler remette tes fichiers si l’agent se trompe.')}</p>
           <p className="muted gs-small">{t('Nothing is uploaded. The versions stay in this folder, in a hidden .git folder.', 'Rien n’est envoyé. Les versions restent dans ce dossier, dans un dossier caché .git.')}</p>
           {!plan ? <div className="muted">{t('Looking at the folder…', 'Je regarde le dossier…')}</div> : <div className="gs-checks">
             <div className={`check ${plan.installed ? 'ok' : 'no'}`}><span className="check-dot"><Icon name={plan.installed ? 'check' : 'x'} size={11} /></span>

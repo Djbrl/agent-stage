@@ -11,5 +11,5 @@
 - [ ] Docs updated if needed (README, `docs/ARCHITECTURE.md`, CHANGELOG under *Unreleased*)
 
 ## AI assistance
-- [ ] An AI agent wrote part of this change. Tool and model: <!-- e.g. Claude Code with Claude Opus, Codetandem with Qwen3-Coder -->
+- [ ] An AI agent wrote part of this change. Tool and model: <!-- e.g. Claude Code with Claude Opus, Tandemcode with Qwen3-Coder -->
 - [ ] I have read every line and can explain it

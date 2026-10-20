@@ -32,7 +32,7 @@ echo
 echo "vLLM is starting in tmux (model download + load takes ~5–10 min). Watch: tail -f ~/vllm.log"
 echo "Ready when this prints a model list:  curl -s localhost:8000/v1/models -H 'Authorization: Bearer $KEY'"
 echo
-echo "Put these in the .env of your Codetandem checkout:"
+echo "Put these in the .env of your Tandemcode checkout:"
 echo "  MODEL_BASE_URL=http://localhost:8000/v1"
 echo "  MODEL_API_KEY=$KEY"
 echo "  MODEL_NAME=$MODEL"

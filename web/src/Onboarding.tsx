@@ -99,7 +99,7 @@ export function Onboarding({ onCreated, onBrowse, onLogo }: { onCreated: (id: st
   return (
     <div className="ob">
       <header className="ob-top">
-        <button className="ob-brand" onClick={onLogo} title={t('Back to the landing page', 'Retour à la page d’accueil')}><Bike w={36} /><b>codetandem</b></button>
+        <button className="ob-brand" onClick={onLogo} title={t('Back to the landing page', 'Retour à la page d’accueil')}><Bike w={36} /><b>tandemcode</b></button>
         <div className="ob-lane" aria-hidden="true">
           <i style={{ width: `${(step / (STEPS - 1)) * 100}%` }} />
           <span className="ob-dot" style={{ left: `${(step / (STEPS - 1)) * 100}%` }} />

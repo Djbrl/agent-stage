@@ -28,7 +28,7 @@ export function Sidebar({ active, onSelect, onNew, onSettings, onLogo, railed, o
 
   return (
     <nav className={`sidebar ${embedded ? 'embedded' : ''}`}>
-      {!embedded && <div className="side-brand"><button className="side-logo" onClick={onLogo} title={t('Home', 'Accueil')}><span className="logo" />Codetandem</button>{onLayout && <button className="icon-btn" onClick={onLayout} title={t('Map-first layout', 'Disposition carte d’abord')} aria-label={t('Map-first layout', 'Disposition carte d’abord')}><Icon name="map" size={14} /></button>}<button className="icon-btn" onClick={onToggle} title={t('Hide sessions (⌘B)', 'Masquer les sessions (⌘B)')} aria-label={t('Hide sessions', 'Masquer les sessions')}><Icon name="sidebar" size={14} /></button></div>}
+      {!embedded && <div className="side-brand"><button className="side-logo" onClick={onLogo} title={t('Home', 'Accueil')}><span className="logo" />Tandemcode</button>{onLayout && <button className="icon-btn" onClick={onLayout} title={t('Map-first layout', 'Disposition carte d’abord')} aria-label={t('Map-first layout', 'Disposition carte d’abord')}><Icon name="map" size={14} /></button>}<button className="icon-btn" onClick={onToggle} title={t('Hide sessions (⌘B)', 'Masquer les sessions (⌘B)')} aria-label={t('Hide sessions', 'Masquer les sessions')}><Icon name="sidebar" size={14} /></button></div>}
       <button className="side-new" onClick={onNew}><Icon name="plus" size={13} /> {t('New session', 'Nouvelle session')}</button>
 
       <div className="side-scroll">

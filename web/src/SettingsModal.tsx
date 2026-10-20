@@ -100,7 +100,7 @@ const OLLAMA_PICKS = ['qwen3-coder:30b', 'gpt-oss:20b', 'devstral', 'qwen2.5-cod
 
 function engineLine(p: Provider, t: ReturnType<typeof useT>) {
   return engineOf(p) === 'claude-code' ? t('Runs inside Claude Code, Anthropic’s own agent. Sessions stay on it.', 'Tourne dans Claude Code, l’agent d’Anthropic. Les sessions y restent.')
-    : t('Runs in Codetandem’s own agent, so you see every step on the map.', 'Tourne dans l’agent de Codetandem : tu vois chaque étape sur la carte.');
+    : t('Runs in Tandemcode’s own agent, so you see every step on the map.', 'Tourne dans l’agent de Tandemcode : tu vois chaque étape sur la carte.');
 }
 
 // A set-up agent: edit it, test it, use it. Changes wait for Save changes at the bottom of the window.
@@ -203,7 +203,7 @@ const CHOICES: { r: Recipe; icon: IconName; en: [string, string]; fr: [string, s
   { r: 'gpu', icon: 'cpu', en: ['Open model on your own GPU', 'Any Hugging Face model on a rented NVIDIA GPU (Brev). About $1 an hour while it’s on.'], fr: ['Modèle ouvert sur ton GPU', 'N’importe quel modèle Hugging Face sur un GPU NVIDIA loué (Brev). Environ 1 $ l’heure quand il tourne.'] },
   { r: 'openai', icon: 'globe', en: ['Hosted API', 'OpenRouter, OpenAI, Together or any OpenAI-style API, with your key.'], fr: ['API hébergée', 'OpenRouter, OpenAI, Together ou toute API au format OpenAI, avec ta clé.'] },
   { r: 'nvidia', icon: 'globe', en: ['NVIDIA API', 'Open models hosted by NVIDIA, with your key.'], fr: ['API NVIDIA', 'Des modèles ouverts hébergés par NVIDIA, avec ta clé.'] },
-  { r: 'claude', icon: 'list', en: ['Claude', 'Anthropic’s models in Codetandem’s agent, with your key.'], fr: ['Claude', 'Les modèles d’Anthropic dans l’agent de Codetandem, avec ta clé.'] },
+  { r: 'claude', icon: 'list', en: ['Claude', 'Anthropic’s models in Tandemcode’s agent, with your key.'], fr: ['Claude', 'Les modèles d’Anthropic dans l’agent de Tandemcode, avec ta clé.'] },
   { r: 'claude-code', icon: 'terminal', en: ['Claude Code', 'Anthropic’s own coding agent, with your key.'], fr: ['Claude Code', 'L’agent de code d’Anthropic, avec ta clé.'] },
 ];
 const TEMPLATE: Record<Exclude<Recipe, 'demo'>, Omit<Provider, 'id' | 'name'>> = {
@@ -471,7 +471,7 @@ function Appearance() {
   const opts: [ThemePref, string][] = [['light', t('Light', 'Clair')], ['dark', t('Dark', 'Sombre')], ['system', t('Like my computer', 'Comme mon ordinateur')]];
   return (
     <>
-      <p className="set-intro">{t('How Codetandem looks on this computer.', 'L’apparence de Codetandem sur cet ordinateur.')}</p>
+      <p className="set-intro">{t('How Tandemcode looks on this computer.', 'L’apparence de Tandemcode sur cet ordinateur.')}</p>
       <Section title={t('Theme', 'Thème')}>
         <div className="theme-pick">
           {opts.map(([v, name]) => (

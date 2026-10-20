@@ -22,7 +22,7 @@ jobs:
       # The git tests and the smoke test make checkpoint commits.
       - name: Git identity
         run: |
-          git config --global user.name "Codetandem CI"
+          git config --global user.name "Tandemcode CI"
           git config --global user.email "ci@localhost"
           git config --global init.defaultBranch main
       - name: Typecheck

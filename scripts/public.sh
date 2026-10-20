@@ -32,7 +32,7 @@ if [ -z "$NO_TUNNEL" ]; then
   TUNNEL=$!
   sleep 2; kill -0 $MANAGER 2>/dev/null || exit 1  # the manager failed to start: don't publish a dead link
   for i in $(seq 1 30); do URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$LOG" | head -1); [ -n "$URL" ] && break; sleep 1; done
-  [ -n "$URL" ] && publish "\"$URL\"" && STABLE=https://codetandem.vercel.app
+  [ -n "$URL" ] && publish "\"$URL\"" && STABLE=https://tandemcode-app.vercel.app
   echo ""
   [ -n "$STABLE" ] && echo "  Share this:  $STABLE"
   echo "  Live demo:  ${URL:-(tunnel failed, see $LOG)}"

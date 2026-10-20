@@ -1,6 +1,6 @@
 # Architecture
 
-Codetandem is three small pieces running on your machine. The only thing that leaves it is the
+Tandemcode is three small pieces running on your machine. The only thing that leaves it is the
 request to the model provider you configure.
 
 ```
@@ -83,7 +83,7 @@ it…", "tunnel down, reconnecting…", "model still loading…".
 
 ## Engines
 A thread runs on one engine, chosen when it starts:
-- **Codetandem's agent** (`src/agent.ts`): our own loop and tools, any OpenAI-compatible or Anthropic model.
+- **Tandemcode's agent** (`src/agent.ts`): our own loop and tools, any OpenAI-compatible or Anthropic model.
 - **Claude Code** (`src/claudecode.ts`): Anthropic's agent loop through the Claude Agent SDK, authenticated with an
   Anthropic **API key**. We translate its messages into our events (Read → `read_file`, Edit → `edit_file`,
   Bash → `run_command`…), route Bash through our approval card (`canUseTool`), enforce the Learn-mode lock with a

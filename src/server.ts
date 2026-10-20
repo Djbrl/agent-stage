@@ -169,7 +169,7 @@ async function load(id: string): Promise<Live | null> {
   const dangling = thread.events.filter((e: any) => e.type === 'tool_start' && !ended.has(e.id)) as any[];
   if (dangling.length) {
     const at = Date.now();
-    for (const d of dangling) thread.events.push({ type: 'tool_end', id: d.id, name: d.name, ok: false, output: 'Stopped: Codetandem restarted before this step finished.', at } as any);
+    for (const d of dangling) thread.events.push({ type: 'tool_end', id: d.id, name: d.name, ok: false, output: 'Stopped: Tandemcode restarted before this step finished.', at } as any);
     thread.events.push({ type: 'idle', at } as any);
     await saveThread(thread);
   }
@@ -495,7 +495,7 @@ app.post(`${T}/git/init`, async (c) => {
           const gi = join(l.thread.folder, '.gitignore');
           const had = await readFile(gi, 'utf8').catch(() => '');
           const lines = big.map((b) => `/${b.path.replace(/([*?[\]!#])/g, '\\$1')}`);
-          await writeFile(gi, `${had}${had && !had.endsWith('\n') ? '\n' : ''}# Big files left out of version history by Codetandem (over ${BIG_MB} MB)\n${lines.join('\n')}\n`);
+          await writeFile(gi, `${had}${had && !had.endsWith('\n') ? '\n' : ''}# Big files left out of version history by Tandemcode (over ${BIG_MB} MB)\n${lines.join('\n')}\n`);
         }
       }
       await initRepo(l.thread.folder);

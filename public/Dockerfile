@@ -1,4 +1,4 @@
-# One visitor's sandbox for the online demo: Codetandem in public mode, with git, Node, Python and Chromium.
+# One visitor's sandbox for the online demo: Tandemcode in public mode, with git, Node, Python and Chromium.
 # Built and run by src/public/manager.ts. Nothing secret goes in here: the model key stays with the manager.
 FROM node:24-bookworm-slim
 LABEL agent-stage=sandbox

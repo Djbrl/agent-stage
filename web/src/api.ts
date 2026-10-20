@@ -54,5 +54,5 @@ export function leaveDemo() {
 export type Engine = 'native' | 'claude-code';
 export const engineOf = (p: Provider): Engine => (p.kind === 'claude-code' ? 'claude-code' : 'native');
 // Which agent runs the model: ours, or Claude Code (through the Agent SDK).
-export const agentName = (e: Engine, fr: boolean) => (e === 'native' ? (fr ? 'Agent de Codetandem' : 'Codetandem’s agent') : (fr ? 'Agent Claude Code' : 'Claude Code agent'));
+export const agentName = (e: Engine, fr: boolean) => (e === 'native' ? (fr ? 'Agent de Tandemcode' : 'Tandemcode’s agent') : (fr ? 'Agent Claude Code' : 'Claude Code agent'));
 export type EngineStatus = Record<Engine | 'codex', { ready: boolean; reason?: string }>;

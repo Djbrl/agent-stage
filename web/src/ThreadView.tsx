@@ -79,7 +79,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   const undo = (ref: string) => fetch(`/api/threads/${id}/undo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
     .then((r) => r.json()).then((j) => j.error && notice(t('Couldn’t undo', 'Annulation impossible'), serverText(j.error, fr)));
   const keep = (ref: string): Promise<string | null> => fetch(`/api/threads/${id}/keep-task`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref }) })
-    .then((r) => r.json()).then((j) => j.error ?? null, () => t('Could not reach the server. Check that Codetandem is still running.', 'Impossible de joindre le serveur. Vérifie qu’agent-stage tourne encore.'));
+    .then((r) => r.json()).then((j) => j.error ?? null, () => t('Could not reach the server. Check that Tandemcode is still running.', 'Impossible de joindre le serveur. Vérifie qu’agent-stage tourne encore.'));
 
   const menu = state.timeline.length > 0 ? <ThreadMenu id={id} mode={meta.mode === 'learn' ? 'learn' : 'build'} running={state.running} onContext={shared ? undefined : resetContext} /> : null;
   const header = (

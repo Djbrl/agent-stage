@@ -14,7 +14,7 @@ import { DATA_DIR } from '../store.ts';
 const PORT = Number(process.env.PORT ?? 8080);
 const INVITE = process.env.INVITE ?? ''; // public.sh sets one by default; empty (INVITE=off) = anyone with the link
 const MAX = Number(process.env.MAX_SESSIONS ?? 5);
-const LANDING = process.env.LANDING_URL ?? 'https://codetandem.vercel.app'; // where Leave demo sends the visitor
+const LANDING = process.env.LANDING_URL ?? 'https://tandemcode-app.vercel.app'; // where Leave demo sends the visitor
 const IDLE_MIN = Number(process.env.IDLE_MIN ?? 20);
 const BUDGET = Number(process.env.TOKEN_BUDGET ?? 0) || Infinity; // model tokens per sandbox (0 = no cap: GPU_MIN is the cap)
 const GPU_MIN = Number(process.env.GPU_MIN ?? 60); // minutes on the GPU model per sandbox, from its first call
@@ -266,7 +266,7 @@ const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 async function page(res: ServerResponse, message = '') {
   const up = await modelUp().catch(() => false);
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-  res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Codetandem · live demo</title>
+  res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tandemcode · live demo</title>
 <style>
   :root { color-scheme: dark; } body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0c0e; color: #e7e9ee; font: 15px/1.55 system-ui, sans-serif; }
   main { width: min(440px, calc(100% - 32px)); } h1 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 8px; } p { color: #9aa1ad; }
@@ -274,7 +274,7 @@ async function page(res: ServerResponse, message = '') {
   button { padding: 10px 16px; border-radius: 9px; border: 0; background: #e7e9ee; color: #0b0c0e; font: inherit; font-weight: 600; cursor: pointer; }
   .msg { color: #f5b84a; } .busy button { opacity: .6; pointer-events: none; }
 </style>
-<main><h1>Codetandem, live</h1>
+<main><h1>Tandemcode, live</h1>
 <p>Watch an AI coding agent work on a real project, on a map. You get your own private sandbox with sample projects: the agent really edits files, runs tests and uses a browser inside it. It's deleted ${IDLE_MIN} minutes after you leave.</p>
 <p>Limits, so everyone gets a turn: ${MAX} sandboxes at a time, $${DEMO_USD} of Claude and ${GPU_MIN} minutes on the GPU per sandbox.</p>
 <p>${up ? '● The live model is <b style="color:#3ecf8e">online</b>: an open model on our GPU does the work.' : '○ The live model is offline right now, so the sandbox runs a scripted demo model. Everything else is real.'}</p>

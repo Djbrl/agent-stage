@@ -1,4 +1,4 @@
-// Light (the default, the Codetandem look) / dark / follow the system. Saved per browser; applied as <html data-theme="light|dark">, which the
+// Light (the default, the Tandemcode look) / dark / follow the system. Saved per browser; applied as <html data-theme="light|dark">, which the
 // stylesheet and the map palette read. index.html applies it before the first paint, so there's no flash.
 import { useEffect, useState } from 'react';
 

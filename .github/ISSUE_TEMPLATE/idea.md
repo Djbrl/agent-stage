@@ -11,7 +11,7 @@ labels: enhancement
 <!-- What would you like to see? A sketch or a screenshot of something similar helps. -->
 
 **How would someone learn from it?** (optional)
-<!-- Codetandem is for people who want to stay in the loop and learn. How does this help with that? -->
+<!-- Tandemcode is for people who want to stay in the loop and learn. How does this help with that? -->
 
 **Alternatives you considered**
 

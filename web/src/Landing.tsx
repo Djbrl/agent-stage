@@ -150,7 +150,7 @@ export function Landing({ onStart, onLogo }: { onStart: () => void; onLogo?: () 
       <header className="lp-bar">
         <div className="lp-bar-in">
           <button className="lp-brand" onClick={() => (onLogo ? onLogo() : root.current?.scrollTo({ top: 0, behavior: 'smooth' }))}
-            title={onLogo ? t('Back to the app', 'Retour à l’app') : t('Back to the top', 'Retour en haut')}><Bike w={40} /> <b>codetandem</b></button>
+            title={onLogo ? t('Back to the app', 'Retour à l’app') : t('Back to the top', 'Retour en haut')}><Bike w={40} /> <b>tandemcode</b></button>
           <nav className="lp-links" aria-label={t('Sections', 'Sections')}>
             <button onClick={() => go('lp-learn')}>Tandem</button>
             <button onClick={() => go('lp-map')}>{t('The map', 'La carte')}</button>
@@ -209,7 +209,7 @@ export function Landing({ onStart, onLogo }: { onStart: () => void; onLogo?: () 
           title={[t('Change your wheels.', 'Change de roues.'), t('Any time.', 'Quand tu veux.')]}
           beats={[
             [t('Open-weight models', 'Modèles à poids ouverts'), t('Install any open-weight model, whether it runs on your computer, on your own GPU with vLLM, or in the cloud.', 'Installe n’importe quel modèle à poids ouverts, qu’il tourne sur ton ordinateur, sur ton propre GPU avec vLLM, ou dans le cloud.')],
-            [t('Claude, built in', 'Claude, intégré'), t('Want to stick with Claude? It’s available through the Claude Code SDK for agentic work, and through the API inside our own Codetandem agent. Switch models anytime: the context carries over.', 'Tu préfères rester sur Claude ? Il est disponible via le SDK de Claude Code pour le travail agentique, et via l’API dans notre propre agent Codetandem. Change de modèle quand tu veux : le contexte suit.')],
+            [t('Claude, built in', 'Claude, intégré'), t('Want to stick with Claude? It’s available through the Claude Code SDK for agentic work, and through the API inside our own Tandemcode agent. Switch models anytime: the context carries over.', 'Tu préfères rester sur Claude ? Il est disponible via le SDK de Claude Code pour le travail agentique, et via l’API dans notre propre agent Tandemcode. Change de modèle quand tu veux : le contexte suit.')],
             [t('Codex, coming next', 'Codex, bientôt'), t('Codex is next on the list.', 'Codex est le prochain sur la liste.')],
           ]}
           mock={<GearMock t={t} />} />
@@ -308,7 +308,7 @@ function Window({ title, children }: { title: string; children: ReactNode }) {
 function MapMock({ t }: { t: T }) {
   const steps = [t('Read app.js', 'Lit app.js'), t('Edit greet.js', 'Modifie greet.js'), t('Write greet.test.js', 'Écrit greet.test.js'), t('Run npm test', 'Lance npm test')];
   return (
-    <Window title="weather-app · Codetandem">
+    <Window title="weather-app · Tandemcode">
       <svg className="mk-map" viewBox="0 0 640 420" role="img" aria-label={t('A project map: the agent moves from file to file', 'Une carte du projet : l’agent va de fichier en fichier')}>
         <defs><pattern id="mk-dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1.2" fill="#e2e2d8" /></pattern></defs>
         <rect width="640" height="420" fill="url(#mk-dots)" />
@@ -416,7 +416,7 @@ function GearMock({ t }: { t: T }) {
     ['Ollama', t('open weights · this computer', 'poids ouverts · cet ordinateur'), 0],
     ['vLLM', t('open weights · your own GPU', 'poids ouverts · ton propre GPU'), 0],
     ['NVIDIA', t('open weights · hosted', 'poids ouverts · hébergé'), 0],
-    ['Claude', t('in Codetandem’s agent', 'dans l’agent de Codetandem'), 1],
+    ['Claude', t('in Tandemcode’s agent', 'dans l’agent de Tandemcode'), 1],
     ['Claude Code', t('Anthropic’s agent', 'l’agent d’Anthropic'), 1],
     ['Codex', t('coming soon', 'bientôt'), 2],
   ];

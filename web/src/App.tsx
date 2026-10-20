@@ -132,7 +132,7 @@ function AppHeader({ onNew, onSettings, onLogo }: { onNew: () => void; onSetting
   const { me } = useApp();
   return (
     <header className="app-head">
-      <button className="app-brand" onClick={onLogo} title={t('Home', 'Accueil')}><span className="logo" /><b>codetandem</b></button>
+      <button className="app-brand" onClick={onLogo} title={t('Home', 'Accueil')}><span className="logo" /><b>tandemcode</b></button>
       <span className="spacer" />
       <button className="app-head-btn primary" onClick={onNew}><Icon name="plus" size={14} />{t('New session', 'Nouvelle session')}</button>
       {me?.public && <button className="app-head-btn" onClick={() => confirmAsk({ title: t('Leave the demo?', 'Quitter la démo ?'), body: t('Your sandbox and its files are deleted.', 'Ton bac à sable et ses fichiers sont supprimés.'), ok: t('Leave', 'Quitter'), danger: true }).then((yes) => yes && leaveDemo())}>{t('Leave demo', 'Quitter la démo')}</button>}

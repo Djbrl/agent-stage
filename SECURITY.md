@@ -1,6 +1,6 @@
 # Security
 
-Codetandem lets an AI model change files and run commands on your computer, so we take safety reports seriously.
+Tandemcode lets an AI model change files and run commands on your computer, so we take safety reports seriously.
 
 ## Reporting a vulnerability
 
@@ -37,7 +37,7 @@ Only the latest release gets security fixes.
 ## What is not protected
 
 - **An approved command can do anything your user account can do.** The approval is the safeguard: read the command
-  before you click Run it. For untrusted tasks, run Codetandem in a container or a throwaway account.
+  before you click Run it. For untrusted tasks, run Tandemcode in a container or a throwaway account.
 - **Models can be tricked by what they read.** A web page or file can contain instructions aimed at the agent. Approval
   of commands and websites limits the damage; it doesn't make the model immune.
 - **The online demo runs on the host's computer.** It is built for short public demos, not as a permanent service.

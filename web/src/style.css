@@ -1,4 +1,4 @@
-/* Themes: light is the default (the Codetandem look: chalk, ink, jersey blue, track orange, lime);
+/* Themes: light is the default (the Tandemcode look: chalk, ink, jersey blue, track orange, lime);
    <html data-theme="dark"> keeps the original near-black frame. */
 :root {
   /* dark: the original near-black Linear-style frame */
@@ -15,7 +15,7 @@
   font: 13px/1.5 var(--sans); color: var(--text); -webkit-font-smoothing: antialiased;
   color-scheme: dark;
 }
-/* light: the Codetandem look */
+/* light: the Tandemcode look */
 :root[data-theme="light"] {
   --frame: #f1f1ea; --surface: #ffffff; --raised: #ffffff; --hover: #ebebe2; --line: #e2e2d8; --line-soft: #ebebe3; --line-strong: #c5c5b8;
   --text: #141414; --text-strong: #000000; --text-2: #3a3a36; --dim: #55554f; --faint: #6b6b64; --on-text: #fafaf7;
@@ -939,7 +939,7 @@ body:has(.above-composer .starter-ideas):has(.above-composer .defaults-note) .ag
 @media (prefers-reduced-motion: reduce) { .ask-win, .ask-pick { animation: none; } }
 body.ask-dragging, body.ask-dragging * { user-select: none !important; }
 
-/* Codetandem art direction (19 10 2026): rounder, bolder, playful; colour comes from the brand, not glows */
+/* Tandemcode art direction (19 10 2026): rounder, bolder, playful; colour comes from the brand, not glows */
 .logo { width: 28px; height: 17px; border-radius: 0; box-shadow: none; flex-shrink: 0;
   background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 72'%3E%3Cg fill='none' stroke='%23141414' stroke-width='7' stroke-linejoin='round' stroke-linecap='round'%3E%3Ccircle cx='26' cy='50' r='17'/%3E%3Ccircle cx='94' cy='50' r='17'/%3E%3Cpath d='M26 50 L44 27 L60 50 L74 27 L94 50 M44 27 L84 23 L89 17'/%3E%3C/g%3E%3Ccircle cx='42' cy='11' r='9' fill='%23ff5a1f'/%3E%3Ccircle cx='72' cy='9' r='9' fill='%232f45e8'/%3E%3C/svg%3E"); }
 :root[data-theme="dark"] .logo { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 72'%3E%3Cg fill='none' stroke='%23e8e9ec' stroke-width='7' stroke-linejoin='round' stroke-linecap='round'%3E%3Ccircle cx='26' cy='50' r='17'/%3E%3Ccircle cx='94' cy='50' r='17'/%3E%3Cpath d='M26 50 L44 27 L60 50 L74 27 L94 50 M44 27 L84 23 L89 17'/%3E%3C/g%3E%3Ccircle cx='42' cy='11' r='9' fill='%23ff5a1f'/%3E%3Ccircle cx='72' cy='9' r='9' fill='%237d8dff'/%3E%3C/svg%3E"); }

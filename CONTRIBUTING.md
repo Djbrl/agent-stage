@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping. Codetandem is a coding-agent harness for people who want to keep learning while an AI agent codes
+Thanks for helping. Tandemcode is a coding-agent harness for people who want to keep learning while an AI agent codes
 with them. It is small on purpose, so please keep changes focused. Contributions in English or French are both welcome.
 
 New here? Look for issues labelled **good first issue**. The draft list is in [docs/ISSUES-DRAFT.md](docs/ISSUES-DRAFT.md).
@@ -70,14 +70,14 @@ An area prefix (`Map:`, `Learn:`, `Chat:`, `Online demo:`, `CI:`, `Docs:`) helps
 Dates in prose are written DD MM YYYY.
 
 ## Using AI agents to contribute
-Most of Codetandem was written with AI coding agents (Claude Code, and Codetandem itself), with a human deciding
+Most of Tandemcode was written with AI coding agents (Claude Code, and Tandemcode itself), with a human deciding
 what to build, reviewing each change and testing it in a real browser. [docs/HOW-WE-BUILT-IT.md](docs/HOW-WE-BUILT-IT.md)
 tells the story. You are welcome to work the same way, on these terms:
 - **You own what you submit.** Read every line, and be able to explain it in the review.
 - **Say so in the PR** (the template has a box), and name the tool and model.
 - **Run the checks yourself** and try the change in the browser; don't trust an agent's "done".
 - `AGENTS.md` (and `CLAUDE.md`, which points to it) is written for agents: point yours at it first.
-- Using Codetandem in Learn mode on Codetandem itself is a good way to learn the codebase.
+- Using Tandemcode in Learn mode on Tandemcode itself is a good way to learn the codebase.
 
 ## Reporting bugs
 Use the bug template. Include the model and provider you used: most agent bugs are model-specific.
