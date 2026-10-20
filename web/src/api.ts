@@ -29,7 +29,8 @@ export function isReady(p: Provider) {
 export type Settings = { providers: Provider[]; activeProvider: string; approval: 'always' | 'safe'; maxSteps: number; recentFolders: string[];
   insights?: 'auto' | 'on' | 'off'; learn: { level: 'beginner' | 'intermediate' | 'advanced'; frequency: 'light' | 'normal' | 'frequent'; language: 'en' | 'fr'; ai?: 'none' | 'chat' | 'agents' } };
 export type ThreadSummary = { id: string; title: string; folder: string; updatedAt: number; running: boolean; tokens: number; engine?: Engine; shared?: boolean };
-export type Me = { name: string; home: string; sandbox: string; public?: boolean; internet?: boolean; samples?: string[] };
+export type Me = { name: string; home: string; sandbox: string; public?: boolean; internet?: boolean; samples?: string[];
+  limits?: { usd: number; gpuMin: number; max: number; idleMin: number } };
 
 export const fmtTokens = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n));
 export function ago(t: number, fr = false) {

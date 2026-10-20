@@ -1778,3 +1778,4 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .tour-skip { background: none; border: 0; color: #fff; opacity: .85; font: inherit; font-size: 13px; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .tour-card .btn.ghost { color: #fff; border-color: rgba(255, 255, 255, .5); background: transparent; }
 .tour-card .btn.primary { background: #fff; color: #141414; border-color: #fff; }
+.wd-cap { display: block; margin-top: 10px; font-size: 13px; color: var(--mute); }

@@ -16,7 +16,8 @@ const INVITE = process.env.INVITE ?? ''; // public.sh sets one by default; empty
 const MAX = Number(process.env.MAX_SESSIONS ?? 5);
 const LANDING = process.env.LANDING_URL ?? 'https://codetandem.vercel.app'; // where Leave demo sends the visitor
 const IDLE_MIN = Number(process.env.IDLE_MIN ?? 20);
-const BUDGET = Number(process.env.TOKEN_BUDGET ?? 400_000); // model tokens per sandbox
+const BUDGET = Number(process.env.TOKEN_BUDGET ?? 0) || Infinity; // model tokens per sandbox (0 = no cap: GPU_MIN is the cap)
+const GPU_MIN = Number(process.env.GPU_MIN ?? 60); // minutes on the GPU model per sandbox, from its first call
 const DEMO_USD = Number(process.env.DEMO_USD ?? 5); // Claude spend allowed per sandbox
 // Internet in the sandboxes, through the relay's proxy (public websites on 80/443 only). On by default with an invite code.
 const INTERNET = process.env.INTERNET ? process.env.INTERNET === '1' : Boolean(INVITE);
@@ -24,7 +25,7 @@ const DISK_MB = Number(process.env.DISK_MB ?? 1024); // what a sandbox may write
 const IMAGE = 'agent-stage-sandbox', NET = 'agst-sandbox', RELAY = 'agst-relay', RELAY_PORT = 8099;
 const SECRET = randomBytes(24).toString('hex');
 
-type Session = { id: string; token: string; lastSeen: number; tokens: number; usd: number; ready: boolean; startedAt: number; diskMb?: number; who: { ip: string; country: string; agent: string } };
+type Session = { id: string; token: string; lastSeen: number; tokens: number; usd: number; gpuFrom?: number; ready: boolean; startedAt: number; diskMb?: number; who: { ip: string; country: string; agent: string } };
 const sessions = new Map<string, Session>(); // cookie id → session
 const byToken = new Map<string, Session>();
 
@@ -82,6 +83,7 @@ async function startSession(who: Session['who']): Promise<Session> {
       '-e', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1', '-e', 'DISABLE_TELEMETRY=1', '-e', 'DISABLE_AUTOUPDATER=1', '-e', 'DISABLE_ERROR_REPORTING=1'] : []),
     ...(INTERNET ? ['-e', 'DEMO_INTERNET=1', ...['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'].flatMap((k) => ['-e', `${k}=http://${RELAY}:4002`]),
       ...['NO_PROXY', 'no_proxy'].flatMap((k) => ['-e', `${k}=${RELAY},localhost,127.0.0.1`]), '-e', 'NODE_USE_ENV_PROXY=1'] : []),
+    '-e', `DEMO_USD=${DEMO_USD}`, '-e', `DEMO_GPU_MIN=${GPU_MIN}`, '-e', `DEMO_MAX=${MAX}`, '-e', `DEMO_IDLE_MIN=${IDLE_MIN}`,
     '-e', `MODEL_BASE_URL=http://${RELAY}:4000/v1`, '-e', `MODEL_API_KEY=${m ? s.token : 'mock'}`, '-e', `MODEL_NAME=${m?.model ?? 'mock'}`, '-e', `MODEL_LABEL=${m ? `${m.name} · live GPU` : 'Demo (scripted)'}`,
     IMAGE]);
   sessions.set(s.id, s); byToken.set(s.token, s);
@@ -108,6 +110,8 @@ async function modelCall(req: IncomingMessage, res: ServerResponse) {
   if (s.tokens > BUDGET) { res.writeHead(429, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: { message: 'This demo sandbox used its model budget. Thanks for trying it!' } })); }
   const m = await model();
   if (!m) { res.writeHead(503); return res.end('no model'); }
+  s.gpuFrom ??= Date.now();
+  if (Date.now() - s.gpuFrom > GPU_MIN * 60_000) { res.writeHead(429, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: { message: `This demo sandbox used its ${GPU_MIN} minutes on the GPU. Thanks for trying it!` } })); }
   s.lastSeen = Date.now();
   // Visitors using the model count as GPU activity for agent-stage's auto-stop (at most once a minute).
   if (Date.now() - lastTouch > 60_000) { lastTouch = Date.now(); void fetch(`http://localhost:${process.env.APP_PORT ?? 3000}/api/gpu/touch`, { method: 'POST' }).catch(() => {}); }
@@ -243,7 +247,7 @@ async function admin(req: IncomingMessage, res: ServerResponse) {
       .then((r) => r.json()).catch(() => []) as { title: string; running: boolean }[];
     const ago = (t: number) => `${Math.round((Date.now() - t) / 60_000)} min`;
     return `<tr><td class="mono">${x.id}</td><td>${esc(x.who.ip)} ${esc(x.who.country)}<div class="dim">${esc(x.who.agent.replace(/^Mozilla\/5.0 /, ''))}</div></td>
-      <td>${ago(x.startedAt)}</td><td>${ago(x.lastSeen)} ago</td><td>${Math.round(x.tokens / 1000)}k / ${Math.round(BUDGET / 1000)}k<div class="dim">Claude $${x.usd.toFixed(2)} / $${DEMO_USD.toFixed(2)} · disk ${x.diskMb === undefined ? '…' : Math.round(x.diskMb)} / ${DISK_MB} MB</div></td>
+      <td>${ago(x.startedAt)}</td><td>${ago(x.lastSeen)} ago</td><td>${Math.round(x.tokens / 1000)}k${BUDGET < Infinity ? ` / ${Math.round(BUDGET / 1000)}k` : ''}<div class="dim">Claude $${x.usd.toFixed(2)} / $${DEMO_USD.toFixed(2)} · disk ${x.diskMb === undefined ? '…' : Math.round(x.diskMb)} / ${DISK_MB} MB</div></td>
       <td>${threads.map((t) => `${t.running ? '● ' : ''}${esc(t.title)}`).join('<br>') || '<span class="dim">no threads yet</span>'}</td>
       <td><a href="/__admin/open?id=${x.id}">Look inside</a> · <a href="/__admin/stop?id=${x.id}" onclick="return confirm('Delete this sandbox?')">Stop</a></td></tr>`;
   }));
@@ -272,6 +276,7 @@ async function page(res: ServerResponse, message = '') {
 </style>
 <main><h1>Codetandem, live</h1>
 <p>Watch an AI coding agent work on a real project, on a map. You get your own private sandbox with sample projects: the agent really edits files, runs tests and uses a browser inside it. It's deleted ${IDLE_MIN} minutes after you leave.</p>
+<p>Limits, so everyone gets a turn: ${MAX} sandboxes at a time, $${DEMO_USD} of Claude and ${GPU_MIN} minutes on the GPU per sandbox.</p>
 <p>${up ? '● The live model is <b style="color:#3ecf8e">online</b>: an open model on our GPU does the work.' : '○ The live model is offline right now, so the sandbox runs a scripted demo model. Everything else is real.'}</p>
 ${message ? `<p class="msg">${message.replace(/</g, '&lt;')}</p>` : ''}
 <form method="post" action="/__start" onsubmit="this.classList.add('busy');this.querySelector('button').textContent='Starting your sandbox…'">

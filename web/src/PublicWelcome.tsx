@@ -49,11 +49,13 @@ export function PublicWelcome({ onDone }: { onDone: () => void }) {
   const t = useT();
   const [step, setStep] = useState(0);
   const net = Boolean(me?.internet);
+  const L = me?.limits ?? { usd: 5, gpuMin: 60, max: 5, idleMin: 20 };
   const live = health && !health.model.mock && health.model.state === 'ok';
   const claude = Boolean(settings?.providers.some((p) => p.id === 'claude'));
   const steps: { art: ReactNode; title: string; text: ReactNode }[] = [
     { art: <Sandbox />, title: t('Your own private sandbox', 'Ton bac à sable privé'),
-      text: t('A fresh computer, started just for you. Nobody else sees it, and it’s deleted 20 minutes after you leave.', 'Un ordinateur tout neuf, lancé juste pour toi. Personne d’autre ne le voit, et il est supprimé 20 minutes après ton départ.') },
+      text: <>{t(`A fresh computer, started just for you. Nobody else sees it, and it’s deleted ${L.idleMin} minutes after you leave.`, `Un ordinateur tout neuf, lancé juste pour toi. Personne d’autre ne le voit, et il est supprimé ${L.idleMin} minutes après ton départ.`)}
+        <span className="wd-cap">{t(`So everyone gets a turn, your sandbox has $${L.usd} of Claude and ${L.gpuMin} minutes on our GPU. ${L.max} visitors at a time.`, `Pour que chacun ait son tour, ton bac à sable a ${L.usd} $ de Claude et ${L.gpuMin} minutes sur notre GPU. ${L.max} visiteurs à la fois.`)}</span></> },
     { art: <MapDraw />, title: claude || live ? t('A real agent, a real model', 'Un vrai agent, un vrai modèle') : t('A scripted demo for now', 'Une démo scriptée pour l’instant'),
       text: claude ? t('Claude Sonnet 5.5 does your tasks. You watch every file it reads and edits on the map.', 'Claude Sonnet 5.5 fait tes tâches. Tu vois sur la carte chaque fichier qu’il lit et modifie.')
         : live ? t('An open model (Qwen3-Coder) on our NVIDIA GPU does your tasks. You watch every step on the map.', 'Un modèle ouvert (Qwen3-Coder) sur notre GPU NVIDIA fait tes tâches. Tu suis chaque étape sur la carte.')
@@ -76,7 +78,7 @@ export function PublicWelcome({ onDone }: { onDone: () => void }) {
               <ul>
                 <li>{net ? t('Public websites only (npm, pip, git clone); nothing else outside the sandbox.', 'Sites publics seulement (npm, pip, git clone) ; rien d’autre hors du bac à sable.') : t('No internet: no npm or pip installs, no outside websites.', 'Pas d’internet : pas d’installation npm ou pip, pas de sites extérieurs.')}</li>
                 <li>{t('1 CPU, 1.5 GB of memory, 1 GB of disk.', '1 CPU, 1,5 Go de mémoire, 1 Go de disque.')}</li>
-                <li>{t('400k model tokens', '400k tokens de modèle')}{claude ? t(' and $5 of Claude', ' et 5 $ de Claude') : ''}{t(' per visitor; 5 visitors at a time.', ' par visiteur ; 5 visiteurs à la fois.')}</li>
+                <li>{t(`$${L.usd} of Claude and ${L.gpuMin} minutes on the GPU per visitor; ${L.max} visitors at a time.`, `${L.usd} $ de Claude et ${L.gpuMin} minutes de GPU par visiteur ; ${L.max} visiteurs à la fois.`)}</li>
               </ul>
             </details>
           )}
