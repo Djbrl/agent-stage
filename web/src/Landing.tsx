@@ -218,7 +218,7 @@ export function Landing({ onStart, onLogo }: { onStart: () => void; onLogo?: () 
       <section className="lp-finish" data-in>
         <div className="lp-checker" aria-hidden="true" />
         <h2>{t('Ready to ride?', 'Prêt à rouler ?')}</h2>
-        <p>{t('Open one of your projects, or start the guided demo. Open source, MIT, runs on your own computer.', 'Ouvre un de tes projets, ou lance la démo guidée. Open source, MIT, tourne sur ton ordinateur.')}</p>
+        <p>{t('Open one of your projects, or start from an empty one. Open source, MIT, runs on your own computer.', 'Ouvre un de tes projets, ou pars d’un projet vide. Open source, MIT, tourne sur ton ordinateur.')}</p>
         <div className="lp-cta-row">
           <button className="lp-cta lp-big" onClick={onStart}>{t('Try it live', 'Essayer en direct')}</button>
           <a className="lp-ghost" href="https://github.com/Djbrl/agent-stage" target="_blank" rel="noreferrer">{t('Source on GitHub', 'Code sur GitHub')}</a>

@@ -33,7 +33,7 @@ const docker = (args: string[]) => new Promise<string>((ok, fail) =>
   execFile('docker', args, { maxBuffer: 1 << 20 }, (err, out, errOut) => (err ? fail(new Error(String(errOut || err.message).trim())) : ok(out.trim()))));
 
 // The model the sandboxes use: PUBLIC_MODEL_* if set, else whatever is active in agent-stage's settings here
-// (e.g. the Brev GPU). If it isn't answering (GPU off), new sandboxes get the scripted demo model instead.
+// (e.g. the Brev GPU). If it isn't answering (GPU off), new sandboxes use Tandemcode's agent on Claude only.
 type Model = { baseUrl: string; apiKey: string; model: string; name: string };
 async function configured(): Promise<Model | null> {
   if (process.env.PUBLIC_MODEL === 'mock') return null;
@@ -73,7 +73,7 @@ async function setup() {
 }
 
 async function startSession(who: Session['who']): Promise<Session> {
-  const m = (await modelUp()) ? await model() : null; // null → scripted demo model
+  const m = (await modelUp()) ? await model() : null; // null → no GPU model: Claude only
   const claude = Boolean(await anthropicKey());
   const s: Session = { id: randomBytes(6).toString('hex'), token: randomBytes(24).toString('hex'), lastSeen: Date.now(), tokens: 0, usd: 0, ready: false, startedAt: Date.now(), who };
   await docker(['run', '-d', '--name', `sess-${s.id}`, '--network', NET,
@@ -277,7 +277,7 @@ async function page(res: ServerResponse, message = '') {
 <main><h1>Tandemcode, live</h1>
 <p>Watch an AI coding agent work on a real project, on a map. You get your own private sandbox with sample projects: the agent really edits files, runs tests and uses a browser inside it. It's deleted ${IDLE_MIN} minutes after you leave.</p>
 <p>Limits, so everyone gets a turn: ${MAX} sandboxes at a time, $${DEMO_USD} of Claude and ${GPU_MIN} minutes on the GPU per sandbox.</p>
-<p>${up ? '● The live model is <b style="color:#3ecf8e">online</b>: an open model on our GPU does the work.' : '○ The live model is offline right now, so the sandbox runs a scripted demo model. Everything else is real.'}</p>
+<p>${up ? '● The live model is <b style="color:#3ecf8e">online</b>: an open model on our GPU does the work.' : '● Tandemcode’s agent runs on <b style="color:#3ecf8e">Claude Sonnet 5.5</b>.'}</p>
 ${message ? `<p class="msg">${message.replace(/</g, '&lt;')}</p>` : ''}
 <form method="post" action="/__start" onsubmit="this.classList.add('busy');this.querySelector('button').textContent='Starting your sandbox…'">
   ${INVITE ? '<input name="code" placeholder="Invite code" autocomplete="off" required>' : ''}<button>Start my sandbox</button>

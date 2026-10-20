@@ -49,7 +49,7 @@ export function Welcome({ onCreated, onBrowse }: { onCreated: (id: string) => vo
       <div className="welcome-card onboard">
         <span className="logo big" />
         <h1>{t('Stay in the loop.', 'Garde la main.')}</h1>
-        <p className="muted">{t('Open one of your projects, or start from an empty one with the guided demo.', 'Ouvre un de tes projets, ou pars d’un projet vide avec la démo guidée.')}</p>
+        <p className="muted">{t('Open one of your projects, or start from an empty one.', 'Ouvre un de tes projets, ou pars d’un projet vide.')}</p>
         <button className="btn primary onboard-open" disabled={busy} onClick={open}><Icon name="folder" size={13} /> {t('Open a project', 'Ouvrir un projet')}</button>
         {recent.length > 0 && !me?.public && (
           <div className="folder-list onboard-recent">
@@ -60,7 +60,7 @@ export function Welcome({ onCreated, onBrowse }: { onCreated: (id: string) => vo
             ))}
           </div>
         )}
-        <button className="btn ghost sm" disabled={busy} onClick={() => start(null, true)}>{t('Try a guided demo', 'Essayer une démo guidée')}</button>
+        <button className="btn ghost sm" disabled={busy} onClick={() => start(null, true)}>{t('Start from scratch', 'Partir de zéro')}</button>
         {err && <span className="problem">{err}</span>}
       </div>
     </div>
@@ -87,9 +87,9 @@ export function AboveComposer({ children }: { children: ReactNode }) {
 }
 
 const IDEAS = [
-  { en: 'A little program that says hello to me', fr: 'Un petit programme qui me dit bonjour' },
-  { en: 'Greet people by their name', fr: 'Saluer les gens par leur prénom' },
-  { en: 'Say hello, even when no name is given', fr: 'Dire bonjour, même sans prénom' },
+  { en: 'A web page that says hello in three languages', fr: 'Une page web qui dit bonjour en trois langues' },
+  { en: 'A tip calculator that runs in the terminal', fr: 'Un calculateur de pourboire dans le terminal' },
+  { en: 'A to-do list that saves to a file', fr: 'Une liste de tâches qui s’enregistre dans un fichier' },
 ];
 
 // Guided demo: three starter ideas until the first message is sent. Clicking one sends it as the task.
@@ -108,7 +108,7 @@ export function StarterIdeas({ id }: { id: string }) {
   // One tip, not a pile: where to start, the ideas, and what the buttons under the input do.
   return (
     <div className="idea-tip" role="status">
-      <b>{t('Pick an idea to start, or type your own.', 'Choisis une idée pour démarrer, ou écris la tienne.')}</b>
+      <b>{t('Some ideas to start, or ask for anything.', 'Quelques idées pour démarrer, ou demande ce que tu veux.')}</b>
       <div className="starter-ideas">
         {IDEAS.map((i) => {
           const text = t(i.en, i.fr);

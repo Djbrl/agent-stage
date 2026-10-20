@@ -56,10 +56,10 @@ export function PublicWelcome({ onDone }: { onDone: () => void }) {
     { art: <Sandbox />, title: t('Your own private sandbox', 'Ton bac à sable privé'),
       text: <>{t(`A fresh computer, started just for you. Nobody else sees it, and it’s deleted ${L.idleMin} minutes after you leave.`, `Un ordinateur tout neuf, lancé juste pour toi. Personne d’autre ne le voit, et il est supprimé ${L.idleMin} minutes après ton départ.`)}
         <span className="wd-cap">{t(`So everyone gets a turn, your sandbox has $${L.usd} of Claude and ${L.gpuMin} minutes on our GPU. ${L.max} visitors at a time.`, `Pour que chacun ait son tour, ton bac à sable a ${L.usd} $ de Claude et ${L.gpuMin} minutes sur notre GPU. ${L.max} visiteurs à la fois.`)}</span></> },
-    { art: <MapDraw />, title: claude || live ? t('A real agent, a real model', 'Un vrai agent, un vrai modèle') : t('A scripted demo for now', 'Une démo scriptée pour l’instant'),
-      text: claude ? t('Claude Sonnet 5.5 does your tasks. You watch every file it reads and edits on the map.', 'Claude Sonnet 5.5 fait tes tâches. Tu vois sur la carte chaque fichier qu’il lit et modifie.')
+    { art: <MapDraw />, title: claude || live ? t('A real agent, a real model', 'Un vrai agent, un vrai modèle') : t('The model is offline', 'Le modèle est hors ligne'),
+      text: claude ? t('Tandemcode’s agent, on Claude Sonnet 5.5, does your tasks. You watch every file it reads and edits on the map.', 'L’agent de Tandemcode, sur Claude Sonnet 5.5, fait tes tâches. Tu vois sur la carte chaque fichier qu’il lit et modifie.')
         : live ? t('An open model (Qwen3-Coder) on our NVIDIA GPU does your tasks. You watch every step on the map.', 'Un modèle ouvert (Qwen3-Coder) sur notre GPU NVIDIA fait tes tâches. Tu suis chaque étape sur la carte.')
-        : t('The live model is off, so a fixed example plays whatever you ask. It shows how the map works.', 'Le modèle en direct est éteint : un exemple fixe se joue quoi que tu demandes. Ça montre comment marche la carte.') },
+        : t('The model can’t answer right now. Come back a little later.', 'Le modèle ne peut pas répondre pour l’instant. Reviens un peu plus tard.') },
     { art: <StartDraw />, title: t('Start here', 'Pour commencer'),
       text: <>{t('Press New session, pick', 'Clique sur Nouvelle session, choisis')} <i>todo-app</i> {t('or', 'ou')} <i>stats-py</i>, {t('then describe a task. It asks before running commands.', 'puis décris une tâche. Il demande avant de lancer des commandes.')}</> },
   ];

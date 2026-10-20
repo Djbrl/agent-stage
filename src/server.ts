@@ -20,7 +20,7 @@ import { enqueue, insightsOn, labelStep, summarizeFile, explainChange, commitMes
 import { GpuManager } from './gpu.ts';
 import { ClaudeCodeAgent } from './claudecode.ts';
 import { loadSettings, saveSettings, toConfig, listThreads, loadThread, saveThread, deleteThread, DATA_DIR,
-  engineOf, recipeOf, keyOf, apiCost, type Provider, type Settings, type Thread } from './store.ts';
+  engineOf, recipeOf, keyOf, apiCost, devMock, type Provider, type Settings, type Thread } from './store.ts';
 import { lessonNotes, exportSession, parseSession } from './session.ts';
 import { checks, ollamaModels, startPull, pullState, validModel } from './setup.ts';
 import { saveSketch, sketchesFrom } from './sketch.ts';
@@ -35,8 +35,8 @@ const freshSettings = () => loadSettings({
   ...env, gpuHourly: Number(process.env.GPU_HOURLY_USD ?? 0), tunnelHost: process.env.TUNNEL_HOST, brevInstance: process.env.BREV_INSTANCE,
 }, sandbox);
 let settings: Settings = await freshSettings();
-// `npm run mock` forces the scripted model regardless of saved settings.
-if (process.env.MODEL_API_KEY === 'mock') settings.activeProvider = 'mock';
+// `npm run mock` (and the tests) force the scripted model regardless of saved settings.
+if (devMock()) settings.activeProvider = 'mock';
 const provider = (id = settings.activeProvider): Provider => settings.providers.find((p) => p.id === id) ?? settings.providers[0];
 
 // ── health, tunnel and GPU time (for the active provider) ──────────────────
@@ -227,8 +227,8 @@ async function listFiles(root: string, dir = root, out: string[] = []): Promise<
   return out;
 }
 
-// What a demo visitor may pick: the live GPU (or the scripted model) and, when the manager offers it, Claude Sonnet.
-const demoModels = () => settings.providers.filter((p) => p.id === 'env' || p.id === 'mock' || p.id === 'claude' || p.id === 'cc-demo').map((p) => p.id);
+// What a demo visitor may pick: the live GPU and, when the manager offers Claude, Tandemcode's agent and Claude Code (Sonnet).
+const demoModels = () => settings.providers.filter((p) => p.id === 'env' || p.id === 'tandem' || p.id === 'cc-demo').map((p) => p.id);
 const mask = (k: string) => (!k ? '' : k.length <= 8 ? '••••' : `••••${k.slice(-4)}`);
 const publicSettings = () => ({ ...settings, recentFolders: PUBLIC ? [] : settings.recentFolders,
   providers: settings.providers.filter((p) => !PUBLIC || demoModels().includes(p.id)).map((p) => ({ ...p, apiKey: mask(keyOf(p)), ...(PUBLIC ? { baseUrl: '' } : {}) })) });
@@ -239,13 +239,11 @@ if (PUBLIC) {
   for (const p of settings.providers) if (p.id === 'env') p.name = process.env.MODEL_LABEL ?? p.model.split('/').pop()!;
   // Claude in the demo: Sonnet only, in our loop and through the Claude Code engine, via the manager (which holds the key).
   if (process.env.DEMO_CLAUDE === '1') {
-    settings.providers = settings.providers.filter((p) => p.id !== 'claude' && p.id !== 'cc-demo');
-    settings.providers.push(
-      { id: 'claude', name: 'Claude Sonnet 5.5', kind: 'anthropic', baseUrl: '', apiKey: '', model: 'claude-sonnet-5-5' },
-      { id: 'cc-demo', name: 'Claude Code · Sonnet 5.5', kind: 'claude-code', baseUrl: '', apiKey: '', model: 'claude-sonnet-5-5' },
-    );
-    if (!settings.providers.some((p) => p.id === 'env')) settings.activeProvider = 'claude'; // no live GPU: Claude by default
+    settings.providers = settings.providers.filter((p) => p.id !== 'cc-demo');
+    settings.providers.push({ id: 'cc-demo', name: 'Claude Code · Sonnet 5.5', kind: 'claude-code', baseUrl: '', apiKey: '', model: 'claude-sonnet-5-5' });
+    for (const p of settings.providers) if (p.id === 'tandem') Object.assign(p, { baseUrl: '', model: 'claude-sonnet-5-5' }); // through the manager
   }
+  settings.activeProvider = settings.providers.some((p) => p.id === 'env') ? 'env' : 'tandem';
   const blocked: Array<[string, RegExp]> = [['POST', /^\/api\/reset/], ['POST', /^\/api\/providers/], ['GET', /^\/api\/setup/], ['POST', /^\/api\/setup/], ['GET', /^\/api\/fs/], ['POST', /^\/api\/pick-folder/], ['POST', /^\/api\/gpu\//]];
   app.use('/api/*', async (c, next) => {
     if (blocked.some(([m, r]) => c.req.method === m && r.test(c.req.path))) return c.json({ error: 'Not available in the online demo' }, 403);
@@ -641,7 +639,7 @@ app.post('/api/reset', async (c) => {
   for (const d of ['threads', 'shots', 'summaries', 'shared']) await rm(join(DATA_DIR, d), { recursive: true, force: true });
   await rm(join(DATA_DIR, 'settings.json'), { force: true });
   settings = await freshSettings();
-  if (process.env.MODEL_API_KEY === 'mock') settings.activeProvider = 'mock';
+  if (devMock()) settings.activeProvider = 'mock';
   return c.json({ ok: true });
 });
 // Setting up an agent: requirement checks, and open models downloaded with Ollama.

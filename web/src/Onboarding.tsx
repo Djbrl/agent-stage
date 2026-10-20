@@ -83,7 +83,7 @@ export function Onboarding({ onCreated, onBrowse, onLogo }: { onCreated: (id: st
           <Icon name="folder" size={28} /><b>{t('Open a project', 'Ouvrir un projet')}</b><span>{t('Pick a folder on this computer. Nothing changes until you say yes.', 'Choisis un dossier sur cet ordinateur. Rien ne change avant ton oui.')}</span>
         </button>
         <button className="ob-choice ob-lime big" disabled={busy} onClick={() => start(null, true)}>
-          <Icon name="play" size={28} /><b>{t('Try the guided demo', 'Essayer la démo guidée')}</b><span>{t('An empty project and three ideas to start from. Takes a minute.', 'Un projet vide et trois idées pour démarrer. Ça prend une minute.')}</span>
+          <Icon name="play" size={28} /><b>{t('Start from scratch', 'Partir de zéro')}</b><span>{t('An empty project, a few ideas if you want one, and the agent builds whatever you ask.', 'Un projet vide, quelques idées si tu veux, et l’agent construit ce que tu lui demandes.')}</span>
         </button>
       </div>
       {recent.length > 0 && !me?.public && (

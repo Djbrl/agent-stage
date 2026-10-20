@@ -60,7 +60,7 @@ export function SettingsModal({ onClose, initialTab = 'models' }: { onClose: () 
 function Models() {
   const { settings, save } = useApp();
   const t = useT();
-  const [sel, setSel] = useState<string | 'add'>(settings?.activeProvider ?? 'mock');
+  const [sel, setSel] = useState<string | 'add'>(settings?.activeProvider ?? 'tandem');
   const [finished, setFinished] = useState<string | null>(null); // a setup that just finished keeps showing its "ready" screen
   if (!settings) return null;
   const selected = sel === 'add' ? null : settings.providers.find((p) => p.id === sel) ?? null;
@@ -124,7 +124,7 @@ function AgentDetails({ p, onRemoved }: { p: Provider; onRemoved: () => void }) 
   const r = recipeOf(draft);
   const active = settings.activeProvider === p.id;
   const remove = async () => {
-    await save({ providers: settings.providers.filter((o) => o.id !== p.id), ...(active ? { activeProvider: 'mock' } : {}) });
+    await save({ providers: settings.providers.filter((o) => o.id !== p.id), ...(active ? { activeProvider: 'tandem' } : {}) });
     onRemoved();
   };
   const runTest = async () => { setTest({ state: 'testing' }); setTest(await send('/api/providers/test', draft)); };

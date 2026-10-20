@@ -22,9 +22,13 @@ export const recipeOf = (p: Provider): Recipe => p.recipe ?? (p.kind === 'mock' 
   : p.tunnelHost || p.brevInstance ? 'gpu' : /:11434\b/.test(p.baseUrl) ? 'ollama' : /integrate\.api\.nvidia\.com/.test(p.baseUrl) ? 'nvidia' : 'openai');
 export const OLLAMA_URL = process.env.OLLAMA_HOST ? `http://${process.env.OLLAMA_HOST.replace(/^https?:\/\//, '')}` : 'http://localhost:11434';
 
-// The agents every install lists, set up or not.
+// The scripted model is only for tests and `npm run mock` (MODEL_API_KEY=mock): people get the real agent.
+export const devMock = () => process.env.MODEL_API_KEY === 'mock' && process.env.PUBLIC !== '1';
+const MOCK: Provider = { id: 'mock', name: 'Demo (scripted)', kind: 'mock', baseUrl: '', apiKey: '', model: 'mock', recipe: 'demo', builtin: true };
+
+// The agents every install lists, set up or not. The first one, Tandemcode's own agent on Claude Sonnet, is the default.
 export const BUILTINS: Provider[] = [
-  { id: 'mock', name: 'Demo (scripted)', kind: 'mock', baseUrl: '', apiKey: '', model: 'mock', recipe: 'demo' },
+  { id: 'tandem', name: 'Tandemcode agent', kind: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: '', model: 'claude-sonnet-5-5', recipe: 'claude' },
   { id: 'claude', name: 'Claude (Anthropic API)', kind: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: '', model: 'claude-opus-5-5', recipe: 'claude' },
   { id: 'claude-code', name: 'Claude Code', kind: 'claude-code', baseUrl: '', apiKey: '', model: 'claude-sonnet-5-5', recipe: 'claude-code' },
   { id: 'gpu', name: 'Your own GPU (Brev + vLLM)', kind: 'openai', baseUrl: 'http://localhost:18000/v1', apiKey: '', model: 'Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8', recipe: 'gpu',
@@ -36,10 +40,11 @@ export const BUILTINS: Provider[] = [
 // Older settings files: tag each agent with its recipe, and add the built-ins that are missing
 // (an existing agent of the same kind stands in for one, so nobody gets a duplicate).
 export function withBuiltins(list: Provider[]): Provider[] {
-  const out: Provider[] = list.map((p) => ({ ...p, recipe: recipeOf(p) }));
-  for (const b of BUILTINS) {
-    const same = out.find((p) => p.id === b.id) ?? out.find((p) => !p.builtin && p.recipe === b.recipe);
+  const out: Provider[] = list.filter((p) => p.kind !== 'mock' || devMock()).map((p) => ({ ...p, recipe: recipeOf(p) }));
+  for (const b of devMock() ? [MOCK, ...BUILTINS] : BUILTINS) {
+    const same = out.find((p) => p.id === b.id) ?? (b.id === 'tandem' ? undefined : out.find((p) => !p.builtin && p.recipe === b.recipe));
     if (same) Object.assign(same, { builtin: true });
+    else if (b.id === 'tandem') out.unshift({ ...b }); // the default leads the list, in older settings too
     else out.push({ ...b });
   }
   return out;
@@ -73,16 +78,16 @@ const read = async <T>(p: string, fallback: T): Promise<T> => {
 export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunnelHost?: string; brevInstance?: string }, sandbox: string): Promise<Settings> {
   await mkdir(THREADS, { recursive: true });
   const saved = await read<Settings | null>(join(DATA_DIR, 'settings.json'), null);
-  if (saved) return { ...saved, providers: withBuiltins(saved.providers), learn: saved.learn ?? { level: 'beginner', frequency: 'normal', language: 'en' } }; // files from before Learn mode
+  if (saved) return { ...saved, providers: withBuiltins(saved.providers), activeProvider: saved.activeProvider === 'mock' && !devMock() ? 'tandem' : saved.activeProvider, learn: saved.learn ?? { level: 'beginner', frequency: 'normal', language: 'en' } }; // files from before Learn mode
   // First run: the built-ins, plus the model from .env so existing setups keep working.
   const envGpu = Boolean(env.apiKey && env.apiKey !== 'mock' && env.tunnelHost);
-  const providers: Provider[] = BUILTINS.filter((b) => !(envGpu && b.recipe === 'gpu')).map((b) => ({ ...b }));
+  const providers: Provider[] = withBuiltins([]).filter((b) => !(envGpu && b.recipe === 'gpu'));
   if (env.apiKey && env.apiKey !== 'mock') providers.splice(1, 0, {
     id: 'env', name: env.tunnelHost ? `GPU · ${env.tunnelHost}` : 'From .env', kind: 'openai', recipe: env.tunnelHost ? 'gpu' : 'openai', installed: true, builtin: envGpu || undefined,
     baseUrl: env.baseUrl, apiKey: env.apiKey, model: env.model,
     gpuHourly: env.gpuHourly || undefined, tunnelHost: env.tunnelHost || undefined, brevInstance: env.brevInstance || undefined,
   });
-  const s: Settings = { providers, activeProvider: providers[1]?.id === 'env' ? 'env' : 'mock', approval: 'always', maxSteps: 30, recentFolders: [], // nothing seeded: a first run starts empty
+  const s: Settings = { providers, activeProvider: devMock() ? 'mock' : 'tandem', approval: 'always', maxSteps: 30, recentFolders: [], // nothing seeded: a first run starts empty
     learn: { level: 'beginner', frequency: 'normal', language: 'en' } };
   await saveSettings(s);
   return s;
