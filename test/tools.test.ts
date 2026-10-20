@@ -133,3 +133,11 @@ test('search and read skip binary files (a big .psd once froze the server)', asy
   assert.equal(await runTool(ctx(root), 'search', { text: 'needle' }), 'notes.txt:1: find the needle here');
   assert.match(await runTool(ctx(root), 'read_file', { path: 'art.psd' }), /binary/);
 });
+
+test('search cuts a minified line around the match (a built bundle once sent 500k characters)', async (t) => {
+  const root = await workspace(t);
+  await writeFile(join(root, 'bundle.js'), `${'a'.repeat(100_000)}needle${'b'.repeat(100_000)}`);
+  const out = await runTool(ctx(root), 'search', { text: 'needle' });
+  assert.ok(out.length < 400, `got ${out.length} chars`);
+  assert.match(out, /^bundle\.js:1: …a+needleb+… \(line of 200006 chars\)$/);
+});

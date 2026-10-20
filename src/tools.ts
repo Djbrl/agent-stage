@@ -33,6 +33,14 @@ async function inside(root: string, p: string): Promise<string> {
   return full;
 }
 
+// A matching line, cut around the match: a built or minified file is one huge line, and returning it whole once
+// sent 500k characters to the model for a single search.
+const around = (line: string, text: string, max = 240) => {
+  if (line.length <= max) return line;
+  const at = Math.max(0, line.indexOf(text) - (max - text.length) / 2);
+  return `${at > 0 ? '…' : ''}${line.slice(at, at + max)}… (line of ${line.length} chars)`;
+};
+
 async function walk(root: string, dir = root, out: string[] = []): Promise<string[]> {
   for (const e of await readdir(dir, { withFileTypes: true })) {
     if (e.name === 'node_modules' || e.name.startsWith('.') || e.isSymbolicLink()) continue; // links may lead outside
@@ -108,10 +116,10 @@ export async function runTool(ctx: ToolContext, name: string, args: any): Promis
         if (size > MAX_SEARCH_BYTES) continue;
         const buf = await readFile(p).catch(() => null);
         if (!buf || buf.subarray(0, 8000).includes(0)) continue;
-        buf.toString('utf8').split('\n').forEach((l, i) => l.includes(args.text) && hits.push(`${f}:${i + 1}: ${l.trim()}`));
+        buf.toString('utf8').split('\n').forEach((l, i) => l.includes(args.text) && hits.push(`${f}:${i + 1}: ${around(l.trim(), args.text)}`));
         if (hits.length >= 50) break;
       }
-      return hits.slice(0, 50).join('\n') || 'no matches';
+      return hits.slice(0, 50).join('\n').slice(0, 12_000) || 'no matches';
     }
     case 'run_command': {
       // Thrown, not returned: a denied or failing command must show as failed, not with a green tick.
