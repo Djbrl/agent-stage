@@ -1779,3 +1779,7 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 .tour-card .btn.ghost { color: #fff; border-color: rgba(255, 255, 255, .5); background: transparent; }
 .tour-card .btn.primary { background: #fff; color: #141414; border-color: #fff; }
 .wd-cap { display: block; margin-top: 10px; font-size: 13px; color: var(--mute); }
+
+/* The public landing page: what happened after "Try the demo". */
+.site-note { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 100; max-width: calc(100% - 32px);
+  background: #141414; color: #fff; padding: 12px 18px; border-radius: 12px; font: 500 15px/1.4 Figtree, system-ui, sans-serif; cursor: pointer; }

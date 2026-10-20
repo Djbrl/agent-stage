@@ -30,3 +30,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
   return <C.Provider value={{ settings, threads, threadsLoaded, me, save, refreshThreads }}>{children}</C.Provider>;
 }
+
+// The public landing page on Vercel (web/site): no server, so only the language lives here (in this browser).
+export function SiteProvider({ children }: { children: ReactNode }) {
+  const saved = (() => { try { return localStorage.getItem('siteLang'); } catch { return null; } })();
+  const [settings, setSettings] = useState<Settings>(() => ({ providers: [], activeProvider: '', approval: 'safe', maxSteps: 30, recentFolders: [],
+    learn: { level: 'beginner', frequency: 'normal', language: saved === 'fr' || saved === 'en' ? saved : 'en' } }));
+  const save = async (patch: Partial<Settings>) => {
+    const next = { ...settings, ...patch };
+    try { localStorage.setItem('siteLang', next.learn.language); } catch { /* private mode */ }
+    setSettings(next);
+    return next;
+  };
+  return <C.Provider value={{ settings, threads: [], threadsLoaded: true, me: null, save, refreshThreads: () => {} }}>{children}</C.Provider>;
+}

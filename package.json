@@ -10,7 +10,7 @@
   "scripts": {
     "agent": "node --env-file-if-exists=.env src/cli.ts",
     "dev": "node --env-file-if-exists=.env --watch src/server.ts",
-    "build": "vite build --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts && vite build --config web/vite.site.config.ts --logLevel warn",
     "start": "npm run build && node --env-file-if-exists=.env src/server.ts",
     "web": "vite --config web/vite.config.ts",
     "mock": "npm run build && node --env-file-if-exists=.env scripts/mock.ts",

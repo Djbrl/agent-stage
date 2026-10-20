@@ -1,2 +1,5 @@
 .vercel
 .env*
+# Built from web/site by npm run build
+index.html
+assets/
