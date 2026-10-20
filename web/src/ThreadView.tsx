@@ -38,7 +38,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   const problem = diagnose(health, serverDown, fr);
   const [selected, setSelected] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const ask = useAsk(id); // side questions in a floating window; the main agent keeps working
+  const ask = useAsk(id, state); // side questions in a floating window; the main agent keeps working. Also where details open
   const [chatW, setChatW] = useState(() => storedNumber('chatW', 400));
   useEffect(() => store('chatW', Math.round(chatW)), [chatW]);
   useEffect(() => { refreshThreads(); }, [state.running, state.timeline.length]);
@@ -114,8 +114,11 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   useEffect(() => { const r = () => setPhone(window.innerWidth <= 700); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r); }, []);
   useEffect(() => store('panelW', Math.round(panelW)), [panelW]);
   // Asking for a step (from the map, a work line or the steps button) shows it in the Steps tab.
-  const openSteps = (o: boolean) => { if (o) { setTab('steps'); setPanelOpen(true); } else if (tab === 'steps') setTab('chat'); };
-  const pickStep = (stepId: string) => { setSelected(stepId); setTab('steps'); setPanelOpen(true); };
+  // Anything you click to look at (a file or a step on the map, a step in the chat or the Steps list) opens in Scratchpad,
+  // which has room for the change and its explanation. The map lights it up meanwhile.
+  const look = (k: string | null) => { setSelected(k); if (k) ask.view(k); };
+  const openSteps = (o: boolean) => { if (!o && tab === 'steps') setTab('chat'); };
+  const pickStep = (stepId: string) => look(stepId);
   if (layout === 'studio') {
     const agentPanel = (
       <AgentPanel visible={tab === 'chat'} threadProvider={meta.providerId} state={state} title={meta.title} mode={meta.mode ?? 'build'} onMode={setMode} onCheckpoint={answerCheckpoint}
@@ -131,7 +134,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
       <HighlightContext.Provider value={{ paths: lit, set: (p) => setLit(p ?? []), known }}>
       <div className="studio">
         <Stage state={state} replay={replay} threadId={id} workspace={String(meta.workspace)} full left={left}
-          selected={selected} onSelect={(k) => { setSelected(k); if (k) openSteps(true); }} sheetOpen={tab === 'steps' && panelOpen} setSheetOpen={openSteps}
+          selected={selected} onSelect={look} sheetOpen={tab === 'steps' && panelOpen} setSheetOpen={openSteps}
           approve={approve} onCollapse={() => {}} lit={lit} onFollowing={setFollowing} />
         {panelOpen ? (
           <aside className="studio-panel" style={{ width: panelW }}>
@@ -152,7 +155,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
             <div className="studio-body">
               {/* The chat stays mounted so a half-typed prompt survives a look at the steps. */}
               <div className="studio-pane" hidden={tab !== 'chat'}>{agentPanel}</div>
-              {tab === 'steps' && <StepsSheet embedded state={state} selected={selected} onSelect={setSelected} onClose={() => setTab('chat')} threadId={id} replay={replay} />}
+              {tab === 'steps' && <StepsSheet embedded detailOutside state={state} selected={selected} onSelect={look} onClose={() => setTab('chat')} threadId={id} replay={replay} />}
               {tab === 'threads' && nav && (
                 <div className="studio-pane">
                   <Sidebar embedded railed={false} onToggle={() => {}} {...nav} onSelect={(t) => { if (t === id) setTab('chat'); nav.onSelect(t); }} />

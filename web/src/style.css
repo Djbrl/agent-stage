@@ -1857,3 +1857,18 @@ body:has(.above-composer .idea-tip) .agent-panel .timeline { padding-bottom: 260
 :root[data-theme][data-tone="stone"] .idea-tip .starter-ideas button:hover { background: var(--line); }
 
 .picker-menu .picker-check { color: var(--accent); flex: none; margin-left: 4px; }
+
+/* Scratchpad showing something you clicked (a file, a step): the detail flows in the window and scrolls with it,
+   so the change and its explanation get the room they need. */
+.sp-view { display: flex; flex-direction: column; gap: 10px; }
+.sp-view-title { font: 700 15px var(--sans); color: var(--text); padding-right: 64px; }
+.sp-view .sheet-detail { overflow: visible; flex: none; gap: 8px; }
+.sp-view .detail-bar { padding: 0; flex-wrap: wrap; gap: 6px; }
+.sp-view .explain { max-height: none; overflow: visible; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--raised); padding: 12px 14px; font-size: 13.5px; line-height: 1.6; }
+.sp-view .diff { flex: none; overflow: auto; max-height: none; border: 1px solid var(--line-soft); border-radius: 12px; }
+.sp-view .why, .sp-view .file-summary { margin: 0; font-size: 13.5px; line-height: 1.55; }
+.sp-view .output, .sp-view .shot { max-height: none; border-radius: 12px; }
+/* The drawing, enlarged: most of the screen, same strokes. */
+.sk-modal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: var(--scrim); padding: 24px; }
+.sk-modal-box { width: min(1200px, 100%); background: var(--surface); border-radius: 18px; padding: 16px; box-shadow: 0 24px 60px rgba(0,0,0,.3); --sketch-max-h: 76vh; }
+.sk-modal-box .sketch-page { margin: 0 auto; }

@@ -53,12 +53,12 @@ export function Markdown({ text, skip }: { text: string; skip?: string[] }) {
   })}</div>;
 }
 
-// A callout card: a bold heading, then the text. A long one shows a short preview and opens with "Show more".
+// A callout card: a bold heading, then the text, in full. A long one can be folded to a short preview ("Show less").
 const PREVIEW = 150; // px of text shown while folded
 function Callout({ kind, head, sub, body, fr, fold }: { kind: string; head: string; sub?: string; body: string; fr: boolean; fold: boolean }) {
   const inner = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true); // full text by default (also while it types); long ones can be folded
   useLayoutEffect(() => { if (inner.current) setLong(fold && inner.current.scrollHeight > PREVIEW + 40); }, [body, fold]);
   return (
     <div className={`callout ${kind} ${long && !open ? 'folded' : ''}`}>

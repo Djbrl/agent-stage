@@ -4,7 +4,10 @@
 // (POST /ask-thread) next to the main one, so the main agent keeps working. Every conversation is kept as a note:
 // an empty Scratchpad lists this session's notes, to reopen or delete.
 // One window is open at a time; up to 3 more wait as small pills at the bottom of the screen.
+// It's also where anything you click to look at opens (a file or a step on the map, a step in the chat or the Steps
+// list): its detail, the change and "Explain this change", with the box below to ask about it.
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAgent, type State } from './useAgent';
 import { SketchPad, emptySketch, isBlank, sketchToPng, sketchFromImage, type Sketch } from './Sketch';
 import { Icon } from './icons';
@@ -12,9 +15,11 @@ import { Markdown } from './Markdown';
 import { ago } from './api';
 import { QUIZ } from './Learned';
 import { useT, serverText, useLang } from './i18n';
+import { Detail, stepText } from './StepsSheet';
 
 type Win = { key: string; quote: string; code: boolean; sideId: string | null; shrunk: boolean; title: string; error?: string;
-  sketch: Sketch; drawing: boolean; sending?: boolean; sent?: boolean };
+  sketch: Sketch; drawing: boolean; sending?: boolean; sent?: boolean;
+  view?: string }; // a step id or a file path to show (what you clicked on the map, in the chat or in Steps)
 type Geo = { x: number; y: number; w: number; h: number };
 
 // Where a selection may start an ask: agent messages, step detail, diffs and code. Never inputs or the window itself.
@@ -61,8 +66,11 @@ function dockGeo(): Geo {
 }
 
 // The layer: selection button, ⌘K, the windows and the pills. ThreadView renders `layer` and calls `open`.
-export function useAsk(threadId: string) {
+export function useAsk(threadId: string, state?: State) {
   const [wins, setWins] = useState<Win[]>([]);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const fr = useLang() === 'fr';
   const winsRef = useRef(wins);
   winsRef.current = wins;
   const patch = (key: string, p: Partial<Win>) => setWins((ws) => ws.map((w) => (w.key === key ? { ...w, ...p } : w)));
@@ -120,11 +128,26 @@ export function useAsk(threadId: string) {
     if (question) send(key, q, question);
     window.getSelection()?.removeAllRanges();
   };
+  // Show a step or a file. The open window takes it if it's only showing something (no conversation, nothing typed
+  // or drawn); otherwise a new one opens and that one waits as a pill.
+  const view = (k: string) => {
+    const s = stateRef.current?.steps.find((x) => x.id === k);
+    const title = s ? stepText(s, fr) : k.split('/').pop() ?? k;
+    const quote = s ? `${stepText(s, false)}${s.target.includes('/') && !s.target.startsWith('$') ? ` (${s.target})` : ''}` : `The file ${k}`;
+    const cur = winsRef.current.find((w) => !w.shrunk);
+    if (cur && !cur.sideId && !cur.drawing && (cur.view || !cur.quote)) { patch(cur.key, { view: k, quote, title, error: undefined }); return; }
+    const key = crypto.randomUUID();
+    setWins((ws) => {
+      let next = ws.map((w) => ({ ...w, shrunk: true }));
+      while (next.length >= MAX_PILLS + 1) next = next.slice(1);
+      return [...next, { key, quote, code: false, sideId: null, shrunk: false, title, sketch: emptySketch(), drawing: false, view: k }];
+    });
+  };
   const close = (key: string) => setWins((ws) => ws.filter((x) => x.key !== key));
   const restore = (key: string) => setWins((ws) => ws.map((w) => ({ ...w, shrunk: w.key !== key })));
   // Notes: open one again in this window, or start a fresh one.
   const openNote = (key: string, id: string, title: string) => patch(key, { sideId: id, title, quote: '', error: undefined, sketch: emptySketch(), drawing: false });
-  const fresh = (key: string) => patch(key, { sideId: null, title: '', quote: '', error: undefined, sketch: emptySketch(), drawing: false });
+  const fresh = (key: string) => patch(key, { sideId: null, title: '', quote: '', error: undefined, sketch: emptySketch(), drawing: false, view: undefined });
 
 
   // The floating "Ask about this" button follows the selection.
@@ -167,7 +190,7 @@ export function useAsk(threadId: string) {
         <AskWindow key={w.key} win={w} onSend={(q) => send(w.key, w.quote, q)} onFollow={(q) => w.sideId && follow(w.key, w.sideId, q)}
           onTask={(q) => toTask(w.key, w.quote, q)} onSketch={(sk) => patch(w.key, { sketch: sk })} onDraw={(on) => patch(w.key, { drawing: on })}
           onClose={() => close(w.key)} onShrink={() => patch(w.key, { shrunk: true })} threadId={threadId}
-          onOpenNote={(id, title) => openNote(w.key, id, title)} onFresh={() => fresh(w.key)} />
+          onOpenNote={(id, title) => openNote(w.key, id, title)} onFresh={() => fresh(w.key)} state={state} />
       ))}
       {pills.length > 0 && (
         <div className="ask-pills">
@@ -180,16 +203,16 @@ export function useAsk(threadId: string) {
       )}
     </>
   );
-  return { open, layer };
+  return { open, view, layer };
 }
 
 type WinProps = { win: Win; onSend: (q: string) => void; onFollow: (q: string) => void; onTask: (q: string) => void;
   onSketch: (s: Sketch) => void; onDraw: (on: boolean) => void; onClose: () => void; onShrink: () => void;
-  threadId: string; onOpenNote: (id: string, title: string) => void; onFresh: () => void };
+  threadId: string; onOpenNote: (id: string, title: string) => void; onFresh: () => void; state?: State };
 
 // The window: no title, just room. What you asked about (if anything), the answers, the page you draw on,
 // then the box to type in; under it, + to draw or bring in a screenshot, and Send to your current thread.
-function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, onShrink, threadId, onOpenNote, onFresh }: WinProps) {
+function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, onShrink, threadId, onOpenNote, onFresh, state }: WinProps) {
   const t = useT();
   const fr = useLang() === 'fr';
   const [geo, setGeo] = useState<Geo>(dockGeo);
@@ -197,7 +220,15 @@ function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, o
   const [text, setText] = useState('');
   const [running, setRunning] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
+  const [big, setBig] = useState(false); // the page you draw on, enlarged
+  // A page to draw on (or a screenshot) just came in: scroll down to it, so you see it arrived.
+  useEffect(() => {
+    if (!win.drawing) return;
+    const r = requestAnimationFrame(() => { const el = body.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); });
+    return () => cancelAnimationFrame(r);
+  }, [win.drawing, win.sketch.bg]);
   // Follow the chat panel: it can be resized, folded, or the window resized.
   useEffect(() => {
     if (win.shrunk) return;
@@ -214,13 +245,14 @@ function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, o
     if (win.shrunk) return;
     const k = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (big) { e.preventDefault(); setBig(false); return; } // the enlarged drawing closes first
       const a = document.activeElement;
       if (typing(a) && !box.current?.contains(a)) return;
       e.preventDefault(); onClose();
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [win.shrunk]);
+  }, [win.shrunk, big]);
 
   // Paste a screenshot: it becomes the page to draw on (only when you're in this window, or nowhere in particular).
   const bring = (f: File | undefined | null) => { if (f?.type.startsWith('image/')) void sketchFromImage(f, win.sketch).then((sk) => { onSketch(sk); onDraw(true); }); };
@@ -244,6 +276,8 @@ function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, o
   const ready = Boolean(text.trim()) || sketched;
   const send = () => { if (!ready || busy) return; (asked ? onFollow : onSend)(text.trim() || fallback); setText(''); };
   const toThread = () => { if (!ready || busy) return; onTask(text.trim() || fallback); setText(''); };
+  const viewStep = win.view ? state?.steps.find((s) => s.id === win.view) : undefined;
+  const viewFile = win.view ? (viewStep ? (viewStep.target.startsWith('$') ? null : viewStep.target) : win.view) : null;
   const placeholder = asked ? t('Ask a follow-up…', 'Pose une autre question…') : win.quote ? t('Ask about this…', 'Pose ta question là-dessus…') : t('Ask anything about the task…', 'Pose une question sur la tâche…');
 
   return (
@@ -255,10 +289,17 @@ function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, o
         <button className="icon-btn" onClick={onClose} title={t('Close (Esc). Your notes are kept.', 'Fermer (Échap). Tes notes sont gardées.')} aria-label={t('Close', 'Fermer')}><Icon name="x" size={13} /></button>
       </div>
       {win.sent ? <div className="sp-body sent"><Icon name="check" size={18} /><span>{t('Sent to your thread', 'Envoyé à ton fil')}</span></div> : <>
-        <div className="sp-body">
-          {asked ? <Conversation sideId={win.sideId!} code={win.code} onRunning={setRunning} />
-            : win.quote ? <Quote text={win.quote} code={win.code} /> : null}
-          {win.drawing && <SketchPad value={win.sketch} onChange={onSketch} />}
+        <div className="sp-body" ref={body}>
+          {win.view && state && <div className="sp-view"><div className="sp-view-title">{win.title}</div><Detail state={state} step={viewStep} filePath={viewFile} threadId={threadId} /></div>}
+          {asked ? <Conversation sideId={win.sideId!} code={win.code} onRunning={setRunning} hideQuote={Boolean(win.view)} />
+            : win.quote && !win.view ? <Quote text={win.quote} code={win.code} /> : null}
+          {win.drawing && !big && <SketchPad value={win.sketch} onChange={onSketch} onExpand={() => setBig(true)} />}
+          {win.drawing && big && createPortal( // on the page itself: the window would otherwise clip it
+            <div className="sk-modal" role="dialog" aria-label={t('Drawing, enlarged', 'Dessin agrandi')} onClick={(e) => { if (e.target === e.currentTarget) setBig(false); }}>
+              <div className="sk-modal-box">
+                <SketchPad value={win.sketch} onChange={onSketch} onExpand={() => setBig(false)} expanded />
+              </div>
+            </div>, document.body)}
           {win.drawing && !asked && <p className="sp-tip">{win.sketch.bg
             ? t('Circle or underline the part you mean, then say below what should change. ⌘Z takes back a stroke.', 'Entoure ou souligne la partie qui compte, puis dis en dessous ce qui doit changer. ⌘Z annule un trait.')
             : t('Sketch a layout, a flow or an idea: boxes and arrows are plenty. ⌘Z takes back a stroke.', 'Dessine une mise en page, un parcours ou une idée : des boîtes et des flèches suffisent. ⌘Z annule un trait.')}</p>}
@@ -350,7 +391,8 @@ function Quote({ text, code }: { text: string; code: boolean }) {
 }
 
 // The side session's conversation, in a lighter view than the main chat.
-function Conversation({ sideId, code, onRunning }: { sideId: string; code: boolean; onRunning: (r: boolean) => void }) {
+// hideQuote: the window already shows what was asked about (a step or a file), so the quote isn't repeated.
+function Conversation({ sideId, code, onRunning, hideQuote }: { sideId: string; code: boolean; onRunning: (r: boolean) => void; hideQuote?: boolean }) {
   const { state } = useAgent(sideId);
   const t = useT();
   const fr = useLang() === 'fr';
@@ -359,17 +401,17 @@ function Conversation({ sideId, code, onRunning }: { sideId: string; code: boole
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [state.timeline.length, state.running]);
   return (
     <div className="sp-chat">
-      {state.timeline.map((e, i) => <AskEntry key={i} e={e} state={state} fr={fr} code={code} />)}
+      {state.timeline.map((e, i) => <AskEntry key={i} e={e} state={state} fr={fr} code={code} hideQuote={hideQuote} />)}
       {state.running && <div className="ask-thinking muted"><span className="spin" /> {t('Thinking', 'Réflexion')}</div>}
       <div ref={end} />
     </div>
   );
 }
 
-function AskEntry({ e, state, fr, code }: { e: State['timeline'][number]; state: State; fr: boolean; code: boolean }) {
+function AskEntry({ e, state, fr, code, hideQuote }: { e: State['timeline'][number]; state: State; fr: boolean; code: boolean; hideQuote?: boolean }) {
   if (e.kind === 'user') {
     const { quote, question } = parseAsk(e.text);
-    return <div className="ask-you">{quote && <Quote text={quote} code={code} />}<Sketches names={e.images} />{question && <div className="bubble-user">{question === QUIZ ? (fr ? 'Interroge-moi' : 'Quiz me') : question}</div>}</div>;
+    return <div className="ask-you">{quote && !hideQuote && <Quote text={quote} code={code} />}<Sketches names={e.images} />{question && <div className="bubble-user">{question === QUIZ ? (fr ? 'Interroge-moi' : 'Quiz me') : question}</div>}</div>;
   }
   if (e.kind === 'thought') return <div className="thought"><Markdown text={e.text} /></div>;
   if (e.kind === 'done') return <div className="final"><Markdown text={serverText(e.text, fr)} /></div>;
