@@ -38,7 +38,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   const problem = diagnose(health, serverDown, fr);
   const [selected, setSelected] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const ask = useAsk(id, state); // side questions in a floating window; the main agent keeps working. Also where details open
+  const ask = useAsk(id, state, replay.steps); // side questions in a floating window; the main agent keeps working. Also where details open
   const [chatW, setChatW] = useState(() => storedNumber('chatW', 400));
   useEffect(() => store('chatW', Math.round(chatW)), [chatW]);
   useEffect(() => { refreshThreads(); }, [state.running, state.timeline.length]);

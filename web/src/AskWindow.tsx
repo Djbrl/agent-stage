@@ -8,7 +8,7 @@
 // list): its detail, the change and "Explain this change", with the box below to ask about it.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useAgent, type State } from './useAgent';
+import { useAgent, type State, type Step } from './useAgent';
 import { SketchPad, emptySketch, isBlank, sketchToPng, sketchFromImage, type Sketch } from './Sketch';
 import { Icon } from './icons';
 import { Markdown } from './Markdown';
@@ -19,7 +19,8 @@ import { Detail, stepText } from './StepsSheet';
 
 type Win = { key: string; quote: string; code: boolean; sideId: string | null; shrunk: boolean; title: string; error?: string;
   sketch: Sketch; drawing: boolean; sending?: boolean; sent?: boolean;
-  view?: string }; // a step id or a file path to show (what you clicked on the map, in the chat or in Steps)
+  view?: string; // a step id or a file path to show (what you clicked on the map, in the chat or in Steps)
+  draft?: boolean }; // something is typed: the window keeps what it's about
 type Geo = { x: number; y: number; w: number; h: number };
 
 // Where a selection may start an ask: agent messages, step detail, diffs and code. Never inputs or the window itself.
@@ -66,10 +67,12 @@ function dockGeo(): Geo {
 }
 
 // The layer: selection button, ⌘K, the windows and the pills. ThreadView renders `layer` and calls `open`.
-export function useAsk(threadId: string, state?: State) {
+// steps: every step of the session. `state` can be rewound to an earlier step (the map replays it), and a later
+// step you click must still be found.
+export function useAsk(threadId: string, state?: State, steps?: Step[]) {
   const [wins, setWins] = useState<Win[]>([]);
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  const stepsRef = useRef(steps);
+  stepsRef.current = steps ?? state?.steps;
   const fr = useLang() === 'fr';
   const winsRef = useRef(wins);
   winsRef.current = wins;
@@ -131,11 +134,11 @@ export function useAsk(threadId: string, state?: State) {
   // Show a step or a file. The open window takes it if it's only showing something (no conversation, nothing typed
   // or drawn); otherwise a new one opens and that one waits as a pill.
   const view = (k: string) => {
-    const s = stateRef.current?.steps.find((x) => x.id === k);
+    const s = stepsRef.current?.find((x) => x.id === k);
     const title = s ? stepText(s, fr) : k.split('/').pop() ?? k;
     const quote = s ? `${stepText(s, false)}${s.target.includes('/') && !s.target.startsWith('$') ? ` (${s.target})` : ''}` : `The file ${k}`;
     const cur = winsRef.current.find((w) => !w.shrunk);
-    if (cur && !cur.sideId && !cur.drawing && (cur.view || !cur.quote)) { patch(cur.key, { view: k, quote, title, error: undefined }); return; }
+    if (cur && !cur.sideId && !cur.drawing && !cur.draft && (cur.view || !cur.quote)) { patch(cur.key, { view: k, quote, title, error: undefined }); return; }
     const key = crypto.randomUUID();
     setWins((ws) => {
       let next = ws.map((w) => ({ ...w, shrunk: true }));
@@ -190,7 +193,8 @@ export function useAsk(threadId: string, state?: State) {
         <AskWindow key={w.key} win={w} onSend={(q) => send(w.key, w.quote, q)} onFollow={(q) => w.sideId && follow(w.key, w.sideId, q)}
           onTask={(q) => toTask(w.key, w.quote, q)} onSketch={(sk) => patch(w.key, { sketch: sk })} onDraw={(on) => patch(w.key, { drawing: on })}
           onClose={() => close(w.key)} onShrink={() => patch(w.key, { shrunk: true })} threadId={threadId}
-          onOpenNote={(id, title) => openNote(w.key, id, title)} onFresh={() => fresh(w.key)} state={state} />
+          onOpenNote={(id, title) => openNote(w.key, id, title)} onFresh={() => fresh(w.key)} state={state} steps={steps}
+          onDraft={(d) => { if (Boolean(w.draft) !== d) patch(w.key, { draft: d }); }} />
       ))}
       {pills.length > 0 && (
         <div className="ask-pills">
@@ -208,16 +212,17 @@ export function useAsk(threadId: string, state?: State) {
 
 type WinProps = { win: Win; onSend: (q: string) => void; onFollow: (q: string) => void; onTask: (q: string) => void;
   onSketch: (s: Sketch) => void; onDraw: (on: boolean) => void; onClose: () => void; onShrink: () => void;
-  threadId: string; onOpenNote: (id: string, title: string) => void; onFresh: () => void; state?: State };
+  threadId: string; onOpenNote: (id: string, title: string) => void; onFresh: () => void; state?: State; steps?: Step[]; onDraft?: (d: boolean) => void };
 
 // The window: no title, just room. What you asked about (if anything), the answers, the page you draw on,
 // then the box to type in; under it, + to draw or bring in a screenshot, and Send to your current thread.
-function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, onShrink, threadId, onOpenNote, onFresh, state }: WinProps) {
+function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, onShrink, threadId, onOpenNote, onFresh, state, steps, onDraft }: WinProps) {
   const t = useT();
   const fr = useLang() === 'fr';
   const [geo, setGeo] = useState<Geo>(dockGeo);
   const [phone, setPhone] = useState(() => window.innerWidth < 600);
   const [text, setText] = useState('');
+  useEffect(() => { onDraft?.(Boolean(text.trim())); }, [Boolean(text.trim())]);
   const [running, setRunning] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
@@ -276,7 +281,7 @@ function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, o
   const ready = Boolean(text.trim()) || sketched;
   const send = () => { if (!ready || busy) return; (asked ? onFollow : onSend)(text.trim() || fallback); setText(''); };
   const toThread = () => { if (!ready || busy) return; onTask(text.trim() || fallback); setText(''); };
-  const viewStep = win.view ? state?.steps.find((s) => s.id === win.view) : undefined;
+  const viewStep = win.view ? (steps ?? state?.steps)?.find((s) => s.id === win.view) : undefined;
   const viewFile = win.view ? (viewStep ? (viewStep.target.startsWith('$') ? null : viewStep.target) : win.view) : null;
   const placeholder = asked ? t('Ask a follow-up…', 'Pose une autre question…') : win.quote ? t('Ask about this…', 'Pose ta question là-dessus…') : t('Ask anything about the task…', 'Pose une question sur la tâche…');
 
@@ -290,7 +295,7 @@ function AskWindow({ win, onSend, onFollow, onTask, onSketch, onDraw, onClose, o
       </div>
       {win.sent ? <div className="sp-body sent"><Icon name="check" size={18} /><span>{t('Sent to your thread', 'Envoyé à ton fil')}</span></div> : <>
         <div className="sp-body" ref={body}>
-          {win.view && state && <div className="sp-view"><div className="sp-view-title">{win.title}</div><Detail state={state} step={viewStep} filePath={viewFile} threadId={threadId} /></div>}
+          {win.view && state && <div className="sp-view"><div className="sp-view-title">{win.title}</div><Detail key={win.view} state={state} step={viewStep} filePath={viewFile} threadId={threadId} /></div>}
           {asked ? <Conversation sideId={win.sideId!} code={win.code} onRunning={setRunning} hideQuote={Boolean(win.view)} />
             : win.quote && !win.view ? <Quote text={win.quote} code={win.code} /> : null}
           {win.drawing && !big && <SketchPad value={win.sketch} onChange={onSketch} onExpand={() => setBig(true)} />}
