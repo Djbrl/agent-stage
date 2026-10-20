@@ -11,7 +11,7 @@ import { stepText } from './StepsSheet';
 import { Markdown } from './Markdown';
 import { useApp } from './useSettings';
 import { useHighlight } from './highlight';
-import { engineOf, agentName, isReady, type Engine } from './api';
+import { engineOf, agentName, isReady, shownName, type Engine } from './api';
 import type { HealthView } from './useHealth';
 import { GpuPanel, type GpuView } from './useGpu';
 import { Learned, QUIZ } from './Learned';
@@ -169,8 +169,8 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
                     {onKeep && !later && <KeepButton disabled={state.running} onKeep={() => onKeep(e.ref!)} fr={fr} />}
                     <button className="btn ghost sm" disabled={state.running}
                       title={later ? t('Puts back the files this task and the later ones changed', 'Remet les fichiers changés par cette tâche et les suivantes') : t('Puts back the files this task changed', 'Remet les fichiers changés par cette tâche')}
-                      onClick={() => confirmAsk(later ? { title: t('Undo this task and every task after it?', 'Annuler cette tâche et toutes les suivantes ?'), body: t('The files they changed go back to how they were before.', 'Les fichiers qu’elles ont changés reviennent comme avant.'), ok: t('Undo them', 'Les annuler') }
-                        : { title: t('Undo this task?', 'Annuler cette tâche ?'), body: t('The files it changed go back to how they were before.', 'Les fichiers qu’elle a changés reviennent comme avant.'), ok: t('Undo it', 'L’annuler') }).then((yes) => yes && onUndo!(e.ref!))}>
+                      onClick={() => confirmAsk(later ? { title: t('Undo this task and every task after it?', 'Annuler cette tâche et toutes les suivantes ?'), body: t('The files they changed go back to how they were before.', 'Les fichiers qu’elles ont changés reviennent comme avant.'), ok: t('Undo them', 'Les défaire'), cancel: t('Keep the changes', 'Garder les changements') }
+                        : { title: t('Undo this task?', 'Annuler cette tâche ?'), body: t('The files it changed go back to how they were before.', 'Les fichiers qu’elle a changés reviennent comme avant.'), ok: t('Undo it', 'La défaire'), cancel: t('Keep the changes', 'Garder les changements') }).then((yes) => yes && onUndo!(e.ref!))}>
                       <Icon name="undo" size={12} /> {t('Undo', 'Annuler')}
                     </button>
                   </>)}
@@ -403,8 +403,8 @@ function TokenMeter({ tokens, engine }: { tokens: State['tokens']; engine?: Engi
   const cost = tokens.cost ? ` (${t('about', 'environ')} $${tokens.cost.toFixed(2)})` : '';
   return (
     <span className={`token-meter ${full ? '' : 'quiet'}`}>
-      <span className="tm-btn" title={t(`The model reads about ${tokens.context.toLocaleString()} tokens per step; ${tokens.total.toLocaleString()} used in this session${cost}.${full ? ' The chat is getting long: ⋯ → Summarize the chat so far.' : ''}`,
-        `Le modèle lit environ ${tokens.context.toLocaleString('fr')} tokens par étape ; ${tokens.total.toLocaleString('fr')} utilisés dans cette session${cost}.${full ? ' La conversation devient longue : ⋯ → Résumer la conversation.' : ''}`)}>
+      <span className="tm-btn" title={t(`Tokens are the bits of text the model reads (about ¾ of a word each). The model reads about ${tokens.context.toLocaleString()} tokens per step; ${tokens.total.toLocaleString()} used in this session${cost}.${full ? ' The chat is getting long: ⋯ → Summarize the chat so far.' : ''}`,
+        `Les tokens sont les morceaux de texte que lit le modèle (environ ¾ de mot chacun). Le modèle lit environ ${tokens.context.toLocaleString('fr')} tokens par étape ; ${tokens.total.toLocaleString('fr')} utilisés dans cette session${cost}.${full ? ' La conversation devient longue : ⋯ → Résumer la conversation.' : ''}`)}>
         {k(tokens.context)}<span className="muted"> / {k(tokens.total)}</span>
       </span>
     </span>
@@ -434,7 +434,7 @@ function ModelPicker({ disabled, onOpenSettings, health, serverDown, gpu }: { di
     : !active || !isReady(active) ? t('not set up yet', 'pas encore configuré')
     : !m || m.state === 'ok' || m.state === 'mock' || m.state === 'checking' ? ''
     : ({ auth: t('key refused', 'clé refusée'), missing: t('model not found', 'modèle introuvable'), unreachable: t('can’t reach it', 'injoignable') } as Record<string, string>)[m.state] ?? t('not answering', 'ne répond pas');
-  const name = active ? (engineOf(active) === 'claude-code' && !active.name.startsWith('Claude Code') ? `Claude Code · ${active.name}` : active.name) : t('no model', 'aucun modèle');
+  const name = active ? (engineOf(active) === 'claude-code' && !active.name.startsWith('Claude Code') ? `Claude Code · ${active.name}` : shownName(active.name, fr)) : t('no model', 'aucun modèle');
   const g = gpu?.gpu?.managed ? gpu.gpu : null;
   return (
     <div className="picker" ref={wrap}>
@@ -453,7 +453,8 @@ function ModelPicker({ disabled, onOpenSettings, health, serverDown, gpu }: { di
                 <div className="picker-head">{agentName(g, fr)}</div>
                 {list.map((p) => (
                   <button key={p.id} className={p.id === settings.activeProvider ? 'on' : ''} onClick={() => { save({ activeProvider: p.id }).catch(() => {}); setOpen(false); }}>
-                    <span>{p.name.replace(/^Claude Code · /, '')}</span><span className="muted mono">{p.kind === 'mock' ? t('demo', 'démo') : p.model}</span>
+                    <span>{shownName(p.name.replace(/^Claude Code · /, ''), fr)}</span><span className="muted mono">{p.kind === 'mock' ? t('demo', 'démo') : p.model}</span>
+                    {p.id === settings.activeProvider && <Icon name="check" size={12} className="picker-check" />}
                   </button>
                 ))}
               </div>

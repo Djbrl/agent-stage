@@ -16,9 +16,13 @@ function inline(text: string, key = 0): ReactNode[] {
     else out.push(<em key={i++}>{inline(t.slice(1, -1), i * 100)}</em>);
     last = m.index + t.length;
   }
-  if (last < text.length) out.push(text.slice(last));
+  // While a reply types out, an unclosed ** or ` can trail at the end: hide the marker instead of showing it raw.
+  if (last < text.length) out.push(text.slice(last).replace(/\*\*|`/g, ''));
   return out;
 }
+
+// One line of text with **bold**, *italic* and `code`, for short strings outside a reply (concept lines, exercises).
+export function Inline({ text }: { text: string }) { return <>{inline(text)}</>; }
 
 const CALLOUT = /^✦\s*(Build checkpoint|Design checkpoint|Implementation checkpoint|Implementation report|System check|Concept|Why this matters|What you learned)\s*:?\s*(.*)$/i;
 
@@ -40,17 +44,19 @@ export function Markdown({ text, skip }: { text: string; skip?: string[] }) {
     if (!m) return <Plain key={i} text={part} />;
     const kind = m[1].toLowerCase().replace(/\s+/g, '-');
     if (skip?.includes(kind)) return null;
-    return <Callout key={i} kind={kind} head={HEAD[kind]?.[fr ? 1 : 0] ?? m[1]} sub={m[2]} body={rest.join('\n').trim()} fr={fr} />;
+    // The last card usually ends with what the agent asks you: it never folds, nor do "your turn" cards.
+    const fold = i < parts.length - 1 && !kind.endsWith('checkpoint');
+    return <Callout key={i} kind={kind} head={HEAD[kind]?.[fr ? 1 : 0] ?? m[1]} sub={m[2]} body={rest.join('\n').trim()} fr={fr} fold={fold} />;
   })}</div>;
 }
 
 // A callout card: a bold heading, then the text. A long one shows a short preview and opens with "Show more".
 const PREVIEW = 150; // px of text shown while folded
-function Callout({ kind, head, sub, body, fr }: { kind: string; head: string; sub?: string; body: string; fr: boolean }) {
+function Callout({ kind, head, sub, body, fr, fold }: { kind: string; head: string; sub?: string; body: string; fr: boolean; fold: boolean }) {
   const inner = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
   const [open, setOpen] = useState(false);
-  useLayoutEffect(() => { if (inner.current) setLong(inner.current.scrollHeight > PREVIEW + 40); }, [body]);
+  useLayoutEffect(() => { if (inner.current) setLong(fold && inner.current.scrollHeight > PREVIEW + 40); }, [body, fold]);
   return (
     <div className={`callout ${kind} ${long && !open ? 'folded' : ''}`}>
       <div className="callout-head">{head}{sub ? <span>{fr ? ' : ' : ': '}{sub}</span> : null}</div>

@@ -296,7 +296,15 @@ function Notes({ threadId, onOpen }: { threadId: string; onOpen: (id: string, ti
   useEffect(() => { void load(); }, [threadId]);
   const [asking, setAsking] = useState<string | null>(null); // the note whose × was pressed: it asks inline
   const remove = (n: Note) => { setAsking(null); fetch(`/api/threads/${n.id}`, { method: 'DELETE' }).then(load); };
-  if (!notes?.length) return null;
+  if (!notes) return null;
+  // No notes yet: say what this window is for, instead of an empty page.
+  if (!notes.length) return (
+    <div className="sp-empty">
+      <b>{t('Your Scratchpad', 'Ton Brouillon')}</b>
+      <p>{t('Ask a side question here: the agent keeps working, and the answer is kept in your notes. With + you can also draw an idea or mark up a screenshot.',
+        'Pose une question à part ici : l’agent continue son travail, et la réponse reste dans tes notes. Avec + tu peux aussi dessiner une idée ou annoter une capture.')}</p>
+    </div>
+  );
   return (
     <div className="sp-notes">
       <div className="sp-notes-head">{t('Your notes', 'Tes notes')}</div>

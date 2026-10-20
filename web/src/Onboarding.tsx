@@ -104,7 +104,6 @@ export function Onboarding({ onCreated, onBrowse, onLogo }: { onCreated: (id: st
           <i style={{ width: `${(step / (STEPS - 1)) * 100}%` }} />
           <span className="ob-dot" style={{ left: `${(step / (STEPS - 1)) * 100}%` }} />
         </div>
-        <span className="ob-count">{step + 1}/{STEPS}</span>
       </header>
       <main className="ob-stage" key={step}>{screens[step]}</main>
       <footer className="ob-foot">

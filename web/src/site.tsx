@@ -16,7 +16,7 @@ function Site() {
     const status = url ? await fetch(`${url}/__status`, { cache: 'no-store', signal: AbortSignal.timeout(6000) }).then((r) => r.json()).catch(() => null) : null;
     if (!url || !status) return setNote(t('The live demo is offline right now. Come back a little later.', 'La démo est hors ligne pour le moment. Reviens un peu plus tard.'));
     if (status.free === false) return setNote(t('Every sandbox is busy. Try again in a few minutes.', 'Tous les bacs à sable sont pris. Réessaie dans quelques minutes.'));
-    location.href = url;
+    location.href = `${url.replace(/\/$/, '')}/?lang=${t('en', 'fr')}`; // the demo speaks the language picked here
   };
   return <>
     <Landing onStart={() => void start()} />

@@ -8,7 +8,7 @@ import { chat, type ModelConfig } from './model.ts';
 import { DATA_DIR, type Provider, type Settings } from './store.ts';
 
 const CACHE = join(DATA_DIR, 'summaries');
-const lang = (s: Settings) => (s.learn.language === 'fr' ? ' Answer in French.' : '');
+const lang = (s: Settings) => (s.learn.language === 'fr' ? ' Answer in French, addressing the user as « tu », never « vous ».' : '');
 const level = (s: Settings) => `The reader is a ${s.learn.level} programmer.`;
 
 export function insightsOn(s: Settings, p: Provider) {

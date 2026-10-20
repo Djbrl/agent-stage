@@ -107,7 +107,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
   const tab: Tab = (tabPicked === 'steps' && !showSteps) || (tabPicked === 'threads' && !showThreads) ? 'chat' : tabPicked;
   // The Steps list is the replay: leaving it puts the map back to now.
   useEffect(() => { if (tab !== 'steps' && replay.active && !meta.shared) replay.live(); }, [tab]);
-  const tips = <Tips state={state} following={following} replaying={replay.active} shared={Boolean(meta.shared)} />;
+  const tips = <Tips state={state} following={following} replaying={replay.active} shared={Boolean(meta.shared)} sandbox={Boolean(me?.public)} />;
   const [panelW, setPanelW] = useState(() => storedNumber('panelW', 460));
   const [panelOpen, setPanelOpen] = useState(true);
   const [phone, setPhone] = useState(() => window.innerWidth <= 700);
@@ -140,7 +140,7 @@ export function ThreadView({ id, onOpenSettings, onMissing, layout = 'classic', 
                 <div className="studio-tabs">
                   {showThreads && <button className={`tab-threads ${tab === 'threads' ? 'on' : ''}`} onClick={() => setTab('threads')}>{t('Sessions', 'Sessions')}</button>}
                   <button className={`tab-chat ${tab === 'chat' ? 'on' : ''}`} onClick={() => setTab('chat')}>{t('Chat', 'Chat')}{state.running && !replay.active && <span className="live-dot" />}</button>
-                  {showSteps && <button className={`tab-steps ${tab === 'steps' ? 'on' : ''}`} onClick={() => setTab('steps')}>{t('Steps', 'Étapes')}<span className="count">{state.steps.length}</span></button>}
+                  {showSteps && <button className={`tab-steps ${tab === 'steps' ? 'on' : ''}`} onClick={() => setTab('steps')}>{t('Steps', 'Étapes')}<span className="count">{replay.steps.length}</span></button>}
                 </div>
               ) : <span className="spacer" />}
               {/* Until there's a Threads tab, a new thread and the settings stay one click away. */}

@@ -22,8 +22,16 @@ export function App() {
 }
 
 function Shell() {
-  const { threads, threadsLoaded, me } = useApp();
+  const { threads, threadsLoaded, me, settings, save } = useApp();
   const t = useT();
+  // Arriving from the landing page with ?lang=fr (the online demo): speak that language from the first screen.
+  useEffect(() => {
+    const l = new URLSearchParams(location.search).get('lang');
+    if ((l !== 'en' && l !== 'fr') || !settings) return;
+    history.replaceState(null, '', location.pathname);
+    try { if (localStorage.getItem('langPicked')) return; localStorage.setItem('langPicked', '1'); } catch { /* private mode */ }
+    if (settings.learn.language !== l) void save({ learn: { ...settings.learn, language: l } });
+  }, [Boolean(settings)]);
   // Online demo: say where the visitor is before anything else (once per sandbox).
   const [welcomed, setWelcomed] = useState(() => { try { return localStorage.getItem('demoWelcomed') === '1'; } catch { return false; } });
   const welcome = me?.public && !welcomed ? <PublicWelcome onDone={() => { setWelcomed(true); store('demoWelcomed', 1); }} /> : null;
@@ -135,7 +143,7 @@ function AppHeader({ onNew, onSettings, onLogo }: { onNew: () => void; onSetting
     <header className="app-head">
       <button className="app-brand" onClick={onLogo} title={t('Home', 'Accueil')}><span className="logo" /><b>tandemcode</b></button>
       <span className="spacer" />
-      <button className="app-head-btn primary" onClick={onNew}><Icon name="plus" size={14} />{t('New session', 'Nouvelle session')}</button>
+      <button className="app-head-btn primary head-new" onClick={onNew} aria-label={t('New session', 'Nouvelle session')}><Icon name="plus" size={14} /><span>{t('New session', 'Nouvelle session')}</span></button>
       {me?.public && <button className="app-head-btn" onClick={() => confirmAsk({ title: t('Leave the demo?', 'Quitter la démo ?'), body: t('Your sandbox and its files are deleted.', 'Ton bac à sable et ses fichiers sont supprimés.'), ok: t('Leave', 'Quitter'), danger: true }).then((yes) => yes && leaveDemo())}>{t('Leave demo', 'Quitter la démo')}</button>}
       {!me?.public && <button className="app-head-btn head-settings" onClick={onSettings} aria-label={t('Settings', 'Réglages')}><Icon name="gear" size={18} /><span>{t('Settings', 'Réglages')}</span></button>}
     </header>

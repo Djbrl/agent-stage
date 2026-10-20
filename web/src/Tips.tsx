@@ -3,10 +3,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { State } from './useAgent';
 import { useT } from './i18n';
-import { baseName } from './api';
 import { tourDone } from './Tour';
 
-type Key = 'agent' | 'approve' | 'checkpoint' | 'edit' | 'done' | 'follow';
+// (No tip for the agent's dot or a checkpoint: the tour's map stop and the checkpoint card already say it.)
+type Key = 'approve' | 'edit' | 'done' | 'follow';
 type Anchor = string[] | (() => DOMRect | null); // selectors (first visible wins) or a live rectangle
 
 // Things without a DOM element (the agent's dot on the canvas) register a function that returns where they are.
@@ -24,7 +24,7 @@ function locate(a: Anchor): DOMRect | null {
   return null;
 }
 
-export function Tips({ state, following, replaying, shared }: { state: State; following: boolean; replaying: boolean; shared: boolean }) {
+export function Tips({ state, following, replaying, shared, sandbox }: { state: State; following: boolean; replaying: boolean; shared: boolean; sandbox?: boolean }) {
   const t = useT();
   const [tip, setTip] = useState<{ key: Key; text: string; anchor: Anchor } | null>(null);
   const seen = useRef(new Set(readSeen()));
@@ -46,36 +46,21 @@ export function Tips({ state, following, replaying, shared }: { state: State; fo
     if (off || seen.current.has(key)) return;
     if (!locate(anchor)) return; // not on screen yet: try again on the next change
     // Give each tip a few seconds before a newer one takes its place (unless the newer one needs you now).
-    if (tipRef.current && Date.now() - shownAt.current < 5000 && key !== 'approve' && key !== 'checkpoint') return;
+    if (tipRef.current && Date.now() - shownAt.current < 5000 && key !== 'approve') return;
     seen.current.add(key); markSeen(key);
     shownAt.current = Date.now();
     setTip({ key, text, anchor });
   };
 
   const edited = state.steps.some((s) => s.change);
-  const pendingCp = state.timeline.some((e) => e.kind === 'checkpoint' && !e.answer);
   const last = state.timeline.at(-1);
   const finished = !state.running && last?.kind === 'done' && edited && !last.text.slice(-300).includes('?'); // a turn that ends on a question isn't done
 
   useEffect(() => {
-    const now = state.steps.at(-1);
-    if (!live.current || !state.running || !now) return;
-    const file = baseName(now.target);
-    const where = now.target === '$terminal' ? t('It’s at the terminal now.', 'Il est au terminal en ce moment.')
-      : now.target === '$browser' ? t('It’s in the browser now.', 'Il est dans le navigateur en ce moment.')
-      : now.target.startsWith('$') ? t('It’s looking around your project now.', 'Il fait le tour de ton projet en ce moment.')
-      : now.name === 'read_file' ? t(`It’s reading ${file} now.`, `Il lit ${file} en ce moment.`)
-      : t(`It’s working on ${file} now.`, `Il travaille sur ${file} en ce moment.`);
-    fire('agent', `${t('That dot is the agent.', 'Ce point, c’est l’agent.')} ${where}`, () => anchors.agent?.() ?? null);
-  }, [state.running, state.steps.length, tick, tip]);
-  useEffect(() => {
-    if (state.approval) fire('approve', t('The agent wants to run this on your computer. Read it first: Run it lets it go ahead, Deny says no to just this one.',
-      'L’agent veut lancer ceci sur ton ordinateur. Lis d’abord : « Lancer » le laisse faire, « Refuser » dit non juste cette fois.'), ['.approval']);
+    const where = sandbox ? t('in your sandbox', 'dans ton bac à sable') : t('on your computer', 'sur ton ordinateur');
+    if (state.approval) fire('approve', t(`The agent wants to run this ${where}. Read it first: Run it lets it go ahead, Deny says no to just this one.`,
+      `L’agent veut lancer ceci ${where}. Lis d’abord : « Lancer » le laisse faire, « Refuser » dit non juste cette fois.`), ['.approval']);
   }, [state.approval?.id, tick, tip]);
-  useEffect(() => {
-    if (pendingCp) fire('checkpoint', t('Your call: the agent waits here. Let it go ahead, talk it through in the box below, or skip this step.',
-      'À toi de décider : l’agent attend ici. Laisse-le continuer, discutes-en dans la zone en dessous, ou passe cette étape.'), ['.checkpoint:not(.done) .cp-actions', '.studio-tabs .tab-chat']);
-  }, [pendingCp, tick, tip]);
   useEffect(() => {
     if (live.current && edited) fire('edit', t('Click a step to see exactly what changed, and why.', 'Clique sur une étape pour voir exactement ce qui a changé, et pourquoi.'),
       ['.studio-tabs .tab-steps', '.stage-tools .steps', '.work']);

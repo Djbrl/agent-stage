@@ -336,7 +336,7 @@ function MapMock({ t }: { t: T }) {
       <div className="mk-ask">
         <div className="mk-open">
           <div className="mk-open-head"><b>2</b>{t('Edit greet.js', 'Modifie greet.js')}</div>
-          <code className="del">- return name;</code><code className="add">+ return `Hello, ${'${name}'}!`;</code>
+          <code className="del">- return name;</code><code className="add">{'+ return `Hello, ${name}!`;'}</code>
           <span>{t('Why: you asked for a greeting, not just the name.', 'Pourquoi : tu voulais une salutation, pas juste le nom.')}</span>
         </div>
         <div className="mk-q">{t('Why put greet() in its own file?', 'Pourquoi greet() dans son propre fichier ?')}</div>
