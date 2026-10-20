@@ -41,14 +41,20 @@ function toAnthropic(messages: Message[], sketches: Map<string, string>) {
   // Thinking blocks are signed against the system prompt and tools they were made with. Switching to Learn
   // changes both, and the API then rejects them ("Invalid signature in thinking block"). Only the turn in
   // progress needs its thinking back (the tool loop after the last real user message); older turns can drop it.
+  // They're also signed against every message before them: once the agent shortens an older tool output to save
+  // context (fitContext in agent.ts), the thinking that came after it no longer matches and has to go too.
   const lastTurn = out.findLastIndex((m) => m.role === 'user' && !m.content.some((b: any) => b.type === 'tool_result'));
-  for (let i = 0; i < lastTurn; i++) {
-    if (out[i].role !== 'assistant') continue;
-    const kept = out[i].content.filter((b: any) => b.type !== 'thinking' && b.type !== 'redacted_thinking');
-    out[i] = { ...out[i], content: kept.length ? kept : [{ type: 'text', text: '…' }] };
-  }
-  return { system, messages: out };
+  const trimmed = out.findIndex((m) => m.role === 'user' && m.content.some((b: any) => b.type === 'tool_result' && String(b.content).startsWith(TRIMMED)));
+  return { system, messages: dropThinking(out, (i) => i < lastTurn || (trimmed >= 0 && i > trimmed)) };
 }
+const TRIMMED = '[older output trimmed';
+const dropThinking = (msgs: any[], drop: (i: number) => boolean) => msgs.map((m, i) => {
+  if (m.role !== 'assistant' || !drop(i)) return m;
+  const kept = m.content.filter((b: any) => b.type !== 'thinking' && b.type !== 'redacted_thinking');
+  return { ...m, content: kept.length ? kept : [{ type: 'text', text: '…' }] };
+});
+// The API's "Invalid `signature` in `thinking` block": the request is sent again without any of the old thinking.
+const badSignature = (e: any) => e?.status === 400 && /signature/i.test(String(e?.message)) && /thinking/i.test(String(e?.message));
 
 const toTools = (tools: any[]) => tools.map((t) => ({
   name: t.function.name, description: t.function.description, input_schema: t.function.parameters,
@@ -60,17 +66,18 @@ export async function chatAnthropic(cfg: ModelConfig, messages: Message[], tools
   const sketches = new Map(await Promise.all(names.map(async (n) => [n, await loadSketch(n).catch(() => '')] as [string, string])));
   for (const [n, d] of sketches) if (!d) sketches.delete(n);
   const { system, messages: msgs } = toAnthropic(messages, sketches);
-  const res: any = await client(cfg).beta.messages.create({
+  const send = (messages: any[]) => client(cfg).beta.messages.create({
     model: cfg.model,
     max_tokens: 16000,
     system,
-    messages: msgs,
+    messages,
     ...(tools.length ? { tools: toTools(tools as any[]), tool_choice: { type: 'auto' } } : {}),
     output_config: { effort: 'high' }, // agentic coding benefits from deeper thinking
     // If a safety classifier declines, retry on the right fallback model inside the same call.
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
   } as any, { signal });
+  const res: any = await send(msgs).catch((e) => { if (badSignature(e)) return send(dropThinking(msgs, () => true)); throw e; });
   onUsage?.({ promptTokens: res.usage?.input_tokens ?? 0, completionTokens: res.usage?.output_tokens ?? 0, ms: Date.now() - t0 });
 
   if (res.stop_reason === 'refusal') {
