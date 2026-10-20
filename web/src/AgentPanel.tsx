@@ -83,7 +83,10 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   const mounted = useRef(Date.now()); // messages older than this were already there: no typing animation for them
   const now = useNow(state.running);
   const lastEnd = state.steps.at(-1)?.endedAt;
-  const typed = (e: { text: string; at: number }) => <Typed text={e.text} animate={e.at > mounted.current - 1500} />;
+  // When each message finishes typing: a card that follows a message waits for it (Arrive), so nothing jumps in at once.
+  const typingEnds = useRef(new Map<number, number>());
+  const typed = (e: { text: string; at: number }, i: number) => <Typed text={e.text} animate={e.at > mounted.current - 1500} onStart={(end) => typingEnds.current.set(i, end)} />;
+  const after = (i: number) => { for (let j = i - 1; j >= 0; j--) { const end = typingEnds.current.get(j); if (end !== undefined) return end; } return 0; };
   const hl = useHighlight();
   const t = useT();
   const fr = useLang() === 'fr';
@@ -143,10 +146,10 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
               return a.quote || e.images?.length ? <div key={i} className="ask-you">{a.quote && <blockquote className="ask-quote">{a.quote}</blockquote>}<Sketches names={e.images} />{a.question && <div className="bubble-user">{a.question}</div>}</div>
                 : <div key={i} className="bubble-user">{e.text === QUIZ ? t('Quiz me', 'Interroge-moi') : e.text}</div>;
             }
-            if (e.kind === 'thought') return <div key={i} className="thought askable">{typed(e)}{askMsg(e.text)}</div>;
-            if (e.kind === 'checkpoint') return <CheckpointCard key={i} entry={e} onAnswer={onCheckpoint} fr={fr} />;
-            if (e.kind === 'learned_wait') return <div key={i} className="learned waiting"><div className="learned-head">{t('What you learned', 'Ce que tu as appris')}</div><div className="learned-chips2"><span className="ph" /><span className="ph" /><span className="ph" /></div><div className="muted learned-writing">{t('Writing it up…', 'En cours d’écriture…')}</div></div>;
-            if (e.kind === 'learned') return <Learned key={i} entry={e} all={state.concepts} latest={!state.timeline.slice(i + 1).some((x) => x.kind === 'learned')} onQuiz={side || shared ? undefined : () => onAsk(QUIZ)} onSave={side || shared ? undefined : onSaveNote} />;
+            if (e.kind === 'thought') return <div key={i} className="thought askable">{typed(e, i)}{askMsg(e.text)}</div>;
+            if (e.kind === 'checkpoint') return <Arrive key={i} after={() => after(i)}><CheckpointCard entry={e} onAnswer={onCheckpoint} fr={fr} /></Arrive>;
+            if (e.kind === 'learned_wait') return <Arrive key={i} after={() => after(i)}><div className="learned waiting"><div className="learned-head">{t('What you learned', 'Ce que tu as appris')}</div><div className="learned-chips2"><span className="ph" /><span className="ph" /><span className="ph" /></div><div className="muted learned-writing">{t('Writing it up…', 'En cours d’écriture…')}</div></div></Arrive>;
+            if (e.kind === 'learned') return <Arrive key={i} after={() => after(i)}><Learned entry={e} all={state.concepts} latest={!state.timeline.slice(i + 1).some((x) => x.kind === 'learned')} onQuiz={side || shared ? undefined : () => onAsk(QUIZ)} onSave={side || shared ? undefined : onSaveNote} /></Arrive>;
             if (e.kind === 'qa') return (
               <div key={i} className="qa">
                 <div className="qa-q"><span className="qa-tag">{t('Why?', 'Pourquoi ?')}</span>{e.question}</div>
@@ -177,7 +180,7 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
                 const stopped = /^Stopped/.test(e.text);
                 return <div key={i} className={`final bad ${stopped ? 'stopped' : ''}`}><div><Icon name={stopped ? 'stop' : 'x'} size={stopped ? 10 : 12} /> {serverText(e.text, fr)}</div>{undoRow}</div>;
               }
-              return <div key={i} className="final askable">{typed({ ...e, text: serverText(e.text, fr) })}{askMsg(e.text)}{undoRow}</div>;
+              return <div key={i} className="final askable">{typed({ ...e, text: serverText(e.text, fr) }, i)}{askMsg(e.text)}{undoRow}</div>;
             }
             if (e.kind === 'verify') return <VerifyLine key={i} e={e} fr={fr} />;
             if (e.kind === 'context') return (
@@ -215,6 +218,9 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
           })}
           {state.running && !replaying && !state.approval && !state.timeline.some((t) => t.kind === 'checkpoint' && !t.answer) && state.steps.at(-1)?.ok !== undefined && (
             <div className="work live ghost"><span className="work-icon"><span className="spin" /></span><span className="work-text">{t('Thinking', 'Réflexion')}</span><span className="work-time">{secs(now - (lastEnd ?? state.startedAt ?? now))}</span></div>
+          )}
+          {state.running && !replaying && !state.approval && state.timeline.at(-1)?.kind !== 'thought' && state.steps.at(-1)?.ok !== undefined && (
+            <div className="skel" aria-hidden="true"><span /><span /><span /></div>
           )}
           <div ref={end} />
         </div>
@@ -283,6 +289,13 @@ export function AgentPanel({ visible = true, threadProvider, state, title, mode,
   );
 }
 
+// A card that follows a message comes in once that message has finished typing, then fades and rises into place.
+// `after` is read as the card mounts: a message that arrives in the same update has started typing by then.
+function Arrive({ after, children }: { after: () => number; children: ReactNode }) {
+  const [delay] = useState(() => Math.max(0, after() - performance.now()));
+  return <div className="arrive" style={{ animationDelay: `${Math.round(delay)}ms` }}>{children}</div>;
+}
+
 // A Tandem decision, laid out like the "What you learned" card: a sun-yellow card, the plan in a white bubble, the
 // proposals as pills (tap one for its detail), then Go ahead or Explain. Skipping is still possible by typing it.
 function CheckpointCard({ entry, onAnswer, fr }: { entry: Extract<State['timeline'][number], { kind: 'checkpoint' }>; onAnswer: (id: string, c: 'confirm' | 'discuss' | 'skip', t?: string) => void; fr: boolean }) {
@@ -346,14 +359,32 @@ function useNow(on: boolean) {
 const secs = (ms: number) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`; };
 
 // New agent text types itself in (about a second, however long it is); older text and reduced-motion users get it at once.
-function Typed({ text, animate }: { text: string; animate: boolean }) {
-  const still = !animate || (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const [n, setN] = useState(still ? text.length : 0);
+// Typing, at a pace you can read: about 140 characters a second (faster for long texts, never more than 9 s), whole
+// words at a time, with a short pause before each card (✦) so the cards come one after the other.
+const CPS = 140, MAX_MS = 9000, CARD_PAUSE = 650;
+const rateOf = (text: string) => Math.max(CPS, text.length / (MAX_MS / 1000)); // characters a second
+const cardsIn = (text: string) => [...text.matchAll(/\n✦ /g)].map((m) => m.index!);
+export const typeMs = (text: string) => (text.length / rateOf(text)) * 1000 + cardsIn(text).length * CARD_PAUSE;
+function shownAt(text: string, ms: number) {
+  const rate = rateOf(text);
+  let left = ms, pos = 0;
+  for (const m of [...cardsIn(text), text.length]) {
+    const need = ((m - pos) / rate) * 1000;
+    if (left < need) { const n = pos + Math.floor((left * rate) / 1000); const sp = text.slice(n).search(/\s/); return sp < 0 ? text.length : n + sp; }
+    left -= need; pos = m;
+    if (m === text.length || left < CARD_PAUSE) return m;
+    left -= CARD_PAUSE;
+  }
+  return text.length;
+}
+const still = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function Typed({ text, animate, onStart }: { text: string; animate: boolean; onStart?: (endsAt: number) => void }) {
+  const [t0] = useState(() => { const now = performance.now(); onStart?.(animate && !still() ? now + typeMs(text) : now); return now; });
+  const [n, setN] = useState(animate && !still() ? 0 : text.length);
   useEffect(() => {
-    if (still) { setN(text.length); return; }
+    if (n >= text.length) return;
     let raf = 0;
-    const step = Math.max(3, Math.ceil(text.length / 60));
-    const tick = () => setN((x) => { const y = Math.min(text.length, x + step); if (y < text.length) raf = requestAnimationFrame(tick); return y; });
+    const tick = () => { const y = shownAt(text, performance.now() - t0); setN(y); if (y < text.length) raf = requestAnimationFrame(tick); };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [text]);
