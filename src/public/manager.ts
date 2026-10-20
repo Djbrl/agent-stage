@@ -267,7 +267,7 @@ const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 // The gate before a sandbox starts. It speaks the landing page's language (?lang=fr, or the browser's) and keeps
 // it short: the welcome window inside the app explains the sandbox and its limits right after.
 // Inlined: before a sandbox starts, every path answers with this page, so /icon.svg can't be fetched here.
-const ICON = `data:image/svg+xml;base64,${(await readFile(join(import.meta.dirname, '../../web/public/icon.svg')).catch(() => Buffer.from(''))).toString('base64')}`;
+const ICON = `data:image/svg+xml;base64,${(await readFile(join(import.meta.dirname, '../../web/public/icon.svg')).catch((e) => { console.warn(`gate page: no logo (${e.message})`); return Buffer.from(''); })).toString('base64')}`;
 async function page(res: ServerResponse, message = '', fr = false) {
   const up = await modelUp().catch(() => false);
   const t = (en: string, frText: string) => (fr ? frText : en);
@@ -295,7 +295,7 @@ ${message ? `<p class="msg">${message.replace(/</g, '&lt;')}</p>` : ''}
 // French when the link says so (?lang=fr from the landing page), else when the browser prefers it.
 const wantsFr = (req: IncomingMessage, form?: URLSearchParams) => {
   const l = form?.get('lang') ?? new URL(req.url ?? '/', 'http://x').searchParams.get('lang');
-  return l ? l === 'fr' : String(req.headers['accept-language'] ?? '').toLowerCase().startsWith('fr');
+  return l === 'fr' || l === 'en' ? l === 'fr' : String(req.headers['accept-language'] ?? '').toLowerCase().startsWith('fr');
 };
 
 // Idle sandboxes go away; everything goes away when the manager stops.

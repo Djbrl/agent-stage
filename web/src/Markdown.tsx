@@ -4,20 +4,23 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useHighlight } from './highlight';
 import { useLang } from './i18n';
 
+// Plain text between tokens can still hold an unclosed ** or ` (a reply that's still typing out): hide those
+// markers instead of showing them raw. A complete pair would have matched as a token.
+const bare = (t: string) => t.replace(/\*\*|`/g, '');
+
 function inline(text: string, key = 0): ReactNode[] {
   const out: ReactNode[] = [];
   const re = /(\*\*.+?\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g;
   let last = 0, m: RegExpExecArray | null, i = key;
   while ((m = re.exec(text))) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last) out.push(bare(text.slice(last, m.index)));
     const t = m[0];
     if (t.startsWith('`')) out.push(<Code key={i++} text={t.slice(1, -1)} />);
     else if (t.startsWith('**')) out.push(<strong key={i++}>{inline(t.slice(2, -2), i * 100)}</strong>);
     else out.push(<em key={i++}>{inline(t.slice(1, -1), i * 100)}</em>);
     last = m.index + t.length;
   }
-  // While a reply types out, an unclosed ** or ` can trail at the end: hide the marker instead of showing it raw.
-  if (last < text.length) out.push(text.slice(last).replace(/\*\*|`/g, ''));
+  if (last < text.length) out.push(bare(text.slice(last)));
   return out;
 }
 

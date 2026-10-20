@@ -29,7 +29,7 @@ function Shell() {
     const l = new URLSearchParams(location.search).get('lang');
     if ((l !== 'en' && l !== 'fr') || !settings) return;
     history.replaceState(null, '', location.pathname);
-    try { if (localStorage.getItem('langPicked')) return; localStorage.setItem('langPicked', '1'); } catch { /* private mode */ }
+    try { localStorage.setItem('langPicked', '1'); } catch { /* private mode */ } // the link is the visitor's latest choice
     if (settings.learn.language !== l) void save({ learn: { ...settings.learn, language: l } });
   }, [Boolean(settings)]);
   // Online demo: say where the visitor is before anything else (once per sandbox).
