@@ -82,7 +82,7 @@ export async function loadSettings(env: ModelConfig & { gpuHourly: number; tunne
     baseUrl: env.baseUrl, apiKey: env.apiKey, model: env.model,
     gpuHourly: env.gpuHourly || undefined, tunnelHost: env.tunnelHost || undefined, brevInstance: env.brevInstance || undefined,
   });
-  const s: Settings = { providers, activeProvider: providers[1]?.id === 'env' ? 'env' : 'mock', approval: 'always', maxSteps: 30, recentFolders: [sandbox],
+  const s: Settings = { providers, activeProvider: providers[1]?.id === 'env' ? 'env' : 'mock', approval: 'always', maxSteps: 30, recentFolders: [], // nothing seeded: a first run starts empty
     learn: { level: 'beginner', frequency: 'normal', language: 'en' } };
   await saveSettings(s);
   return s;

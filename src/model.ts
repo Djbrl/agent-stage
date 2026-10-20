@@ -115,7 +115,9 @@ async function mockChat(messages: Message[], tools: unknown[]): Promise<Message>
   }
   if (tools.some((t: any) => t.function?.name === 'checkpoint')) return mockLearn(messages, /in French/.test(String(messages[0]?.content ?? '')));
   if (!tools.some((t: any) => t.function?.name === 'write_file')) {
-    // read-only side thread: peek at a file once, then answer
+    // read-only side thread: a quiz, or peek at a file once, then answer
+    const quizzing = mockQuiz(messages, /in French/.test(String(messages[0]?.content ?? '')));
+    if (quizzing) return quizzing;
     const q = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
     if (messages.at(-1)?.role === 'user') return { role: 'assistant', content: 'Let me check the code.', tool_calls: [{ id: 'mock-ask', type: 'function', function: { name: 'list_files', arguments: '{}' } }] };
     const ask = String(q).split('\n\n').pop();
@@ -156,27 +158,20 @@ function mockLearn(messages: Message[], fr = false): Message {
   const toolsSince = sinceUser.filter((m) => m.role === 'tool');
   const call = (name: string, args: object, content: string | null = null): Message =>
     ({ role: 'assistant', content, tool_calls: [{ id: `mock-${Math.random().toString(36).slice(2, 8)}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] });
-  // "Quiz me": three questions, one per turn, each answer gets feedback.
-  const quiz = messages.findLastIndex((m) => m.role === 'user' && String(m.content).includes(QUIZ_START));
-  const Q = fr ? MOCK_QUIZ_FR : MOCK_QUIZ, F = fr ? MOCK_QUIZ_FEEDBACK_FR : MOCK_QUIZ_FEEDBACK;
-  if (quiz >= 0) {
-    const answered = messages.slice(quiz + 1).filter((m) => m.role === 'user').length;
-    if (answered < Q.length) return { role: 'assistant', content: `${answered ? F[answered - 1] + '\n\n' : ''}**${t(`Question ${answered + 1} of 3.`, `Question ${answered + 1} sur 3.`)}** ${Q[answered]}` };
-    return { role: 'assistant', content: `${F[2]}\n\n${t('**Score: 3 / 3** for effort: a real model checks each answer against what we built.\n\n✦ What you learned:\n- A module is a file other files import from\n- Keeping logic apart from printing makes it testable',
-      '**Score : 3 / 3** pour l’effort : un vrai modèle vérifie chaque réponse par rapport à ce qu’on a construit.\n\n✦ What you learned:\n- Un module est un fichier dont d’autres fichiers importent du code\n- Séparer la logique de l’affichage la rend testable')}` };
-  }
+  const quizzing = mockQuiz(messages, fr);
+  if (quizzing) return quizzing;
   if (users === 1) {
     if (!toolsSince.length) return call('list_files', {}, t('Let me look at the project first.', 'Je regarde d’abord le projet.'));
-    return { role: 'assistant', content: t('✦ Build checkpoint: where the greeting logic lives\n\nBefore I write anything: how would **you** split this up? For example, would the greeting text be built in the same file that prints it, or somewhere else?\n\n✦ Concept: module\n\nA module is a file that exports functions other files can import. Splitting code into modules lets you reuse and test pieces separately.',
-      '✦ Build checkpoint: où vit la logique du message\n\nAvant d’écrire quoi que ce soit : comment **tu** découperais ça ? Par exemple, le texte du message serait-il construit dans le même fichier que celui qui l’affiche, ou ailleurs ?\n\n✦ Concept: module\n\nUn module est un fichier qui exporte des fonctions que d’autres fichiers peuvent importer. Découper le code en modules permet de réutiliser et de tester chaque morceau séparément.') };
+    return { role: 'assistant', content: t('✦ Build checkpoint: one file or two?\n\nBefore I write anything: should the hello message be made in the same file that shows it, or in its own file?\n\n✦ Concept: module\n\nA module is just a file that shares a function with other files. Small files are easier to read and to test.',
+      '✦ Build checkpoint: un fichier ou deux ?\n\nAvant d’écrire quoi que ce soit : le message de bonjour doit-il être fabriqué dans le fichier qui l’affiche, ou dans son propre fichier ?\n\n✦ Concept: module\n\nUn module, c’est juste un fichier qui partage une fonction avec d’autres fichiers. De petits fichiers sont plus faciles à lire et à tester.') };
   }
   const last = toolsSince.at(-1)?.content ?? '';
   if (!toolsSince.length) return call('checkpoint', {
-    kind: 'implementation', title: t('Greeting module + entry point', 'Module de salutation + point d’entrée'),
-    summary: t('Following your idea: `src/greet.js` builds the text, `index.js` only prints it. That keeps the logic testable on its own.', 'Selon ton idée : `src/greet.js` construit le texte, `index.js` ne fait que l’afficher. La logique reste testable toute seule.'),
-    additions: [{ detail: t('Empty name', 'Nom vide'), proposal: t('Fall back to "stranger"', 'Utiliser « stranger » par défaut'), why: t('Avoids printing "Hello, !" when no name is given', 'Évite d’afficher « Hello, ! » quand aucun nom n’est donné') }],
+    kind: 'implementation', title: t('Two small files', 'Deux petits fichiers'),
+    summary: t('`src/greet.js` makes the hello message, `index.js` shows it.', '`src/greet.js` fabrique le message, `index.js` l’affiche.'),
+    additions: [{ detail: t('Empty name', 'Nom vide'), proposal: t('Fall back to "stranger"', 'Utiliser « stranger » par défaut'), why: t('So it never prints "Hello, !"', 'Pour ne jamais afficher « Hello, ! »') }],
     files: ['src/greet.js', 'index.js'],
-  }, t('✦ Why this matters: separation\n\nIf printing and building the text stay apart, you can change one without breaking the other.', '✦ Why this matters: la séparation\n\nSi l’affichage et la construction du texte restent séparés, tu peux changer l’un sans casser l’autre.'));
+  }, t('✦ Why this matters: keep things apart\n\nYou can change the message without touching the part that shows it.', '✦ Why this matters: séparer les choses\n\nTu peux changer le message sans toucher à la partie qui l’affiche.'));
   if (/discuss/i.test(last)) return { role: 'assistant', content: t('Good question. Ask me anything about the plan, and when you are ready, tell me to continue.', 'Bonne question. Demande-moi ce que tu veux sur le plan, et quand tu es prêt, dis-moi de continuer.') };
   if (toolsSince.length === 1) return call('write_file', { path: 'src/greet.js', content: "export function greet(name) {\n  if (!name) return 'Hello, stranger!';\n  return `Hello, ${name}!`;\n}\n" });
   if (toolsSince.length === 2) return call('write_file', { path: 'index.js', content: "import { greet } from './src/greet.js';\n\nconsole.log(greet(process.argv[2]));\n" });
@@ -184,7 +179,18 @@ function mockLearn(messages: Message[], fr = false): Message {
     '✦ Implementation report\n\n- **`src/greet.js`** exporte `greet(name)`, avec la valeur par défaut pour un nom vide qu’on a choisie.\n- **`index.js`** l’importe et affiche le résultat pour le nom passé en ligne de commande.\n\nJe n’ai encore rien lancé. Essaie `node index.js Dakar`.\n\n✦ What you learned:\n- Un module exporte des fonctions que d’autres fichiers importent\n- Une valeur par défaut gère une entrée inattendue') };
 }
 
-// Sent by the "Quiz me" button (web/src/AgentPanel.tsx sends the same text).
+// "Quiz me": three questions, one per turn, each answer gets feedback. In the main thread or in Scratchpad.
+function mockQuiz(messages: Message[], fr: boolean): Message | null {
+  const t = (en: string, f: string) => (fr ? f : en);
+  const quiz = messages.findLastIndex((m) => m.role === 'user' && String(m.content).includes(QUIZ_START));
+  if (quiz < 0) return null;
+  const Q = fr ? MOCK_QUIZ_FR : MOCK_QUIZ, F = fr ? MOCK_QUIZ_FEEDBACK_FR : MOCK_QUIZ_FEEDBACK;
+  const answered = messages.slice(quiz + 1).filter((m) => m.role === 'user').length;
+  if (answered < Q.length) return { role: 'assistant', content: `${answered ? F[answered - 1] + '\n\n' : ''}**${t(`Question ${answered + 1} of 3.`, `Question ${answered + 1} sur 3.`)}** ${Q[answered]}` };
+  return { role: 'assistant', content: `${F[2]}\n\n${t('**Score: 3 / 3** for effort: a real model checks each answer against what we built.', '**Score : 3 / 3** pour l’effort : un vrai modèle vérifie chaque réponse par rapport à ce qu’on a construit.')}` };
+}
+
+// Sent by the "Quiz me" button on the What you learned card (web/src/Learned.tsx sends the same text).
 export const QUIZ_START = 'Quiz me on what we just did';
 const MOCK_QUIZ = [
   'Why does `greet()` live in `src/greet.js` instead of in `index.js`?',

@@ -76,7 +76,7 @@ How to work:
 - After implementing, end with "✦ Implementation report": what changed, where, how the key code works, why it fits their design,
   and what you actually ran to check it (say clearly if you didn't run anything). Only describe what is really in your changes:
   name the tests you added, and never claim a test, check or result that doesn't exist.
-- Close a finished step with "✦ What you learned:" and 2-3 short bullets naming the ideas they met (for example "Counter counts items for you").
+- Don't write a "What you learned" section: the app shows a card with the ideas and an exercise after each task.
 - Keep explanations to a few sentences. Be factual: no praise, no hype.
 ${depth}${ai}
 ${pace}

@@ -31,9 +31,10 @@ const sandbox = resolve(process.env.WORKSPACE ?? 'workspace');
 const PUBLIC = process.env.PUBLIC === '1';
 await mkdir(sandbox, { recursive: true });
 const env = configFromEnv();
-let settings: Settings = await loadSettings({
+const freshSettings = () => loadSettings({
   ...env, gpuHourly: Number(process.env.GPU_HOURLY_USD ?? 0), tunnelHost: process.env.TUNNEL_HOST, brevInstance: process.env.BREV_INSTANCE,
 }, sandbox);
+let settings: Settings = await freshSettings();
 // `npm run mock` forces the scripted model regardless of saved settings.
 if (process.env.MODEL_API_KEY === 'mock') settings.activeProvider = 'mock';
 const provider = (id = settings.activeProvider): Provider => settings.providers.find((p) => p.id === id) ?? settings.providers[0];
@@ -245,7 +246,7 @@ if (PUBLIC) {
     );
     if (!settings.providers.some((p) => p.id === 'env')) settings.activeProvider = 'claude'; // no live GPU: Claude by default
   }
-  const blocked: Array<[string, RegExp]> = [['POST', /^\/api\/providers/], ['GET', /^\/api\/setup/], ['POST', /^\/api\/setup/], ['GET', /^\/api\/fs/], ['POST', /^\/api\/pick-folder/], ['POST', /^\/api\/gpu\//]];
+  const blocked: Array<[string, RegExp]> = [['POST', /^\/api\/reset/], ['POST', /^\/api\/providers/], ['GET', /^\/api\/setup/], ['POST', /^\/api\/setup/], ['GET', /^\/api\/fs/], ['POST', /^\/api\/pick-folder/], ['POST', /^\/api\/gpu\//]];
   app.use('/api/*', async (c, next) => {
     if (blocked.some(([m, r]) => c.req.method === m && r.test(c.req.path))) return c.json({ error: 'Not available in the online demo' }, 403);
     await next();
@@ -386,19 +387,33 @@ async function runTask(l: Live, task: string, images: string[] = []) {
 }
 // "What you learned": one queued call after a task that finished and actually did something (changed files or
 // ran commands). Always in Learn mode; in Build mode only when teaching helpers are on. Failure = no card.
+// The chat shows a placeholder card at once (learned_wait); the real card replaces it. If the model call fails, the
+// card is made from the agent's own "✦ What you learned" lines, if it wrote any; otherwise the placeholder goes away.
 function learnAfter(l: Live, task: string, events: AgentEvent[]) {
   const end = events.findLast((e) => e.type === 'done' || e.type === 'error');
   if (end?.type !== 'done' || readOnly(l)) return;
   const p = provider(l.thread.providerId);
-  if ((l.thread.mode ?? 'build') !== 'learn' && !insightsOn(settings, p)) return;
+  const learning = (l.thread.mode ?? 'build') === 'learn';
+  if (!learning && !insightsOn(settings, p)) return;
   const files = [...new Set(events.flatMap((e) => (e.type === 'file_change' ? [e.path] : [])))];
   const commands = events.flatMap((e) => (e.type === 'tool_start' && e.name === 'run_command' && e.args?.command ? [String(e.args.command)] : []));
-  if (!files.length && !commands.length) return;
+  const own = learnedInText(end.text);
+  if (!files.length && !commands.length && !own) return;
   const cfg = toConfig(p);
+  l.emit({ type: 'learned_wait' });
   enqueue(async () => {
-    const r = await learnedFromTask(cfg, settings, { task, files, commands, result: end.text });
+    const r = await learnedFromTask(cfg, settings, { task, files, commands, result: end.text }).catch(() => null);
     if (r) l.emit({ type: 'learned', ...r });
+    else if (own) l.emit({ type: 'learned', ...own });
+    else l.emit({ type: 'learned_cancel' });
   });
+}
+// The tutor's own "✦ What you learned:" bullets, as a card (each bullet is a concept; its first words name it).
+function learnedInText(text: string): { concepts: { name: string; line: string }[]; exercise: string } | null {
+  const m = String(text ?? '').match(/✦\s*What you learned\s*:?[^\n]*\n([\s\S]*?)(?=\n\s*✦|$)/i);
+  const lines = m ? m[1].split('\n').map((x) => x.replace(/^\s*[-*]\s+/, '').trim()).filter(Boolean).slice(0, 3) : [];
+  if (!lines.length) return null;
+  return { concepts: lines.map((line) => { const w = line.replace(/[*`]/g, '').split(/\s+/); return { name: w.slice(0, 4).join(' ') + (w.length > 4 ? '…' : ''), line }; }), exercise: '' };
 }
 // The files this task (and this thread's later tasks, which Undo also takes back) changed. Anything else in the
 // folder, like the user's own edits or another thread's work, is left alone. Null for threads from before task_end.
@@ -545,7 +560,7 @@ app.post(`${T}/ask-thread`, withThread(async (l, { question, images }) => {
   const t = await newThread(l.thread.folder, 'ask', l.thread.id, true);
   // The window sends "About this part:\n> quote\n\nquestion": the title is the question, then the start of the quote.
   const q = String(question), m = q.match(/^About this part:\n([\s\S]*?)\n\n([\s\S]*)$/);
-  const title = m ? `${m[2].trim()} · ${m[1].replace(/^> ?/gm, '').replace(/\s+/g, ' ').trim()}` : q;
+  const title = q.startsWith('Quiz me on what we just did') ? 'Quiz' : m ? `${m[2].trim()} · ${m[1].replace(/^> ?/gm, '').replace(/\s+/g, ' ').trim()}` : q;
   // Kept as a note straight away (Scratchpad lists them); temp only kept it out of the recent folders.
   t.engine = l.thread.engine; t.providerId = l.thread.providerId; t.title = title.slice(0, 60); t.temp = false; await saveThread(t);
   const side = await open(t.id);
@@ -617,6 +632,17 @@ app.get('/api/settings', (c) => c.json(publicSettings()));
 app.post('/api/sketches', async (c) => {
   const { data } = await c.req.json().catch(() => ({}));
   try { return c.json({ name: await saveSketch(data) }); } catch (e: any) { return c.json({ error: e.message }, 400); }
+});
+// Settings → Erase all my data: sessions, notes, screenshots, summaries and settings (with saved keys) are deleted,
+// and the app starts over as on a first run. Project folders are never touched. Refused while an agent works.
+app.post('/api/reset', async (c) => {
+  if ([...live.values()].some((l) => l.agent.running)) return c.json({ error: 'Stop the agent first' }, 409);
+  live.clear();
+  for (const d of ['threads', 'shots', 'summaries', 'shared']) await rm(join(DATA_DIR, d), { recursive: true, force: true });
+  await rm(join(DATA_DIR, 'settings.json'), { force: true });
+  settings = await freshSettings();
+  if (process.env.MODEL_API_KEY === 'mock') settings.activeProvider = 'mock';
+  return c.json({ ok: true });
 });
 // Setting up an agent: requirement checks, and open models downloaded with Ollama.
 app.get('/api/setup/check', async (c) => c.json(await checks(recipeOf({ recipe: c.req.query('recipe') } as Provider))));

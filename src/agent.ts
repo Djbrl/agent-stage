@@ -29,6 +29,7 @@ export type AgentEvent =
   | { type: 'restored'; ref: string; files: { status: string; path: string }[] }
   | { type: 'kept'; ref: string; commit: string; message: string }
   | { type: 'learned'; concepts: { name: string; line: string }[]; exercise: string } // "What you learned", after a finished task
+  | { type: 'learned_wait' } | { type: 'learned_cancel' } // the card is being written / won't come
   | { type: 'done'; text: string }
   | { type: 'error'; message: string };
 

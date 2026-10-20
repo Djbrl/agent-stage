@@ -87,9 +87,9 @@ export function AboveComposer({ children }: { children: ReactNode }) {
 }
 
 const IDEAS = [
-  { en: 'A CLI that renames my photos by date', fr: 'Un CLI qui renomme mes photos par date' },
-  { en: 'A small REST API, with tests', fr: 'Une petite API REST, avec des tests' },
-  { en: 'A web page that shows the weather', fr: 'Une page web qui affiche la météo' },
+  { en: 'A little program that says hello to me', fr: 'Un petit programme qui me dit bonjour' },
+  { en: 'Greet people by their name', fr: 'Saluer les gens par leur prénom' },
+  { en: 'Say hello, even when no name is given', fr: 'Dire bonjour, même sans prénom' },
 ];
 
 // Guided demo: three starter ideas until the first message is sent. Clicking one sends it as the task.
